@@ -105,9 +105,9 @@
 
 ---
 
-## Pull Request Rule
+## 7. Pull Request 규칙
 
-작업이 끝나면 `develop`에 바로 합치지 않고 **Pull Request**를 만듭니다.
+작업을 `develop`에 합치기 전에는 **Pull Request**를 만듭니다.
 
 ### PR 제목 형식
 
@@ -115,13 +115,13 @@
 [파트] 작업 요약
 ```
 
-### PR 제목 예시
+예시:
 
-- `[XR] 패스스루 테스트 씬 추가`
-- `[AI] 방 이미지 분석 코드 추가`
-- `[AI-USE] AI 결과 UI 연결`
-- `[ASSET] 더리 캐릭터 에셋 추가`
-- `[FIX] Quest 빌드 오류 수정`
+```
+[XR] 패스스루 기본 씬 추가
+[AI] 방 이미지 분석 API 추가
+[ASSET] 더리 캐릭터 에셋 추가
+```
 
 ### PR 대상 브랜치
 
@@ -134,6 +134,42 @@
 - `feature/xr-passthrough` → `develop`
 - `asset/durry-character` → `develop`
 - `fix/quest-build-error` → `develop`
+
+### PR 내용에 꼭 적을 것
+
+```
+## 작업 내용
+- 무엇을 추가/수정했는지 작성
+
+## 확인 방법
+- Unity에서 어떤 씬을 열면 되는지
+- 실행했을 때 무엇이 보여야 하는지
+
+## 관련 파일
+- 주요 파일 경로 작성
+
+## 주의사항
+- 아직 안 되는 부분
+- 다른 팀원이 확인해야 할 부분
+```
+
+예시:
+
+```
+## 작업 내용
+- 더리 캐릭터 기본 모델을 추가했습니다.
+- Prefabs/Durry 폴더에 기본 프리팹을 만들었습니다.
+
+## 확인 방법
+- Unity에서 Assets/Dustiny/Prefabs/Durry/Durry_Base.prefab 확인
+
+## 관련 파일
+- Assets/Dustiny/Models/Durry/
+- Assets/Dustiny/Prefabs/Durry/
+
+## 주의사항
+- 아직 애니메이션은 적용되지 않았습니다.
+```
 
 PR 본문 양식은 GitHub에서 자동으로 채워집니다. ([.github/pull_request_template.md](../.github/pull_request_template.md))
 
