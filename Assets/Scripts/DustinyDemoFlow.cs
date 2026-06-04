@@ -7,7 +7,8 @@ public class DustinyDemoFlow : MonoBehaviour
     public Transform centerEyeAnchor;
 
     [Header("Objects")]
-    public GameObject durryObject;
+    public GameObject durryObject;       // DurryRoot 넣기
+    public Transform durryVisual;        // Durry Visual 넣기
     public GameObject scanZoneObject;
     public Canvas worldCanvas;
 
@@ -23,9 +24,15 @@ public class DustinyDemoFlow : MonoBehaviour
     public float durryDistance = 1.5f;
     public float durryHeightOffset = -0.15f;
 
+    [Header("Durry Size")]
+    public float durryRootScale = 1.0f;
+    public float durryVisualScale = 2.0f;
+
+    [Header("UI Placement")]
     public float uiDistance = 1.4f;
     public float uiHeightOffset = 0.35f;
 
+    [Header("Scan Zone Placement")]
     public float scanZoneDistance = 1.5f;
     public float scanZoneHeightOffset = -0.35f;
     public float scanZoneSize = 0.8f;
@@ -38,44 +45,18 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private bool wasTriggerPressed = false;
 
-    private Renderer durryRenderer;
+    private Renderer[] durryRenderers;
     private Renderer scanZoneRenderer;
+
+    private Material[] durryRuntimeMaterials;
 
     private void Start()
     {
         Debug.Log("DustinyDemoFlow Start");
 
-        if (durryObject != null)
-        {
-            durryObject.SetActive(true);
-            durryRenderer = durryObject.GetComponent<Renderer>();
-        }
-        else
-        {
-            Debug.LogWarning("Durry Object가 연결되지 않았습니다.");
-        }
-
-        if (scanZoneObject != null)
-        {
-            scanZoneRenderer = scanZoneObject.GetComponent<Renderer>();
-            SetupScanZoneMaterial();
-
-            scanZoneObject.SetActive(showScanZoneOnStart);
-            Debug.Log("ScanZone initial active: " + showScanZoneOnStart);
-        }
-        else
-        {
-            Debug.LogWarning("Scan Zone Object가 연결되지 않았습니다.");
-        }
-
-        if (worldCanvas != null)
-        {
-            worldCanvas.gameObject.SetActive(true);
-        }
-        else
-        {
-            Debug.LogWarning("World Canvas가 연결되지 않았습니다.");
-        }
+        SetupDurry();
+        SetupScanZone();
+        SetupWorldCanvas();
 
         PlaceObjectsInFrontOfUser();
 
@@ -110,6 +91,100 @@ public class DustinyDemoFlow : MonoBehaviour
         FaceCanvasToUser();
     }
 
+    private void SetupDurry()
+    {
+        if (durryObject == null)
+        {
+            Debug.LogWarning("Durry Object가 연결되지 않았습니다. DurryRoot를 넣어주세요.");
+            return;
+        }
+
+        durryObject.SetActive(true);
+
+        // Durry Visual이 Inspector에서 연결되지 않았을 때 자동으로 찾기
+        if (durryVisual == null)
+        {
+            Transform foundVisual = durryObject.transform.Find("Durry Visual");
+
+            if (foundVisual == null)
+            {
+                foundVisual = durryObject.transform.Find("DurryVisual");
+            }
+
+            if (foundVisual != null)
+            {
+                durryVisual = foundVisual;
+            }
+            else
+            {
+                Debug.LogWarning("Durry Visual을 찾지 못했습니다. Inspector에서 직접 연결해주세요.");
+            }
+        }
+
+        // 루트는 위치 기준. 스케일은 기본 1 권장.
+        durryObject.transform.localScale = Vector3.one * durryRootScale;
+
+        // 실제 캐릭터 크기는 Visual에서 조절.
+        if (durryVisual != null)
+        {
+            durryVisual.localScale = Vector3.one * durryVisualScale;
+        }
+
+        // 더리는 여러 Sphere로 이루어져 있으므로 자식 Renderer를 전부 가져옴.
+        durryRenderers = durryObject.GetComponentsInChildren<Renderer>(true);
+
+        if (durryRenderers == null || durryRenderers.Length == 0)
+        {
+            Debug.LogWarning("Durry Renderer를 찾지 못했습니다.");
+            return;
+        }
+
+        // 런타임에서 색을 바꾸기 위해 Material 인스턴스 생성.
+        durryRuntimeMaterials = new Material[durryRenderers.Length];
+
+        for (int i = 0; i < durryRenderers.Length; i++)
+        {
+            Renderer renderer = durryRenderers[i];
+
+            if (renderer == null) continue;
+
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+
+            Material runtimeMat = renderer.material;
+            durryRuntimeMaterials[i] = runtimeMat;
+        }
+
+        Debug.Log("Durry Renderer Count: " + durryRenderers.Length);
+    }
+
+    private void SetupScanZone()
+    {
+        if (scanZoneObject == null)
+        {
+            Debug.LogWarning("Scan Zone Object가 연결되지 않았습니다.");
+            return;
+        }
+
+        scanZoneRenderer = scanZoneObject.GetComponent<Renderer>();
+        SetupScanZoneMaterial();
+
+        scanZoneObject.SetActive(showScanZoneOnStart);
+        Debug.Log("ScanZone initial active: " + showScanZoneOnStart);
+    }
+
+    private void SetupWorldCanvas()
+    {
+        if (worldCanvas != null)
+        {
+            worldCanvas.gameObject.SetActive(true);
+        }
+        else
+        {
+            Debug.LogWarning("World Canvas가 연결되지 않았습니다.");
+        }
+    }
+
     private void PlaceObjectsInFrontOfUser()
     {
         if (centerEyeAnchor == null) return;
@@ -131,7 +206,17 @@ public class DustinyDemoFlow : MonoBehaviour
             durryObject.transform.position =
                 headPos + forward * durryDistance + Vector3.up * durryHeightOffset;
 
-            durryObject.transform.localScale = Vector3.one * 0.25f;
+            durryObject.transform.rotation =
+                Quaternion.LookRotation(forward, Vector3.up);
+
+            // 중요:
+            // 여기서 0.25로 줄이면 안 됨.
+            durryObject.transform.localScale = Vector3.one * durryRootScale;
+
+            if (durryVisual != null)
+            {
+                durryVisual.localScale = Vector3.one * durryVisualScale;
+            }
         }
 
         if (worldCanvas != null)
@@ -187,15 +272,16 @@ public class DustinyDemoFlow : MonoBehaviour
             mat.SetColor("_Color", scanColor);
         }
 
-        // URP 투명 설정 시도
+        // ScanZone은 임시 표시용이라 투명 사용.
+        // 더리 몸체에는 Transparent 사용하지 않는 것을 추천.
         if (mat.HasProperty("_Surface"))
         {
-            mat.SetFloat("_Surface", 1f); // Transparent
+            mat.SetFloat("_Surface", 1f);
         }
 
         if (mat.HasProperty("_Blend"))
         {
-            mat.SetFloat("_Blend", 0f); // Alpha
+            mat.SetFloat("_Blend", 0f);
         }
 
         if (mat.HasProperty("_SrcBlend"))
@@ -213,7 +299,6 @@ public class DustinyDemoFlow : MonoBehaviour
             mat.SetFloat("_ZWrite", 0f);
         }
 
-        // 양면 렌더링
         if (mat.HasProperty("_Cull"))
         {
             mat.SetFloat("_Cull", 0f);
@@ -289,14 +374,31 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private void RecoverDurry()
     {
-        if (durryRenderer == null) return;
+        if (durryRuntimeMaterials == null || durryRuntimeMaterials.Length == 0)
+        {
+            return;
+        }
 
         float t = Mathf.Clamp01(bosongPower / 100f);
 
-        Color dustyColor = new Color(0.45f, 0.45f, 0.45f, 1f);
-        Color cleanColor = Color.white;
+        Color dustyColor = new Color(0.55f, 0.52f, 0.48f, 1f);
+        Color cleanColor = new Color(1f, 0.94f, 0.86f, 1f);
 
-        durryRenderer.material.color = Color.Lerp(dustyColor, cleanColor, t);
+        Color currentColor = Color.Lerp(dustyColor, cleanColor, t);
+
+        foreach (Material mat in durryRuntimeMaterials)
+        {
+            if (mat == null) continue;
+
+            if (mat.HasProperty("_BaseColor"))
+            {
+                mat.SetColor("_BaseColor", currentColor);
+            }
+            else if (mat.HasProperty("_Color"))
+            {
+                mat.SetColor("_Color", currentColor);
+            }
+        }
     }
 
     private void UpdateUI(string questMessage, string bosongMessage)

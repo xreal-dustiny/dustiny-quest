@@ -146,12 +146,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6959333}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0.17364825, w: 0.9848078}
-  m_LocalPosition: {x: 0.056000233, y: 1.427, z: 1.5}
+  m_LocalRotation: {x: 0, y: 0, z: -0.17364825, w: 0.9848078}
+  m_LocalPosition: {x: 0.056, y: 1.427, z: 1.5}
   m_LocalScale: {x: 0.1, y: 0.15, z: 0.2}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 706794882}
+  m_Father: {fileID: 1291008399}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: -20}
 --- !u!135 &6959335
 SphereCollider:
@@ -244,7 +244,7 @@ GameObject:
   - component: {fileID: 74330872}
   - component: {fileID: 74330871}
   m_Layer: 0
-  m_Name: Durry_Left_Leg
+  m_Name: Durry_Body4
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -259,11 +259,11 @@ Transform:
   m_GameObject: {fileID: 74330869}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.11000013, y: 1.174, z: 1.5293999}
+  m_LocalPosition: {x: -0.11, y: 1.174, z: 1.5294}
   m_LocalScale: {x: 0.2, y: 0.2, z: 0.2}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 706794882}
+  m_Father: {fileID: 1291008399}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!135 &74330871
 SphereCollider:
@@ -747,7 +747,7 @@ GameObject:
   - component: {fileID: 419422422}
   - component: {fileID: 419422421}
   m_Layer: 0
-  m_Name: Durry_Right_Body
+  m_Name: Durry_Body2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -762,11 +762,11 @@ Transform:
   m_GameObject: {fileID: 419422419}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.06099987, y: 1.292, z: 1.5}
+  m_LocalPosition: {x: 0.061, y: 1.292, z: 1.5}
   m_LocalScale: {x: 0.2, y: 0.2, z: 0.2}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 706794882}
+  m_Father: {fileID: 1291008399}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!135 &419422421
 SphereCollider:
@@ -904,12 +904,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 468271869}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: 0.17364816, w: 0.9848078}
-  m_LocalPosition: {x: -0.17999983, y: 1.415, z: 1.5}
-  m_LocalScale: {x: 0.10000002, y: 0.15000002, z: 0.2}
+  m_LocalRotation: {x: 0, y: 0, z: 0.17364816, w: 0.9848078}
+  m_LocalPosition: {x: -0.18, y: 1.415, z: 1.5}
+  m_LocalScale: {x: 0.1, y: 0.15, z: 0.2}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 706794882}
+  m_Father: {fileID: 1291008399}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 20}
 --- !u!135 &468271871
 SphereCollider:
@@ -1021,47 +1021,6 @@ Transform:
   - {fileID: 1073864277}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &706794881
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 706794882}
-  m_Layer: 0
-  m_Name: Durry Visual
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &706794882
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 706794881}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1291008399}
-  - {fileID: 1610842910}
-  - {fileID: 1374954124}
-  - {fileID: 419422420}
-  - {fileID: 1182268708}
-  - {fileID: 1374674568}
-  - {fileID: 468271870}
-  - {fileID: 6959334}
-  - {fileID: 74330870}
-  - {fileID: 1110095588}
-  m_Father: {fileID: 784206817}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &784206816
 GameObject:
   m_ObjectHideFlags: 0
@@ -1091,7 +1050,8 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 706794882}
+  - {fileID: 1291008399}
+  - {fileID: 1110095588}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &819514011
@@ -1764,14 +1724,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1110095587}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.25899982, y: 1.907, z: 1.6689997}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.259, y: 1.907, z: 1.669}
   m_LocalScale: {x: 0.015, y: 0.015, z: 0.01}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1616396298}
   - {fileID: 2093837094}
-  m_Father: {fileID: 706794882}
+  m_Father: {fileID: 784206817}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1113735258
 GameObject:
@@ -1884,7 +1844,7 @@ GameObject:
   - component: {fileID: 1182268710}
   - component: {fileID: 1182268709}
   m_Layer: 0
-  m_Name: Durry_Up_Body
+  m_Name: Durry_Body2 (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1899,11 +1859,11 @@ Transform:
   m_GameObject: {fileID: 1182268707}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.059000015, y: 1.361, z: 1.5}
+  m_LocalPosition: {x: -0.059, y: 1.361, z: 1.5}
   m_LocalScale: {x: 0.2, y: 0.2, z: 0.2}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 706794882}
+  m_Father: {fileID: 1291008399}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!135 &1182268709
 SphereCollider:
@@ -2007,12 +1967,20 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1291008398}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 706794882}
+  m_Children:
+  - {fileID: 1610842910}
+  - {fileID: 1374954124}
+  - {fileID: 419422420}
+  - {fileID: 1182268708}
+  - {fileID: 1374674568}
+  - {fileID: 468271870}
+  - {fileID: 6959334}
+  - {fileID: 74330870}
+  m_Father: {fileID: 784206817}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1374674567
 GameObject:
@@ -2027,7 +1995,7 @@ GameObject:
   - component: {fileID: 1374674570}
   - component: {fileID: 1374674569}
   m_Layer: 0
-  m_Name: Durry_Left_Body
+  m_Name: Durry_Body3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2042,11 +2010,11 @@ Transform:
   m_GameObject: {fileID: 1374674567}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.15299988, y: 1.277, z: 1.5}
+  m_LocalPosition: {x: -0.153, y: 1.277, z: 1.5}
   m_LocalScale: {x: 0.2, y: 0.2, z: 0.2}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 706794882}
+  m_Father: {fileID: 1291008399}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!135 &1374674569
 SphereCollider:
@@ -2139,7 +2107,7 @@ GameObject:
   - component: {fileID: 1374954126}
   - component: {fileID: 1374954125}
   m_Layer: 0
-  m_Name: Durry_BodyCore
+  m_Name: Durry_Body1 (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2154,11 +2122,11 @@ Transform:
   m_GameObject: {fileID: 1374954123}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.048999786, y: 1.251, z: 1.5}
+  m_LocalPosition: {x: -0.049, y: 1.251, z: 1.5}
   m_LocalScale: {x: 0.25, y: 0.25, z: 0.2}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 706794882}
+  m_Father: {fileID: 1291008399}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!135 &1374954125
 SphereCollider:
@@ -2364,7 +2332,7 @@ GameObject:
   - component: {fileID: 1610842912}
   - component: {fileID: 1610842911}
   m_Layer: 0
-  m_Name: Durry_Right_Leg
+  m_Name: Durry_Body1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2379,11 +2347,11 @@ Transform:
   m_GameObject: {fileID: 1610842909}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.013000011, y: 1.18, z: 1.5144005}
+  m_LocalPosition: {x: 0.013, y: 1.18, z: 1.5144}
   m_LocalScale: {x: 0.2, y: 0.2, z: 0.2}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 706794882}
+  m_Father: {fileID: 1291008399}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!135 &1610842911
 SphereCollider:
@@ -2653,18 +2621,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DustinyDemoFlow
   centerEyeAnchor: {fileID: 819514023}
-  durryObject: {fileID: 784206816}
-  durryVisual: {fileID: 706794882}
+  durryObject: {fileID: 1610842909}
   scanZoneObject: {fileID: 1412640053}
   worldCanvas: {fileID: 1073864280}
   questText: {fileID: 324705310}
   bosongText: {fileID: 865339290}
-  showScanZoneOnStart: 0
+  showScanZoneOnStart: 1
   keepObjectsInFront: 0
   durryDistance: 1.5
   durryHeightOffset: -0.15
-  durryRootScale: 1
-  durryVisualScale: 2
   uiDistance: 1.4
   uiHeightOffset: 0.35
   scanZoneDistance: 1.7
