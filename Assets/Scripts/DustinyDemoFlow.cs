@@ -8,33 +8,46 @@ public class DustinyDemoFlow : MonoBehaviour
     public Transform centerEyeAnchor;
 
     [Header("Objects")]
-    public GameObject durryObject;       // DurryRoot 넣기
+    public GameObject durryObject;       // DurryRoot 넣기. 카메라 밑에 두지 말고 월드 오브젝트로 둔다.
     public Transform durryVisual;        // Durry Visual 넣기
     public GameObject scanZoneObject;
     public Canvas worldCanvas;
+
+    [Header("View Locked UI")]
+    public Transform uiRoot;             // CenterEyeAnchor 아래의 UIRoot 넣기. 비워두면 WorldCanvas의 부모를 자동 사용.
+    public bool lockUIToUserView = true;
+    public bool forceUIRootUnderCenterEye = true;
+
+    // UIRoot가 CenterEyeAnchor의 자식일 때의 로컬 위치.
+    // z: 눈앞 거리, y: 시야 안에서 위/아래 위치. y를 더 음수로 하면 더 아래로 내려감.
+    public Vector3 uiRootLocalPosition = new Vector3(0f, -0.45f, 1.15f);
+    public Vector3 uiRootLocalEuler = Vector3.zero;
+    public float uiRootLocalScale = 1f;
 
     [Header("UI")]
     public TMP_Text questText;
     public TMP_Text bosongText;
 
-    [Header("Start / Recenter")]
-    public bool placeObjectsInFrontOnStart = true;
+    [Header("Start / Summon")]
+    public bool summonDurryOnStart = false;
+    public bool summonDurryOnMissionStart = false;
     public bool recenterOnTrigger = true;
-
-    // true로 켜면 매 프레임 따라와서 HUD처럼 보일 수 있음.
-    // 더리가 공간 안에 떠 있는 느낌을 원하면 false 권장.
-    public bool keepObjectsInFront = false;
+    public bool detachDurryAndScanZoneFromParent = true;
 
     [Header("Input")]
     public bool bButtonCompletesMission = true;
     public bool triggerAlsoCompletesMission = false;
 
-    [Header("Durry Placement")]
-    public float durryDistance = 0.75f;
+    [Header("Durry Fixed World Start")]
+    public bool useCurrentSceneDurryPositionOnStart = true;
+    public Vector3 durryStartWorldPosition = new Vector3(0f, -0.35f, 1.2f);
+    public Vector3 durryStartWorldEuler = new Vector3(0f, 180f, 0f);
+    public bool faceDurryToUserOnStart = true;
 
-    // 더리를 더 아래로 내리고 싶으면 더 작은 음수로 바꾸기.
-    // 예: -0.45 -> -0.60 -> -0.75
-    public float durryHeightOffset = -0.55f;
+    [Header("Durry Summon Placement")]
+    public float durryDistance = 0.85f;
+    public float durrySideOffset = 0f;
+    public float durryHeightOffset = -0.25f;
 
     // 더리가 뒤를 보면 180, 정면을 보면 0으로 조절.
     public float durryYawOffset = 180f;
@@ -43,19 +56,15 @@ public class DustinyDemoFlow : MonoBehaviour
     public float durryRootScale = 1.0f;
     public float durryVisualScale = 0.9f;
 
-    [Header("UI Placement")]
-    public float uiDistance = 1.25f;
-    public float uiHeightOffset = 0.0f;
-
     [Header("Text Layout")]
     public bool applyTextLayout = true;
-    public float questTextY = 360f;
-    public float bosongTextY = -360f;
-    public float textWidth = 1500f;
+    public float questTextY = 120f;
+    public float bosongTextY = -110f;
+    public float textWidth = 1300f;
     public float questTextHeight = 180f;
-    public float bosongTextHeight = 140f;
-    public float questFontSize = 44f;
-    public float bosongFontSize = 38f;
+    public float bosongTextHeight = 120f;
+    public float questFontSize = 42f;
+    public float bosongFontSize = 34f;
 
     [Header("Visual Cleanup")]
     public bool removeTextShadow = true;
@@ -64,8 +73,9 @@ public class DustinyDemoFlow : MonoBehaviour
     public bool disableDurryShadows = true;
 
     [Header("Scan Zone Placement")]
-    public float scanZoneDistance = 1.7f;
-    public float scanZoneHeightOffset = -0.55f;
+    public bool moveScanZoneWhenDurrySummoned = true;
+    public float scanZoneDistance = 1.25f;
+    public float scanZoneHeightOffset = -0.65f;
     public float scanZoneSize = 0.8f;
 
     [Header("Reward")]
@@ -79,23 +89,29 @@ public class DustinyDemoFlow : MonoBehaviour
     private Renderer[] durryRenderers;
     private Renderer scanZoneRenderer;
     private Material[] durryRuntimeMaterials;
+    private Transform resolvedUIRoot;
 
     private void Start()
     {
-        Debug.Log("DustinyDemoFlow Start");
+        Debug.Log("DustinyDemoFlow Start - World Durry / View Locked UI");
 
+        ResolveUIRoot();
         SetupDurry();
         SetupScanZone();
         SetupWorldCanvas();
 
-        if (placeObjectsInFrontOnStart)
+        PlaceDurryAtStartWorldPosition();
+
+        if (summonDurryOnStart)
         {
-            RecenterObjectsInFrontOfUser();
+            SummonDurryToUser();
         }
 
+        UpdateViewLockedUI(true);
+
         UpdateUI(
-            "Press A to start mission\nPress Trigger to call Durry",
-            "Bosong Power 0"
+            "A 버튼을 눌러 더리의 숨은 구역을 찾아보자!\nTrigger를 누르면 더리가 내 앞으로 와요.",
+            "보송력 0"
         );
     }
 
@@ -106,12 +122,9 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        // 계속 켜두면 고개 방향을 따라 매 프레임 이동함.
-        // 기본은 false로 두고, Trigger를 눌렀을 때만 다시 눈앞으로 부르는 방식 권장.
-        if (keepObjectsInFront)
-        {
-            RecenterObjectsInFrontOfUser();
-        }
+        // UI만 매 프레임 사용자 시야 아래쪽에 고정한다.
+        // 더리와 스캔존은 여기서 따라오지 않는다.
+        UpdateViewLockedUI(false);
 
         // Quest 오른손 A 버튼
         if (OVRInput.GetDown(OVRInput.Button.One, OVRInput.Controller.RTouch))
@@ -125,13 +138,59 @@ public class DustinyDemoFlow : MonoBehaviour
             CompleteMission();
         }
 
-        // Quest 오른손 검지 Trigger: 더리를 현재 시야 앞으로 다시 부르기
+        // Quest 오른손 검지 Trigger: 더리를 현재 시야 앞으로 소환한다.
         if (GetRightTriggerDown())
         {
             OnPressTrigger();
         }
 
-        FaceCanvasToUser();
+        // UI가 카메라 자식이 아닐 때만 월드 캔버스를 사용자를 향해 돌린다.
+        if (!lockUIToUserView)
+        {
+            FaceCanvasToUser();
+        }
+    }
+
+    private void ResolveUIRoot()
+    {
+        if (worldCanvas == null)
+        {
+            resolvedUIRoot = uiRoot;
+            return;
+        }
+
+        if (uiRoot != null)
+        {
+            resolvedUIRoot = uiRoot;
+            return;
+        }
+
+        // WorldCanvas가 UIRoot 아래에 있으면 UIRoot를 움직이는 것이 안전하다.
+        if (worldCanvas.transform.parent != null && worldCanvas.transform.parent != centerEyeAnchor)
+        {
+            resolvedUIRoot = worldCanvas.transform.parent;
+        }
+        else
+        {
+            resolvedUIRoot = worldCanvas.transform;
+        }
+    }
+
+    private void UpdateViewLockedUI(bool force)
+    {
+        if (!lockUIToUserView) return;
+        if (centerEyeAnchor == null) return;
+        if (resolvedUIRoot == null) ResolveUIRoot();
+        if (resolvedUIRoot == null) return;
+
+        if (forceUIRootUnderCenterEye && resolvedUIRoot.parent != centerEyeAnchor)
+        {
+            resolvedUIRoot.SetParent(centerEyeAnchor, false);
+        }
+
+        resolvedUIRoot.localPosition = uiRootLocalPosition;
+        resolvedUIRoot.localRotation = Quaternion.Euler(uiRootLocalEuler);
+        resolvedUIRoot.localScale = Vector3.one * Mathf.Max(0.001f, uiRootLocalScale);
     }
 
     private void SetupDurry()
@@ -140,6 +199,12 @@ public class DustinyDemoFlow : MonoBehaviour
         {
             Debug.LogWarning("Durry Object가 연결되지 않았습니다. DurryRoot를 넣어주세요.");
             return;
+        }
+
+        if (detachDurryAndScanZoneFromParent)
+        {
+            // 더리는 카메라 자식으로 두면 고개를 돌릴 때 같이 따라오므로 월드 루트로 분리한다.
+            durryObject.transform.SetParent(null, true);
         }
 
         durryObject.SetActive(true);
@@ -191,7 +256,6 @@ public class DustinyDemoFlow : MonoBehaviour
 
             if (runtimeMat != null)
             {
-                // URP Lit 계열 머티리얼에서 그림자 수신을 줄이기 위한 보조 처리.
                 SetFloatIfHas(runtimeMat, "_ReceiveShadows", 0f);
             }
 
@@ -214,12 +278,34 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
+    private void PlaceDurryAtStartWorldPosition()
+    {
+        if (durryObject == null) return;
+
+        if (!useCurrentSceneDurryPositionOnStart)
+        {
+            durryObject.transform.position = durryStartWorldPosition;
+            durryObject.transform.rotation = Quaternion.Euler(durryStartWorldEuler);
+        }
+        else if (faceDurryToUserOnStart && centerEyeAnchor != null)
+        {
+            durryObject.transform.rotation = GetRotationFacingUser(durryObject.transform.position, durryYawOffset);
+        }
+
+        ApplyDurryScale();
+    }
+
     private void SetupScanZone()
     {
         if (scanZoneObject == null)
         {
             Debug.LogWarning("Scan Zone Object가 연결되지 않았습니다.");
             return;
+        }
+
+        if (detachDurryAndScanZoneFromParent)
+        {
+            scanZoneObject.transform.SetParent(null, true);
         }
 
         scanZoneRenderer = scanZoneObject.GetComponent<Renderer>();
@@ -234,6 +320,14 @@ public class DustinyDemoFlow : MonoBehaviour
         if (worldCanvas != null)
         {
             worldCanvas.gameObject.SetActive(true);
+            worldCanvas.renderMode = RenderMode.WorldSpace;
+
+            Camera centerEyeCamera = centerEyeAnchor != null ? centerEyeAnchor.GetComponent<Camera>() : null;
+            if (centerEyeCamera == null)
+            {
+                centerEyeCamera = Camera.main;
+            }
+            worldCanvas.worldCamera = centerEyeCamera;
 
             if (applyTextLayout)
             {
@@ -262,16 +356,18 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
-    private void RecenterObjectsInFrontOfUser()
+    private void SummonDurryToUser()
     {
         if (centerEyeAnchor == null) return;
 
         Vector3 headPos = centerEyeAnchor.position;
         Vector3 forward = GetFlatForward();
+        Vector3 right = centerEyeAnchor.right;
+        right.y = 0f;
+        if (right.sqrMagnitude < 0.001f) right = Vector3.right;
+        right.Normalize();
 
-        Vector3 durryPos = headPos + forward * durryDistance + Vector3.up * durryHeightOffset;
-        Vector3 uiPos = headPos + forward * uiDistance + Vector3.up * uiHeightOffset;
-        Vector3 scanZonePos = headPos + forward * scanZoneDistance + Vector3.up * scanZoneHeightOffset;
+        Vector3 durryPos = headPos + forward * durryDistance + right * durrySideOffset + Vector3.up * durryHeightOffset;
 
         if (durryObject != null)
         {
@@ -280,23 +376,22 @@ public class DustinyDemoFlow : MonoBehaviour
             ApplyDurryScale();
         }
 
-        if (worldCanvas != null)
+        if (moveScanZoneWhenDurrySummoned)
         {
-            worldCanvas.transform.position = uiPos;
-            FaceCanvasToUser();
-
-            if (applyTextLayout)
-            {
-                ApplyTextLayout();
-            }
+            PlaceScanZoneInFrontOfUser(forward);
         }
+    }
 
-        if (scanZoneObject != null)
-        {
-            scanZoneObject.transform.position = scanZonePos;
-            scanZoneObject.transform.rotation = Quaternion.LookRotation(Vector3.up, forward);
-            scanZoneObject.transform.localScale = Vector3.one * scanZoneSize;
-        }
+    private void PlaceScanZoneInFrontOfUser(Vector3 forward)
+    {
+        if (scanZoneObject == null || centerEyeAnchor == null) return;
+
+        Vector3 headPos = centerEyeAnchor.position;
+        Vector3 scanZonePos = headPos + forward * scanZoneDistance + Vector3.up * scanZoneHeightOffset;
+
+        scanZoneObject.transform.position = scanZonePos;
+        scanZoneObject.transform.rotation = Quaternion.LookRotation(Vector3.up, forward);
+        scanZoneObject.transform.localScale = Vector3.one * scanZoneSize;
     }
 
     private Vector3 GetFlatForward()
@@ -359,8 +454,8 @@ public class DustinyDemoFlow : MonoBehaviour
     private void RemoveTMPShadow(TMP_Text text)
     {
         if (text == null) return;
+        if (text.fontMaterial == null) return;
 
-        // 텍스트별 머티리얼 인스턴스를 만들어서 다른 TMP 오브젝트에 영향이 가지 않게 함.
         Material mat = new Material(text.fontMaterial);
         mat.name = text.name + "_NoShadow_Runtime";
 
@@ -407,7 +502,6 @@ public class DustinyDemoFlow : MonoBehaviour
 
             string objectName = image.gameObject.name.ToLowerInvariant();
 
-            // 버튼/아이콘까지 지우지 않기 위해 배경으로 보이는 이름만 투명 처리.
             bool looksLikeBackground =
                 objectName.Contains("background") ||
                 objectName.Contains("bg") ||
@@ -499,8 +593,10 @@ public class DustinyDemoFlow : MonoBehaviour
 
         step = 1;
 
-        // 미션 시작 시에도 현재 시야 앞으로 한 번 정렬.
-        RecenterObjectsInFrontOfUser();
+        if (summonDurryOnMissionStart)
+        {
+            SummonDurryToUser();
+        }
 
         if (scanZoneObject != null)
         {
@@ -509,18 +605,18 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         UpdateUI(
-            "Mission Start!\nClean 3 items around Durry.",
-            $"Bosong Power {bosongPower}"
+            "미션 시작!\n더리 주변의 어질러진 물건 3개를 정리해줘.",
+            $"보송력 {bosongPower}"
         );
     }
 
     private void OnPressTrigger()
     {
-        Debug.Log("Trigger pressed: recenter Durry in front of user");
+        Debug.Log("Trigger pressed: summon Durry in front of user");
 
         if (recenterOnTrigger)
         {
-            RecenterObjectsInFrontOfUser();
+            SummonDurryToUser();
         }
 
         if (triggerAlsoCompletesMission)
@@ -551,8 +647,8 @@ public class DustinyDemoFlow : MonoBehaviour
         RecoverDurry();
 
         UpdateUI(
-            $"Mission Complete!\nBosong Power +{rewardBosongPower}",
-            $"Bosong Power {bosongPower}"
+            $"미션 완료!\n보송력 +{rewardBosongPower}",
+            $"보송력 {bosongPower}"
         );
     }
 
