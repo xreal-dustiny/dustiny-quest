@@ -431,16 +431,16 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 324705308}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0.00011920929}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1073864277}
+  m_Father: {fileID: 1578083339}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 60}
-  m_SizeDelta: {x: 560, y: 120}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 375.62, y: 23.86}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &324705310
 MonoBehaviour:
@@ -462,8 +462,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "QuestText: A \uBC84\uD2BC\uC744 \uB20C\uB7EC \uB354\uB9AC\uAC00 \uC228\uC740
-    \uAD6C\uC5ED\uC744 \uCC3E\uC544\uBCF4\uC790!\r\n"
+  m_text: "A \uBC84\uD2BC\uC744 \uB20C\uB7EC \uB354\uB9AC\uAC00 \uC228\uC740 \uAD6C\uC5ED\uC744
+    \uCC3E\uC544\uBCF4\uC790!\r\n"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 874c82325cc887244b53689a469e1076, type: 2}
   m_sharedMaterial: {fileID: -2129442128765134413, guid: 874c82325cc887244b53689a469e1076, type: 2}
@@ -472,8 +472,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+    rgba: 4278190080
+  m_fontColor: {r: 0, g: 0, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -568,7 +568,7 @@ Transform:
   m_GameObject: {fileID: 370361957}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -4.18075, y: 0.3, z: -9.72035}
+  m_LocalPosition: {x: -4.18075, y: -3, z: -9.72035}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1014,7 +1014,7 @@ Transform:
   m_GameObject: {fileID: 640392072}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -4.18075, y: -0, z: -9.72035}
+  m_LocalPosition: {x: -4.18075, y: -3, z: -9.72035}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1087,7 +1087,7 @@ Transform:
   m_GameObject: {fileID: 784206816}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -4.18075, y: -0, z: -9.72036}
+  m_LocalPosition: {x: -4.18075, y: -3, z: -9.72036}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1668,8 +1668,8 @@ RectTransform:
   m_LocalScale: {x: 0.002, y: 0.002, z: 0.002}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 324705309}
   - {fileID: 865339289}
+  - {fileID: 1578083339}
   m_Father: {fileID: 640392073}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -2351,6 +2351,101 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1412640053}
   m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1578083338
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1578083339}
+  - component: {fileID: 1578083342}
+  - component: {fileID: 1578083341}
+  - component: {fileID: 1578083340}
+  m_Layer: 0
+  m_Name: SpeechBubble
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1578083339
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1578083338}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 324705309}
+  m_Father: {fileID: 1073864277}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 120}
+  m_SizeDelta: {x: 455.62, y: 90}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1578083340
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1578083338}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 55e7bcae41811194db69c3c1ff0e240a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SpeechBubbleAutoSize
+  bubbleRect: {fileID: 1578083339}
+  textRect: {fileID: 324705309}
+  questText: {fileID: 324705310}
+  maxTextWidth: 800
+  padding: {x: 180, y: 100}
+  minBubbleSize: {x: 320, y: 90}
+--- !u!114 &1578083341
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1578083338}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 21300000, guid: 5f2186a74aebd8547932b3110c0550fb, type: 3}
+  m_Type: 1
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &1578083342
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1578083338}
+  m_CullTransparentMesh: 1
 --- !u!1 &1610842909
 GameObject:
   m_ObjectHideFlags: 0
@@ -2659,14 +2754,30 @@ MonoBehaviour:
   worldCanvas: {fileID: 1073864280}
   questText: {fileID: 324705310}
   bosongText: {fileID: 865339290}
-  showScanZoneOnStart: 0
+  placeObjectsInFrontOnStart: 1
+  recenterOnTrigger: 1
   keepObjectsInFront: 0
-  durryDistance: 1.5
-  durryHeightOffset: -0.15
+  bButtonCompletesMission: 1
+  triggerAlsoCompletesMission: 0
+  durryDistance: 0.4
+  durryHeightOffset: -1
+  durryYawOffset: 180
   durryRootScale: 1
-  durryVisualScale: 2
-  uiDistance: 1.4
-  uiHeightOffset: 0.35
+  durryVisualScale: 1
+  uiDistance: 1.2
+  uiHeightOffset: 0
+  applyTextLayout: 1
+  questTextY: 360
+  bosongTextY: -360
+  textWidth: 1500
+  questTextHeight: 180
+  bosongTextHeight: 140
+  questFontSize: 44
+  bosongFontSize: 38
+  removeTextShadow: 1
+  makeCanvasBackgroundTransparent: 1
+  disableUIShadowComponents: 1
+  disableDurryShadows: 1
   scanZoneDistance: 1.7
   scanZoneHeightOffset: -0.55
   scanZoneSize: 0.8

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 
 public class DustinyDemoFlow : MonoBehaviour
@@ -16,25 +17,55 @@ public class DustinyDemoFlow : MonoBehaviour
     public TMP_Text questText;
     public TMP_Text bosongText;
 
-    [Header("Debug / Test")]
-    public bool showScanZoneOnStart = true;
+    [Header("Start / Recenter")]
+    public bool placeObjectsInFrontOnStart = true;
+    public bool recenterOnTrigger = true;
+
+    // true로 켜면 매 프레임 따라와서 HUD처럼 보일 수 있음.
+    // 더리가 공간 안에 떠 있는 느낌을 원하면 false 권장.
     public bool keepObjectsInFront = false;
 
-    [Header("Placement")]
-    public float durryDistance = 1.5f;
-    public float durryHeightOffset = -0.15f;
+    [Header("Input")]
+    public bool bButtonCompletesMission = true;
+    public bool triggerAlsoCompletesMission = false;
+
+    [Header("Durry Placement")]
+    public float durryDistance = 0.75f;
+
+    // 더리를 더 아래로 내리고 싶으면 더 작은 음수로 바꾸기.
+    // 예: -0.45 -> -0.60 -> -0.75
+    public float durryHeightOffset = -0.55f;
+
+    // 더리가 뒤를 보면 180, 정면을 보면 0으로 조절.
+    public float durryYawOffset = 180f;
 
     [Header("Durry Size")]
     public float durryRootScale = 1.0f;
-    public float durryVisualScale = 2.0f;
+    public float durryVisualScale = 0.9f;
 
     [Header("UI Placement")]
-    public float uiDistance = 1.4f;
-    public float uiHeightOffset = 0.35f;
+    public float uiDistance = 1.25f;
+    public float uiHeightOffset = 0.0f;
+
+    [Header("Text Layout")]
+    public bool applyTextLayout = true;
+    public float questTextY = 360f;
+    public float bosongTextY = -360f;
+    public float textWidth = 1500f;
+    public float questTextHeight = 180f;
+    public float bosongTextHeight = 140f;
+    public float questFontSize = 44f;
+    public float bosongFontSize = 38f;
+
+    [Header("Visual Cleanup")]
+    public bool removeTextShadow = true;
+    public bool makeCanvasBackgroundTransparent = true;
+    public bool disableUIShadowComponents = true;
+    public bool disableDurryShadows = true;
 
     [Header("Scan Zone Placement")]
-    public float scanZoneDistance = 1.5f;
-    public float scanZoneHeightOffset = -0.35f;
+    public float scanZoneDistance = 1.7f;
+    public float scanZoneHeightOffset = -0.55f;
     public float scanZoneSize = 0.8f;
 
     [Header("Reward")]
@@ -47,7 +78,6 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private Renderer[] durryRenderers;
     private Renderer scanZoneRenderer;
-
     private Material[] durryRuntimeMaterials;
 
     private void Start()
@@ -58,10 +88,13 @@ public class DustinyDemoFlow : MonoBehaviour
         SetupScanZone();
         SetupWorldCanvas();
 
-        PlaceObjectsInFrontOfUser();
+        if (placeObjectsInFrontOnStart)
+        {
+            RecenterObjectsInFrontOfUser();
+        }
 
         UpdateUI(
-            "Press A to start mission",
+            "Press A to start mission\nPress Trigger to call Durry",
             "Bosong Power 0"
         );
     }
@@ -73,16 +106,26 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
+        // 계속 켜두면 고개 방향을 따라 매 프레임 이동함.
+        // 기본은 false로 두고, Trigger를 눌렀을 때만 다시 눈앞으로 부르는 방식 권장.
         if (keepObjectsInFront)
         {
-            PlaceObjectsInFrontOfUser();
+            RecenterObjectsInFrontOfUser();
         }
 
+        // Quest 오른손 A 버튼
         if (OVRInput.GetDown(OVRInput.Button.One, OVRInput.Controller.RTouch))
         {
             OnPressA();
         }
 
+        // Quest 오른손 B 버튼: 데모용 미션 완료
+        if (bButtonCompletesMission && OVRInput.GetDown(OVRInput.Button.Two, OVRInput.Controller.RTouch))
+        {
+            CompleteMission();
+        }
+
+        // Quest 오른손 검지 Trigger: 더리를 현재 시야 앞으로 다시 부르기
         if (GetRightTriggerDown())
         {
             OnPressTrigger();
@@ -101,7 +144,6 @@ public class DustinyDemoFlow : MonoBehaviour
 
         durryObject.SetActive(true);
 
-        // Durry Visual이 Inspector에서 연결되지 않았을 때 자동으로 찾기
         if (durryVisual == null)
         {
             Transform foundVisual = durryObject.transform.Find("Durry Visual");
@@ -121,16 +163,8 @@ public class DustinyDemoFlow : MonoBehaviour
             }
         }
 
-        // 루트는 위치 기준. 스케일은 기본 1 권장.
-        durryObject.transform.localScale = Vector3.one * durryRootScale;
+        ApplyDurryScale();
 
-        // 실제 캐릭터 크기는 Visual에서 조절.
-        if (durryVisual != null)
-        {
-            durryVisual.localScale = Vector3.one * durryVisualScale;
-        }
-
-        // 더리는 여러 Sphere로 이루어져 있으므로 자식 Renderer를 전부 가져옴.
         durryRenderers = durryObject.GetComponentsInChildren<Renderer>(true);
 
         if (durryRenderers == null || durryRenderers.Length == 0)
@@ -139,7 +173,6 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        // 런타임에서 색을 바꾸기 위해 Material 인스턴스 생성.
         durryRuntimeMaterials = new Material[durryRenderers.Length];
 
         for (int i = 0; i < durryRenderers.Length; i++)
@@ -148,14 +181,37 @@ public class DustinyDemoFlow : MonoBehaviour
 
             if (renderer == null) continue;
 
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
+            if (disableDurryShadows)
+            {
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
 
             Material runtimeMat = renderer.material;
+
+            if (runtimeMat != null)
+            {
+                // URP Lit 계열 머티리얼에서 그림자 수신을 줄이기 위한 보조 처리.
+                SetFloatIfHas(runtimeMat, "_ReceiveShadows", 0f);
+            }
+
             durryRuntimeMaterials[i] = runtimeMat;
         }
 
         Debug.Log("Durry Renderer Count: " + durryRenderers.Length);
+    }
+
+    private void ApplyDurryScale()
+    {
+        if (durryObject != null)
+        {
+            durryObject.transform.localScale = Vector3.one * durryRootScale;
+        }
+
+        if (durryVisual != null)
+        {
+            durryVisual.localScale = Vector3.one * durryVisualScale;
+        }
     }
 
     private void SetupScanZone()
@@ -169,8 +225,8 @@ public class DustinyDemoFlow : MonoBehaviour
         scanZoneRenderer = scanZoneObject.GetComponent<Renderer>();
         SetupScanZoneMaterial();
 
-        scanZoneObject.SetActive(showScanZoneOnStart);
-        Debug.Log("ScanZone initial active: " + showScanZoneOnStart);
+        scanZoneObject.SetActive(true);
+        Debug.Log("ScanZone initial active: true");
     }
 
     private void SetupWorldCanvas()
@@ -178,6 +234,27 @@ public class DustinyDemoFlow : MonoBehaviour
         if (worldCanvas != null)
         {
             worldCanvas.gameObject.SetActive(true);
+
+            if (applyTextLayout)
+            {
+                ApplyTextLayout();
+            }
+
+            if (removeTextShadow)
+            {
+                RemoveTMPShadow(questText);
+                RemoveTMPShadow(bosongText);
+            }
+
+            if (disableUIShadowComponents)
+            {
+                DisableUIShadowEffects();
+            }
+
+            if (makeCanvasBackgroundTransparent)
+            {
+                MakeCanvasBackgroundTransparent();
+            }
         }
         else
         {
@@ -185,12 +262,45 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
-    private void PlaceObjectsInFrontOfUser()
+    private void RecenterObjectsInFrontOfUser()
     {
         if (centerEyeAnchor == null) return;
 
         Vector3 headPos = centerEyeAnchor.position;
+        Vector3 forward = GetFlatForward();
 
+        Vector3 durryPos = headPos + forward * durryDistance + Vector3.up * durryHeightOffset;
+        Vector3 uiPos = headPos + forward * uiDistance + Vector3.up * uiHeightOffset;
+        Vector3 scanZonePos = headPos + forward * scanZoneDistance + Vector3.up * scanZoneHeightOffset;
+
+        if (durryObject != null)
+        {
+            durryObject.transform.position = durryPos;
+            durryObject.transform.rotation = GetRotationFacingUser(durryPos, durryYawOffset);
+            ApplyDurryScale();
+        }
+
+        if (worldCanvas != null)
+        {
+            worldCanvas.transform.position = uiPos;
+            FaceCanvasToUser();
+
+            if (applyTextLayout)
+            {
+                ApplyTextLayout();
+            }
+        }
+
+        if (scanZoneObject != null)
+        {
+            scanZoneObject.transform.position = scanZonePos;
+            scanZoneObject.transform.rotation = Quaternion.LookRotation(Vector3.up, forward);
+            scanZoneObject.transform.localScale = Vector3.one * scanZoneSize;
+        }
+    }
+
+    private Vector3 GetFlatForward()
+    {
         Vector3 forward = centerEyeAnchor.forward;
         forward.y = 0f;
 
@@ -199,44 +309,119 @@ public class DustinyDemoFlow : MonoBehaviour
             forward = Vector3.forward;
         }
 
-        forward.Normalize();
+        return forward.normalized;
+    }
 
-        if (durryObject != null)
+    private Quaternion GetRotationFacingUser(Vector3 objectPosition, float yawOffset)
+    {
+        Vector3 toUser = centerEyeAnchor.position - objectPosition;
+        toUser.y = 0f;
+
+        if (toUser.sqrMagnitude < 0.001f)
         {
-            durryObject.transform.position =
-                headPos + forward * durryDistance + Vector3.up * durryHeightOffset;
+            toUser = -GetFlatForward();
+        }
 
-            durryObject.transform.rotation =
-                Quaternion.LookRotation(forward, Vector3.up);
+        Quaternion lookAtUser = Quaternion.LookRotation(toUser.normalized, Vector3.up);
+        return lookAtUser * Quaternion.Euler(0f, yawOffset, 0f);
+    }
 
-            // 중요:
-            // 여기서 0.25로 줄이면 안 됨.
-            durryObject.transform.localScale = Vector3.one * durryRootScale;
+    private void ApplyTextLayout()
+    {
+        ApplyTextRect(questText, questTextY, questTextHeight, questFontSize);
+        ApplyTextRect(bosongText, bosongTextY, bosongTextHeight, bosongFontSize);
+    }
 
-            if (durryVisual != null)
+    private void ApplyTextRect(TMP_Text text, float y, float height, float fontSize)
+    {
+        if (text == null) return;
+
+        RectTransform rect = text.GetComponent<RectTransform>();
+
+        if (rect != null)
+        {
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, y);
+            rect.sizeDelta = new Vector2(textWidth, height);
+        }
+
+        text.alignment = TextAlignmentOptions.Center;
+        text.enableWordWrapping = true;
+
+        if (fontSize > 0f)
+        {
+            text.fontSize = fontSize;
+        }
+    }
+
+    private void RemoveTMPShadow(TMP_Text text)
+    {
+        if (text == null) return;
+
+        // 텍스트별 머티리얼 인스턴스를 만들어서 다른 TMP 오브젝트에 영향이 가지 않게 함.
+        Material mat = new Material(text.fontMaterial);
+        mat.name = text.name + "_NoShadow_Runtime";
+
+        mat.DisableKeyword("UNDERLAY_ON");
+        mat.DisableKeyword("UNDERLAY_INNER");
+
+        SetFloatIfHas(mat, "_OutlineWidth", 0f);
+        SetFloatIfHas(mat, "_OutlineSoftness", 0f);
+        SetFloatIfHas(mat, "_FaceDilate", 0f);
+        SetFloatIfHas(mat, "_UnderlayOffsetX", 0f);
+        SetFloatIfHas(mat, "_UnderlayOffsetY", 0f);
+        SetFloatIfHas(mat, "_UnderlayDilate", 0f);
+        SetFloatIfHas(mat, "_UnderlaySoftness", 0f);
+        SetColorIfHas(mat, "_UnderlayColor", new Color(0f, 0f, 0f, 0f));
+        SetColorIfHas(mat, "_OutlineColor", new Color(0f, 0f, 0f, 0f));
+
+        text.fontMaterial = mat;
+    }
+
+    private void DisableUIShadowEffects()
+    {
+        if (worldCanvas == null) return;
+
+        Shadow[] shadows = worldCanvas.GetComponentsInChildren<Shadow>(true);
+
+        foreach (Shadow shadow in shadows)
+        {
+            if (shadow != null)
             {
-                durryVisual.localScale = Vector3.one * durryVisualScale;
+                shadow.enabled = false;
             }
         }
+    }
 
-        if (worldCanvas != null)
+    private void MakeCanvasBackgroundTransparent()
+    {
+        if (worldCanvas == null) return;
+
+        Image[] images = worldCanvas.GetComponentsInChildren<Image>(true);
+
+        foreach (Image image in images)
         {
-            worldCanvas.transform.position =
-                headPos + forward * uiDistance + Vector3.up * uiHeightOffset;
+            if (image == null) continue;
 
-            FaceCanvasToUser();
-        }
+            string objectName = image.gameObject.name.ToLowerInvariant();
 
-        if (scanZoneObject != null)
-        {
-            scanZoneObject.transform.position =
-                headPos + forward * scanZoneDistance + Vector3.up * scanZoneHeightOffset;
+            // 버튼/아이콘까지 지우지 않기 위해 배경으로 보이는 이름만 투명 처리.
+            bool looksLikeBackground =
+                objectName.Contains("background") ||
+                objectName.Contains("bg") ||
+                objectName.Contains("panel") ||
+                objectName.Contains("shadow") ||
+                objectName.Contains("dim") ||
+                objectName.Contains("black");
 
-            scanZoneObject.transform.rotation =
-                Quaternion.LookRotation(Vector3.up, forward);
+            if (!looksLikeBackground) continue;
 
-            scanZoneObject.transform.localScale =
-                Vector3.one * scanZoneSize;
+            Color color = image.color;
+            color.a = 0f;
+            image.color = color;
+            image.raycastTarget = false;
         }
     }
 
@@ -272,8 +457,6 @@ public class DustinyDemoFlow : MonoBehaviour
             mat.SetColor("_Color", scanColor);
         }
 
-        // ScanZone은 임시 표시용이라 투명 사용.
-        // 더리 몸체에는 Transparent 사용하지 않는 것을 추천.
         if (mat.HasProperty("_Surface"))
         {
             mat.SetFloat("_Surface", 1f);
@@ -316,7 +499,8 @@ public class DustinyDemoFlow : MonoBehaviour
 
         step = 1;
 
-        PlaceObjectsInFrontOfUser();
+        // 미션 시작 시에도 현재 시야 앞으로 한 번 정렬.
+        RecenterObjectsInFrontOfUser();
 
         if (scanZoneObject != null)
         {
@@ -325,18 +509,33 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         UpdateUI(
-            "Mission Start!\nClean 3 items around Durry.\nPress Trigger when done.",
+            "Mission Start!\nClean 3 items around Durry.",
             $"Bosong Power {bosongPower}"
         );
     }
 
     private void OnPressTrigger()
     {
-        Debug.Log("Trigger pressed");
+        Debug.Log("Trigger pressed: recenter Durry in front of user");
+
+        if (recenterOnTrigger)
+        {
+            RecenterObjectsInFrontOfUser();
+        }
+
+        if (triggerAlsoCompletesMission)
+        {
+            CompleteMission();
+        }
+    }
+
+    private void CompleteMission()
+    {
+        Debug.Log("CompleteMission called");
 
         if (step != 1)
         {
-            Debug.Log("Trigger ignored. Mission has not started yet.");
+            Debug.Log("Mission complete ignored. Mission has not started yet.");
             return;
         }
 
@@ -352,7 +551,7 @@ public class DustinyDemoFlow : MonoBehaviour
         RecoverDurry();
 
         UpdateUI(
-            $"Mission Complete!\nBosong Power +{rewardBosongPower}\nPress A for next mission.",
+            $"Mission Complete!\nBosong Power +{rewardBosongPower}",
             $"Bosong Power {bosongPower}"
         );
     }
@@ -412,6 +611,11 @@ public class DustinyDemoFlow : MonoBehaviour
         {
             bosongText.text = bosongMessage;
         }
+
+        if (applyTextLayout)
+        {
+            ApplyTextLayout();
+        }
     }
 
     private void FaceCanvasToUser()
@@ -419,10 +623,27 @@ public class DustinyDemoFlow : MonoBehaviour
         if (worldCanvas == null || centerEyeAnchor == null) return;
 
         Vector3 direction = worldCanvas.transform.position - centerEyeAnchor.position;
+        direction.y = 0f;
 
         if (direction.sqrMagnitude > 0.001f)
         {
-            worldCanvas.transform.rotation = Quaternion.LookRotation(direction);
+            worldCanvas.transform.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
+        }
+    }
+
+    private void SetFloatIfHas(Material mat, string propertyName, float value)
+    {
+        if (mat != null && mat.HasProperty(propertyName))
+        {
+            mat.SetFloat(propertyName, value);
+        }
+    }
+
+    private void SetColorIfHas(Material mat, string propertyName, Color value)
+    {
+        if (mat != null && mat.HasProperty(propertyName))
+        {
+            mat.SetColor(propertyName, value);
         }
     }
 }
