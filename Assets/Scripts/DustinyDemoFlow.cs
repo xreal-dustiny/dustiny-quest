@@ -35,8 +35,61 @@ public class DustinyDemoFlow : MonoBehaviour
     public bool detachDurryAndScanZoneFromParent = true;
 
     [Header("Input")]
+    public bool allowControllerFallback = true;
     public bool bButtonCompletesMission = true;
     public bool triggerAlsoCompletesMission = false;
+
+    [Header("Hand Tracking")]
+    public bool useHandTracking = true;
+
+    // OVRCameraRig 안의 LeftHandAnchor/RightHandAnchor 아래에 있는 OVRHand를 넣는다.
+    // 비어 있어도 실행은 되지만, 손 제스처는 동작하지 않는다.
+    public OVRHand leftHand;
+    public OVRHand rightHand;
+
+    // 정확한 손목 본이 있으면 넣는다. 비워두면 leftHand 아래에서 wrist 이름을 자동 탐색하고,
+    // 못 찾으면 leftHand Transform을 임시 손목 기준으로 사용한다.
+    public Transform leftWristTransform;
+
+    [Header("Hand Gesture Mapping")]
+    public bool rightIndexPinchSummonsDurry = true;       // 오른손 엄지+검지: 더리 부르기
+    public bool rightMiddlePinchStartsMission = true;     // 오른손 엄지+중지: 미션 시작
+    public bool rightRingPinchCompletesMission = true;    // 오른손 엄지+약지: 데모용 미션 완료
+
+    [Header("Wrist Band Status Window")]
+    public GameObject statusWindowObject;                 // 상태창 패널. 비우면 BosongText 또는 그 부모를 사용.
+    public bool statusWindowStartsOpen = false;
+
+    // 기본 방식: 오른손 검지 끝으로 왼쪽 손목 밴드를 터치하면 상태창을 열고 닫는다.
+    public bool toggleStatusByRightIndexTouchingLeftWristBand = true;
+    public Transform rightIndexTipTransform;              // 비워두면 OVRSkeleton에서 Hand_IndexTip을 자동 탐색.
+    public Transform statusTouchTarget;                   // 비워두면 wristBandObject, 없으면 leftWristTransform을 터치 타깃으로 사용.
+    public float wristBandTouchRadius = 0.065f;            // 손가락 끝과 밴드 중심 사이 거리. 0.05~0.08 추천.
+    public float wristBandTouchHoldTime = 0.12f;           // 너무 스치기만 해도 열리는 것을 막는 시간.
+    public float wristBandTouchCooldown = 0.7f;
+    public bool requireRightIndexPinchWhileTouchingBand = false;
+
+    // 예비 방식. true로 켜면 예전처럼 왼쪽 손목을 시야 안에 올렸을 때도 상태창을 열 수 있다.
+    public bool toggleStatusWhenLeftWristRaised = false;
+    public bool requireLeftIndexPinchToToggleStatus = false;
+
+    // 왼손 손목이 이 영역 안에 들어오면 "손목을 올렸다"고 판단한다.
+    // 기본 방식에서는 꺼져 있으므로 보통 건드리지 않아도 된다.
+    public float wristRaiseHoldTime = 0.45f;
+    public float wristToggleCooldown = 0.8f;
+    public float wristViewMinX = -0.75f;
+    public float wristViewMaxX = 0.35f;
+    public float wristViewMinY = -0.75f;
+    public float wristViewMaxY = 0.25f;
+    public float wristViewMinZ = 0.15f;
+    public float wristViewMaxZ = 1.15f;
+
+    [Header("Wrist Band Visual")]
+    public GameObject wristBandObject;                    // 선택사항. 손목에 붙일 밴드 오브젝트.
+    public bool showWristBandWhenHandTracked = true;
+    public Vector3 wristBandLocalPosition = Vector3.zero;
+    public Vector3 wristBandLocalEuler = Vector3.zero;
+    public Vector3 wristBandLocalScale = Vector3.one;
 
     [Header("Durry Fixed World Start")]
     public bool useCurrentSceneDurryPositionOnStart = true;
@@ -86,6 +139,20 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private bool wasTriggerPressed = false;
 
+    private bool wasRightIndexPinching = false;
+    private bool wasRightMiddlePinching = false;
+    private bool wasRightRingPinching = false;
+    private bool wasLeftIndexPinching = false;
+
+    private bool statusWindowOpen = false;
+    private float wristRaiseTimer = 0f;
+    private float lastStatusToggleTime = -999f;
+    private bool wristToggleLockedUntilLeave = false;
+
+    private float wristBandTouchTimer = 0f;
+    private float lastWristBandTouchToggleTime = -999f;
+    private bool wristBandTouchLockedUntilRelease = false;
+
     private Renderer[] durryRenderers;
     private Renderer scanZoneRenderer;
     private Material[] durryRuntimeMaterials;
@@ -99,6 +166,7 @@ public class DustinyDemoFlow : MonoBehaviour
         SetupDurry();
         SetupScanZone();
         SetupWorldCanvas();
+        SetupHandTrackingUI();
 
         PlaceDurryAtStartWorldPosition();
 
@@ -110,7 +178,7 @@ public class DustinyDemoFlow : MonoBehaviour
         UpdateViewLockedUI(true);
 
         UpdateUI(
-            "A 버튼을 눌러 더리의 숨은 구역을 찾아보자!\nTrigger를 누르면 더리가 내 앞으로 와요.",
+            "오른손 검지 핀치: 더리 부르기\n오른손 중지 핀치: 미션 시작\n오른손 검지로 왼쪽 손목 밴드 터치: 상태창",
             "보송력 0"
         );
     }
@@ -126,22 +194,30 @@ public class DustinyDemoFlow : MonoBehaviour
         // 더리와 스캔존은 여기서 따라오지 않는다.
         UpdateViewLockedUI(false);
 
-        // Quest 오른손 A 버튼
-        if (OVRInput.GetDown(OVRInput.Button.One, OVRInput.Controller.RTouch))
+        if (useHandTracking)
         {
-            OnPressA();
+            UpdateHandTrackingInput();
         }
 
-        // Quest 오른손 B 버튼: 데모용 미션 완료
-        if (bButtonCompletesMission && OVRInput.GetDown(OVRInput.Button.Two, OVRInput.Controller.RTouch))
+        if (allowControllerFallback)
         {
-            CompleteMission();
-        }
+            // Quest 오른손 A 버튼
+            if (OVRInput.GetDown(OVRInput.Button.One, OVRInput.Controller.RTouch))
+            {
+                OnPressA();
+            }
 
-        // Quest 오른손 검지 Trigger: 더리를 현재 시야 앞으로 소환한다.
-        if (GetRightTriggerDown())
-        {
-            OnPressTrigger();
+            // Quest 오른손 B 버튼: 데모용 미션 완료
+            if (bButtonCompletesMission && OVRInput.GetDown(OVRInput.Button.Two, OVRInput.Controller.RTouch))
+            {
+                CompleteMission();
+            }
+
+            // Quest 오른손 검지 Trigger: 더리를 현재 시야 앞으로 소환한다.
+            if (GetRightTriggerDown())
+            {
+                OnPressTrigger();
+            }
         }
 
         // UI가 카메라 자식이 아닐 때만 월드 캔버스를 사용자를 향해 돌린다.
@@ -149,6 +225,404 @@ public class DustinyDemoFlow : MonoBehaviour
         {
             FaceCanvasToUser();
         }
+    }
+
+    private void SetupHandTrackingUI()
+    {
+        statusWindowOpen = statusWindowStartsOpen;
+        SetStatusWindowVisible(statusWindowOpen, true);
+
+        UpdateWristBandVisual();
+    }
+
+    private void UpdateHandTrackingInput()
+    {
+        UpdateWristBandVisual();
+
+        if (rightIndexPinchSummonsDurry &&
+            GetHandPinchDown(rightHand, OVRHand.HandFinger.Index, ref wasRightIndexPinching))
+        {
+            OnPressTrigger();
+        }
+
+        if (rightMiddlePinchStartsMission &&
+            GetHandPinchDown(rightHand, OVRHand.HandFinger.Middle, ref wasRightMiddlePinching))
+        {
+            OnPressA();
+        }
+
+        if (rightRingPinchCompletesMission &&
+            GetHandPinchDown(rightHand, OVRHand.HandFinger.Ring, ref wasRightRingPinching))
+        {
+            CompleteMission();
+        }
+
+        if (toggleStatusByRightIndexTouchingLeftWristBand)
+        {
+            UpdateRightIndexTouchWristBandToggle();
+        }
+
+        bool leftWristInViewZone = IsLeftWristInViewZone();
+
+        if (requireLeftIndexPinchToToggleStatus &&
+            leftWristInViewZone &&
+            GetHandPinchDown(leftHand, OVRHand.HandFinger.Index, ref wasLeftIndexPinching))
+        {
+            ToggleStatusWindow();
+        }
+
+        if (toggleStatusWhenLeftWristRaised && !requireLeftIndexPinchToToggleStatus)
+        {
+            UpdateLeftWristRaiseToggle(leftWristInViewZone);
+        }
+    }
+
+    private void UpdateRightIndexTouchWristBandToggle()
+    {
+        bool isTouchingBand = IsRightIndexTouchingLeftWristBand();
+        bool pinchConditionOk = true;
+
+        if (requireRightIndexPinchWhileTouchingBand)
+        {
+            pinchConditionOk = IsHandTracked(rightHand) && rightHand.GetFingerIsPinching(OVRHand.HandFinger.Index);
+        }
+
+        if (!isTouchingBand || !pinchConditionOk)
+        {
+            wristBandTouchTimer = 0f;
+            wristBandTouchLockedUntilRelease = false;
+            return;
+        }
+
+        if (wristBandTouchLockedUntilRelease)
+        {
+            return;
+        }
+
+        wristBandTouchTimer += Time.deltaTime;
+
+        bool holdEnough = wristBandTouchTimer >= wristBandTouchHoldTime;
+        bool cooldownDone = Time.time - lastWristBandTouchToggleTime >= wristBandTouchCooldown;
+
+        if (holdEnough && cooldownDone)
+        {
+            ToggleStatusWindow();
+            lastWristBandTouchToggleTime = Time.time;
+            wristBandTouchTimer = 0f;
+            wristBandTouchLockedUntilRelease = true;
+        }
+    }
+
+    private bool IsRightIndexTouchingLeftWristBand()
+    {
+        if (!IsHandTracked(leftHand) || !IsHandTracked(rightHand))
+        {
+            return false;
+        }
+
+        Transform fingerTip = ResolveRightIndexTipTransform();
+        Transform target = ResolveStatusTouchTargetTransform();
+
+        if (fingerTip == null || target == null)
+        {
+            return false;
+        }
+
+        float distance = Vector3.Distance(fingerTip.position, target.position);
+        return distance <= wristBandTouchRadius;
+    }
+
+    private Transform ResolveRightIndexTipTransform()
+    {
+        if (rightIndexTipTransform != null)
+        {
+            return rightIndexTipTransform;
+        }
+
+        if (rightHand == null)
+        {
+            return null;
+        }
+
+        OVRSkeleton skeleton = rightHand.GetComponent<OVRSkeleton>();
+        if (skeleton == null)
+        {
+            skeleton = rightHand.GetComponentInChildren<OVRSkeleton>(true);
+        }
+
+        if (skeleton != null && skeleton.Bones != null)
+        {
+            foreach (OVRBone bone in skeleton.Bones)
+            {
+                if (bone != null && bone.Id == OVRSkeleton.BoneId.Hand_IndexTip)
+                {
+                    rightIndexTipTransform = bone.Transform;
+                    return rightIndexTipTransform;
+                }
+            }
+        }
+
+        Transform foundTip = FindChildTransformContainsAll(rightHand.transform, "index", "tip");
+        if (foundTip != null)
+        {
+            rightIndexTipTransform = foundTip;
+            return rightIndexTipTransform;
+        }
+
+        // 마지막 예비값. 손가락 끝이 아니라 손 기준점이라 정확도는 낮다.
+        return rightHand.transform;
+    }
+
+    private Transform ResolveStatusTouchTargetTransform()
+    {
+        if (statusTouchTarget != null)
+        {
+            return statusTouchTarget;
+        }
+
+        if (wristBandObject != null)
+        {
+            statusTouchTarget = wristBandObject.transform;
+            return statusTouchTarget;
+        }
+
+        statusTouchTarget = ResolveLeftWristTransform();
+        return statusTouchTarget;
+    }
+
+    private bool GetHandPinchDown(OVRHand hand, OVRHand.HandFinger finger, ref bool wasPinching)
+    {
+        bool isPinching = IsHandTracked(hand) && hand.GetFingerIsPinching(finger);
+        bool pinchDown = isPinching && !wasPinching;
+        wasPinching = isPinching;
+        return pinchDown;
+    }
+
+    private bool IsHandTracked(OVRHand hand)
+    {
+        return hand != null && hand.IsTracked && hand.IsDataValid;
+    }
+
+    private void UpdateLeftWristRaiseToggle(bool isInViewZone)
+    {
+        if (!isInViewZone)
+        {
+            wristRaiseTimer = 0f;
+            wristToggleLockedUntilLeave = false;
+            return;
+        }
+
+        if (wristToggleLockedUntilLeave)
+        {
+            return;
+        }
+
+        wristRaiseTimer += Time.deltaTime;
+
+        bool holdEnough = wristRaiseTimer >= wristRaiseHoldTime;
+        bool cooldownDone = Time.time - lastStatusToggleTime >= wristToggleCooldown;
+
+        if (holdEnough && cooldownDone)
+        {
+            ToggleStatusWindow();
+            lastStatusToggleTime = Time.time;
+            wristRaiseTimer = 0f;
+            wristToggleLockedUntilLeave = true;
+        }
+    }
+
+    private bool IsLeftWristInViewZone()
+    {
+        if (!IsHandTracked(leftHand) || centerEyeAnchor == null)
+        {
+            return false;
+        }
+
+        Transform wrist = ResolveLeftWristTransform();
+        if (wrist == null)
+        {
+            return false;
+        }
+
+        Vector3 local = centerEyeAnchor.InverseTransformPoint(wrist.position);
+
+        return
+            local.x >= wristViewMinX &&
+            local.x <= wristViewMaxX &&
+            local.y >= wristViewMinY &&
+            local.y <= wristViewMaxY &&
+            local.z >= wristViewMinZ &&
+            local.z <= wristViewMaxZ;
+    }
+
+    private Transform ResolveLeftWristTransform()
+    {
+        if (leftWristTransform != null)
+        {
+            return leftWristTransform;
+        }
+
+        if (leftHand == null)
+        {
+            return null;
+        }
+
+        Transform foundWrist = FindChildTransformContains(leftHand.transform, "wrist");
+        if (foundWrist != null)
+        {
+            leftWristTransform = foundWrist;
+            return leftWristTransform;
+        }
+
+        return leftHand.transform;
+    }
+
+    private Transform FindChildTransformContains(Transform root, string keyword)
+    {
+        if (root == null || string.IsNullOrEmpty(keyword))
+        {
+            return null;
+        }
+
+        string lowerKeyword = keyword.ToLowerInvariant();
+        Transform[] children = root.GetComponentsInChildren<Transform>(true);
+
+        foreach (Transform child in children)
+        {
+            if (child == null) continue;
+
+            string lowerName = child.name.ToLowerInvariant();
+            if (lowerName.Contains(lowerKeyword))
+            {
+                return child;
+            }
+        }
+
+        return null;
+    }
+
+    private Transform FindChildTransformContainsAll(Transform root, params string[] keywords)
+    {
+        if (root == null || keywords == null || keywords.Length == 0)
+        {
+            return null;
+        }
+
+        Transform[] children = root.GetComponentsInChildren<Transform>(true);
+
+        foreach (Transform child in children)
+        {
+            if (child == null) continue;
+
+            string lowerName = child.name.ToLowerInvariant();
+            bool containsAll = true;
+
+            foreach (string keyword in keywords)
+            {
+                if (string.IsNullOrEmpty(keyword)) continue;
+
+                if (!lowerName.Contains(keyword.ToLowerInvariant()))
+                {
+                    containsAll = false;
+                    break;
+                }
+            }
+
+            if (containsAll)
+            {
+                return child;
+            }
+        }
+
+        return null;
+    }
+
+    private void UpdateWristBandVisual()
+    {
+        if (wristBandObject == null)
+        {
+            return;
+        }
+
+        bool leftTracked = IsHandTracked(leftHand);
+        wristBandObject.SetActive(showWristBandWhenHandTracked ? leftTracked : true);
+
+        if (!leftTracked)
+        {
+            return;
+        }
+
+        Transform wrist = ResolveLeftWristTransform();
+        if (wrist == null)
+        {
+            return;
+        }
+
+        if (wristBandObject.transform.parent != wrist)
+        {
+            wristBandObject.transform.SetParent(wrist, false);
+        }
+
+        wristBandObject.transform.localPosition = wristBandLocalPosition;
+        wristBandObject.transform.localRotation = Quaternion.Euler(wristBandLocalEuler);
+        wristBandObject.transform.localScale = wristBandLocalScale;
+    }
+
+    public void ToggleStatusWindow()
+    {
+        SetStatusWindowVisible(!statusWindowOpen, false);
+    }
+
+    public void SetStatusWindowVisible(bool visible)
+    {
+        SetStatusWindowVisible(visible, false);
+    }
+
+    private void SetStatusWindowVisible(bool visible, bool isInitialSetup)
+    {
+        statusWindowOpen = visible;
+
+        GameObject target = statusWindowObject;
+
+        if (target == null && bosongText != null)
+        {
+            Transform parent = bosongText.transform.parent;
+
+            // BosongText가 StatusPanel 같은 별도 패널 안에 있으면 패널을 켜고 끈다.
+            // 단, 부모가 WorldCanvas나 UIRoot처럼 전체 UI 루트면 텍스트만 켜고 끈다.
+            bool parentLooksLikeSmallPanel =
+                parent != null &&
+                worldCanvas != null &&
+                parent != worldCanvas.transform &&
+                parent.name.ToLowerInvariant().Contains("status");
+
+            target = parentLooksLikeSmallPanel ? parent.gameObject : bosongText.gameObject;
+        }
+
+        if (target != null)
+        {
+            target.SetActive(visible);
+        }
+
+        if (!isInitialSetup)
+        {
+            Debug.Log(visible ? "Status window opened." : "Status window closed.");
+        }
+    }
+
+    public void SummonDurryByHand()
+    {
+        OnPressTrigger();
+    }
+
+    public void StartMissionByHand()
+    {
+        OnPressA();
+    }
+
+    public void CompleteMissionByHand()
+    {
+        CompleteMission();
     }
 
     private void ResolveUIRoot()
@@ -589,7 +1063,7 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private void OnPressA()
     {
-        Debug.Log("A button pressed");
+        Debug.Log("Mission start requested");
 
         step = 1;
 
@@ -605,14 +1079,14 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         UpdateUI(
-            "미션 시작!\n더리 주변의 어질러진 물건 3개를 정리해줘.",
+            "미션 시작!\n더리 주변의 어질러진 물건 3개를 정리해줘.\n완료 테스트: 오른손 약지 핀치",
             $"보송력 {bosongPower}"
         );
     }
 
     private void OnPressTrigger()
     {
-        Debug.Log("Trigger pressed: summon Durry in front of user");
+        Debug.Log("Summon Durry requested");
 
         if (recenterOnTrigger)
         {
