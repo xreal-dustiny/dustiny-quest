@@ -14,6 +14,11 @@ public class SpeechBubbleAutoSize : MonoBehaviour
     public Vector2 padding = new Vector2(160f, 90f);
     public Vector2 minBubbleSize = new Vector2(520f, 140f);
 
+    [Header("Position Settings")]
+    public bool lockBubblePosition = true;                 // true면 말풍선 위치를 매 프레임 고정.
+    public Vector2 bubbleAnchoredPosition = new Vector2(0f, -260f); // y를 더 음수로 하면 더 아래로 내려감.
+    public bool forceCenterAnchorAndPivot = true;
+
     private string lastText;
 
     private void Reset()
@@ -27,11 +32,14 @@ public class SpeechBubbleAutoSize : MonoBehaviour
 
     private void OnEnable()
     {
+        ApplyBubblePosition();
         ResizeBubble();
     }
 
     private void LateUpdate()
     {
+        ApplyBubblePosition();
+
         if (questText == null) return;
 
         if (lastText != questText.text)
@@ -48,9 +56,25 @@ public class SpeechBubbleAutoSize : MonoBehaviour
         ResizeBubble();
     }
 
+    public void ApplyBubblePosition()
+    {
+        if (!lockBubblePosition || bubbleRect == null) return;
+
+        if (forceCenterAnchorAndPivot)
+        {
+            bubbleRect.anchorMin = new Vector2(0.5f, 0.5f);
+            bubbleRect.anchorMax = new Vector2(0.5f, 0.5f);
+            bubbleRect.pivot = new Vector2(0.5f, 0.5f);
+        }
+
+        bubbleRect.anchoredPosition = bubbleAnchoredPosition;
+    }
+
     public void ResizeBubble()
     {
         if (bubbleRect == null || textRect == null || questText == null) return;
+
+        ApplyBubblePosition();
 
         questText.enableWordWrapping = true;
 

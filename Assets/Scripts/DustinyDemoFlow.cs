@@ -28,6 +28,12 @@ public class DustinyDemoFlow : MonoBehaviour
     public TMP_Text questText;
     public TMP_Text bosongText;
 
+    [Header("Speech Bubble Placement")]
+    public RectTransform speechBubbleRect;                 // 말풍선 Bubble Rect. 비워두면 QuestText 부모에서 자동 탐색.
+    public bool keepSpeechBubbleBelowView = true;          // true면 말풍선을 사용자 시야 아래쪽에 계속 고정.
+    public Vector2 speechBubbleAnchoredPosition = new Vector2(0f, -260f);
+    public bool forceSpeechBubbleCenterAnchor = true;
+
     [Header("Start / Summon")]
     public bool summonDurryOnStart = false;
     public bool summonDurryOnMissionStart = false;
@@ -133,6 +139,7 @@ public class DustinyDemoFlow : MonoBehaviour
 
     [Header("Reward")]
     public int rewardBosongPower = 15;
+    public bool changeDurryColorOnMissionComplete = false; // false면 약지 핀치로 미션 완료해도 더리 색은 그대로 유지.
 
     private int bosongPower = 0;
     private int step = 0;
@@ -176,6 +183,7 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         UpdateViewLockedUI(true);
+        UpdateSpeechBubblePlacement();
 
         UpdateUI(
             "오른손 검지 핀치: 더리 부르기\n오른손 중지 핀치: 미션 시작\n오른손 검지로 왼쪽 손목 밴드 터치: 상태창",
@@ -193,6 +201,7 @@ public class DustinyDemoFlow : MonoBehaviour
         // UI만 매 프레임 사용자 시야 아래쪽에 고정한다.
         // 더리와 스캔존은 여기서 따라오지 않는다.
         UpdateViewLockedUI(false);
+        UpdateSpeechBubblePlacement();
 
         if (useHandTracking)
         {
@@ -899,6 +908,86 @@ public class DustinyDemoFlow : MonoBehaviour
     {
         ApplyTextRect(questText, questTextY, questTextHeight, questFontSize);
         ApplyTextRect(bosongText, bosongTextY, bosongTextHeight, bosongFontSize);
+        UpdateSpeechBubblePlacement();
+    }
+
+    private void UpdateSpeechBubblePlacement()
+    {
+        if (!keepSpeechBubbleBelowView)
+        {
+            return;
+        }
+
+        RectTransform bubble = ResolveSpeechBubbleRect();
+        if (bubble == null)
+        {
+            return;
+        }
+
+        if (forceSpeechBubbleCenterAnchor)
+        {
+            bubble.anchorMin = new Vector2(0.5f, 0.5f);
+            bubble.anchorMax = new Vector2(0.5f, 0.5f);
+            bubble.pivot = new Vector2(0.5f, 0.5f);
+        }
+
+        bubble.anchoredPosition = speechBubbleAnchoredPosition;
+    }
+
+    private RectTransform ResolveSpeechBubbleRect()
+    {
+        if (speechBubbleRect != null)
+        {
+            return speechBubbleRect;
+        }
+
+        if (questText == null)
+        {
+            return null;
+        }
+
+        SpeechBubbleAutoSize autoSize = questText.GetComponentInParent<SpeechBubbleAutoSize>(true);
+        if (autoSize != null && autoSize.bubbleRect != null)
+        {
+            speechBubbleRect = autoSize.bubbleRect;
+            return speechBubbleRect;
+        }
+
+        Transform current = questText.transform.parent;
+
+        while (current != null)
+        {
+            if (worldCanvas != null && current == worldCanvas.transform)
+            {
+                break;
+            }
+
+            RectTransform rect = current as RectTransform;
+            if (rect != null)
+            {
+                string lowerName = current.name.ToLowerInvariant();
+                bool looksLikeBubble =
+                    lowerName.Contains("bubble") ||
+                    lowerName.Contains("speech") ||
+                    lowerName.Contains("말풍선") ||
+                    current.GetComponent<Image>() != null;
+
+                if (looksLikeBubble)
+                {
+                    speechBubbleRect = rect;
+                    return speechBubbleRect;
+                }
+            }
+
+            current = current.parent;
+        }
+
+        if (questText.transform.parent is RectTransform parentRect)
+        {
+            speechBubbleRect = parentRect;
+        }
+
+        return speechBubbleRect;
     }
 
     private void ApplyTextRect(TMP_Text text, float y, float height, float fontSize)
@@ -1118,7 +1207,10 @@ public class DustinyDemoFlow : MonoBehaviour
             Debug.Log("ScanZone SetActive(false)");
         }
 
-        RecoverDurry();
+        if (changeDurryColorOnMissionComplete)
+        {
+            RecoverDurry();
+        }
 
         UpdateUI(
             $"미션 완료!\n보송력 +{rewardBosongPower}",
