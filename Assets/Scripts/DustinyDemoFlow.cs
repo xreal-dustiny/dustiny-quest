@@ -4,6 +4,15 @@ using TMPro;
 
 public class DustinyDemoFlow : MonoBehaviour
 {
+    public enum DustinyPage
+    {
+        None,
+        Note,
+        Shop,
+        MyPage,
+        Menu
+    }
+
     [Header("XR Reference")]
     public Transform centerEyeAnchor;
 
@@ -16,29 +25,128 @@ public class DustinyDemoFlow : MonoBehaviour
     [Header("View Locked UI")]
     public Transform uiRoot;             // CenterEyeAnchor 아래의 UIRoot 넣기. 비워두면 WorldCanvas의 부모를 자동 사용.
     public bool lockUIToUserView = true;
-    public bool forceUIRootUnderCenterEye = true;
+    public bool forceUIRootUnderCenterEye = false;
 
     // UIRoot가 CenterEyeAnchor의 자식일 때의 로컬 위치.
     // z: 눈앞 거리, y: 시야 안에서 위/아래 위치. y를 더 음수로 하면 더 아래로 내려감.
-    public Vector3 uiRootLocalPosition = new Vector3(0f, -0.45f, 1.15f);
+    public Vector3 uiRootLocalPosition = new Vector3(0f, -0.45f, 2f);
     public Vector3 uiRootLocalEuler = Vector3.zero;
     public float uiRootLocalScale = 1f;
 
     [Header("UI")]
+    [Tooltip("기존 호환용입니다. 가능하면 Speech Text / Description Text를 따로 연결해주세요.")]
     public TMP_Text questText;
     public TMP_Text bosongText;
 
+    [Header("Dialogue / Description Flow")]
+    public bool startOnboardingFlowOnStart = true;
+    public bool pinchAdvancesDialogue = true;
+    public float dialogueAdvanceCooldown = 0.25f;
+
+    [Tooltip("더리 대사가 들어가는 말풍선 오브젝트입니다. 예: WorldCanvas/SpeechBubble")]
+    public GameObject speechBubbleObject;
+    public TMP_Text speechText;
+
+    [Tooltip("게임 진행 방법/미션이 들어가는 설명창 오브젝트입니다. 예: WorldCanvas/Description")]
+    public GameObject descriptionObject;
+    public TMP_Text descriptionText;
+
+    [Header("Name Input")]
+    public TMP_InputField durryNameInputField;
+    public GameObject durryNameInputObject;
+    public string defaultDurryName = "더리";
+    public string durryName = "더리";
+    public bool showNameInputWithNameQuestion = false;
+
+    [Header("Onboarding Script")]
+    [TextArea(2, 4)] public string introSpeech = "난 누구지...\n여긴 어디?";
+    [TextArea(2, 5)] public string firstMissionDescription = "미션\n더리 주변의 어질러진 물건 3개를 정리해줘.\n정리가 끝나면 오른손 약지 핀치로 완료해줘.";
+    [TextArea(2, 5)] public string nameQuestionSpeech = "그래! 난 더리랜드에서 온 청소 요정이었어!\n나에게 이름을 지어줄래?";
+    [TextArea(2, 4)] public string namedDescriptionFormat = "{0}(이)라는 이름을 지어줬다!";
+    [TextArea(2, 4)] public string finalSpeechFormat = "앞으로 잘 부탁해!\n나는 {0}(이)야.";
+
     [Header("Speech Bubble Placement")]
     public RectTransform speechBubbleRect;                 // 말풍선 Bubble Rect. 비워두면 QuestText 부모에서 자동 탐색.
-    public bool keepSpeechBubbleBelowView = true;          // true면 말풍선을 사용자 시야 아래쪽에 계속 고정.
-    public Vector2 speechBubbleAnchoredPosition = new Vector2(0f, -260f);
+    public bool keepSpeechBubbleBelowView = false;          // true면 말풍선을 사용자 시야 아래쪽에 계속 고정.
+    public Vector2 speechBubbleAnchoredPosition = new Vector2(0f, -1100f);
     public bool forceSpeechBubbleCenterAnchor = true;
 
+    [Header("Description Placement")]
+    public RectTransform descriptionRect;
+    public bool keepDescriptionBelowView = true;
+    public Vector2 descriptionAnchoredPosition = new Vector2(0f, -1100f);
+    public bool forceDescriptionCenterAnchor = true;
+
+    [Header("Navigation Bar Placement")]
+    [Tooltip("항상 사용자 시야 아래에 붙일 네비게이션 바 오브젝트입니다. 예: WorldCanvas/menuPanel 또는 WorldCanvas/NavigationBar")]
+    public GameObject navigationBarObject;
+    public RectTransform navigationBarRect;
+    public bool navigationBarStartsVisible = true;
+    public bool keepNavigationBarBelowView = true;
+    public Vector2 navigationBarAnchoredPosition = new Vector2(0f, -430f);
+    public bool forceNavigationBarCenterAnchor = true;
+
+    [Tooltip("true로 켜면 코드가 네비게이션 바 크기를 고정합니다. Figma에서 만든 크기를 유지하고 싶으면 false로 두세요.")]
+    public bool applyNavigationBarSize = false;
+    public Vector2 navigationBarSize = new Vector2(900f, 170f);
+
+
+    [Header("Navigation Bar Buttons")]
+    [Tooltip("비워두면 NavigationBar 아래에서 이름으로 자동 탐색합니다.")]
+    public Button durryNoteButton;
+    public Button shopButton;
+    public Button myPageButton;
+    public Button menuButton;
+    public bool autoConnectNavigationButtons = true;
+
+    [Header("Big Note / Page Panels")]
+    [Tooltip("하단바를 눌렀을 때 펼쳐질 큰 노트 전체 Root입니다. 예: WorldCanvas/BigNoteRoot 또는 WorldCanvas/Viewpoint")]
+    public GameObject bigNoteRoot;
+    public RectTransform bigNoteRect;
+    public bool bigNoteStartsOpen = false;
+    public DustinyPage startBigNotePage = DustinyPage.Note;
+    public bool keepBigNoteInView = true;
+    public Vector2 bigNoteAnchoredPosition = new Vector2(0f, -40f);
+    public bool forceBigNoteCenterAnchor = true;
+    public bool applyBigNoteSize = false;
+    public Vector2 bigNoteSize = new Vector2(1100f, 800f);
+    public bool hideDialogueWhenBigNoteOpens = true;
+    public bool hideNavigationBarWhenBigNoteOpen = false;
+
+    [Tooltip("NOTE 화면 패널입니다. 큰 노트 배경 안쪽의 내용 오브젝트만 넣어도 됩니다.")]
+    public GameObject notePageObject;
+    [Tooltip("SHOP 화면 패널입니다.")]
+    public GameObject shopPageObject;
+    [Tooltip("MY PAGE 화면 패널입니다.")]
+    public GameObject myPageObject;
+    [Tooltip("MENU 화면 패널입니다. 아직 없으면 비워둬도 됩니다.")]
+    public GameObject menuPageObject;
+
+    [Header("Big Note Side Tag Buttons")]
+    [Tooltip("큰 노트 오른쪽의 X 태그 버튼입니다.")]
+    public Button closePageButton;
+    public Button noteTagButton;
+    public Button shopTagButton;
+    public Button myPageTagButton;
+    public Button menuTagButton;
+    public bool autoConnectBigNoteButtons = true;
+
+    [Header("Big Note Tag Pop Out")]
+    public RectTransform closeTagRect;
+    public RectTransform noteTagRect;
+    public RectTransform shopTagRect;
+    public RectTransform myPageTagRect;
+    public RectTransform menuTagRect;
+    public bool popOutActiveTag = true;
+    public bool closeTagAlwaysPopped = true;
+    public float activeTagOffsetX = 35f;
+    public float inactiveTagOffsetX = 0f;
+
     [Header("Start / Summon")]
-    public bool summonDurryOnStart = false;
-    public bool summonDurryOnMissionStart = false;
+    public bool summonDurryOnStart = true;
+    public bool summonDurryOnMissionStart = true;
     public bool recenterOnTrigger = true;
-    public bool detachDurryAndScanZoneFromParent = true;
+    public bool detachDurryAndScanZoneFromParent = false;
 
     [Header("Input")]
     public bool allowControllerFallback = true;
@@ -98,32 +206,32 @@ public class DustinyDemoFlow : MonoBehaviour
     public Vector3 wristBandLocalScale = Vector3.one;
 
     [Header("Durry Fixed World Start")]
-    public bool useCurrentSceneDurryPositionOnStart = true;
+    public bool useCurrentSceneDurryPositionOnStart = false;
     public Vector3 durryStartWorldPosition = new Vector3(0f, -0.35f, 1.2f);
     public Vector3 durryStartWorldEuler = new Vector3(0f, 180f, 0f);
     public bool faceDurryToUserOnStart = true;
 
     [Header("Durry Summon Placement")]
-    public float durryDistance = 0.85f;
+    public float durryDistance = 2f;
     public float durrySideOffset = 0f;
-    public float durryHeightOffset = -0.25f;
+    public float durryHeightOffset = -1f;
 
     // 더리가 뒤를 보면 180, 정면을 보면 0으로 조절.
     public float durryYawOffset = 180f;
 
     [Header("Durry Size")]
     public float durryRootScale = 1.0f;
-    public float durryVisualScale = 0.9f;
+    public float durryVisualScale = 10f;
 
     [Header("Text Layout")]
     public bool applyTextLayout = true;
-    public float questTextY = 120f;
-    public float bosongTextY = -110f;
-    public float textWidth = 1300f;
+    public float questTextY = 360f;
+    public float bosongTextY = -360f;
+    public float textWidth = 1500f;
     public float questTextHeight = 180f;
-    public float bosongTextHeight = 120f;
-    public float questFontSize = 42f;
-    public float bosongFontSize = 34f;
+    public float bosongTextHeight = 140f;
+    public float questFontSize = 44f;
+    public float bosongFontSize = 38f;
 
     [Header("Visual Cleanup")]
     public bool removeTextShadow = true;
@@ -133,16 +241,33 @@ public class DustinyDemoFlow : MonoBehaviour
 
     [Header("Scan Zone Placement")]
     public bool moveScanZoneWhenDurrySummoned = true;
-    public float scanZoneDistance = 1.25f;
-    public float scanZoneHeightOffset = -0.65f;
+    public float scanZoneDistance = 1.7f;
+    public float scanZoneHeightOffset = -0.55f;
     public float scanZoneSize = 0.8f;
 
     [Header("Reward")]
-    public int rewardBosongPower = 15;
+    public int rewardBosongPower = 1;
     public bool changeDurryColorOnMissionComplete = false; // false면 약지 핀치로 미션 완료해도 더리 색은 그대로 유지.
 
     private int bosongPower = 0;
     private int step = 0;
+
+    private enum OnboardingState
+    {
+        IntroSpeech,
+        MissionDescription,
+        NameQuestionSpeech,
+        NamedDescription,
+        FinalSpeech,
+        Finished
+    }
+
+    private OnboardingState onboardingState = OnboardingState.IntroSpeech;
+    private bool onboardingActive = false;
+    private float lastDialogueAdvanceTime = -999f;
+
+    private SpeechBubbleAutoSize speechAutoSize;
+    private SpeechBubbleAutoSize descriptionAutoSize;
 
     private bool wasTriggerPressed = false;
 
@@ -160,6 +285,15 @@ public class DustinyDemoFlow : MonoBehaviour
     private float lastWristBandTouchToggleTime = -999f;
     private bool wristBandTouchLockedUntilRelease = false;
 
+    private DustinyPage currentBigNotePage = DustinyPage.None;
+    private bool bigNoteOpen = false;
+    private bool bigNoteTagBasePositionsSaved = false;
+    private Vector2 closeTagBasePosition;
+    private Vector2 noteTagBasePosition;
+    private Vector2 shopTagBasePosition;
+    private Vector2 myPageTagBasePosition;
+    private Vector2 menuTagBasePosition;
+
     private Renderer[] durryRenderers;
     private Renderer scanZoneRenderer;
     private Material[] durryRuntimeMaterials;
@@ -172,9 +306,25 @@ public class DustinyDemoFlow : MonoBehaviour
         ResolveUIRoot();
         SetupDurry();
         SetupScanZone();
+        ResolveDialogueReferences();
+        ResolveNavigationReferences();
+        ResolveNavigationButtons();
+        ConnectNavigationButtonEvents();
+        ResolveBigNoteReferences();
+        ResolveBigNoteButtons();
+        ConnectBigNoteButtonEvents();
         SetupWorldCanvas();
         SetupHandTrackingUI();
 
+        SetNavigationBarVisible(navigationBarStartsVisible);
+        if (bigNoteStartsOpen)
+        {
+            OpenBigNotePage(startBigNotePage);
+        }
+        else
+        {
+            SetBigNoteVisible(false);
+        }
         PlaceDurryAtStartWorldPosition();
 
         if (summonDurryOnStart)
@@ -184,11 +334,22 @@ public class DustinyDemoFlow : MonoBehaviour
 
         UpdateViewLockedUI(true);
         UpdateSpeechBubblePlacement();
+        UpdateDescriptionPlacement();
+        UpdateNavigationBarPlacement();
+        UpdateBigNotePlacement();
 
-        UpdateUI(
-            "오른손 검지 핀치: 더리 부르기\n오른손 중지 핀치: 미션 시작\n오른손 검지로 왼쪽 손목 밴드 터치: 상태창",
-            "보송력 0"
-        );
+        if (startOnboardingFlowOnStart)
+        {
+            BeginOnboardingFlow();
+        }
+        else
+        {
+            HideDialoguePanels();
+            UpdateUI(
+                "오른손 검지 핀치: 더리 부르기\n오른손 중지 핀치: 미션 시작\n오른손 검지로 왼쪽 손목 밴드 터치: 상태창",
+                "보송력 0"
+            );
+        }
     }
 
     private void Update()
@@ -202,6 +363,9 @@ public class DustinyDemoFlow : MonoBehaviour
         // 더리와 스캔존은 여기서 따라오지 않는다.
         UpdateViewLockedUI(false);
         UpdateSpeechBubblePlacement();
+        UpdateDescriptionPlacement();
+        UpdateNavigationBarPlacement();
+        UpdateBigNotePlacement();
 
         if (useHandTracking)
         {
@@ -225,7 +389,14 @@ public class DustinyDemoFlow : MonoBehaviour
             // Quest 오른손 검지 Trigger: 더리를 현재 시야 앞으로 소환한다.
             if (GetRightTriggerDown())
             {
-                OnPressTrigger();
+                if (onboardingActive && pinchAdvancesDialogue)
+                {
+                    AdvanceOnboardingFlow();
+                }
+                else
+                {
+                    OnPressTrigger();
+                }
             }
         }
 
@@ -236,6 +407,529 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
+    private void ResolveNavigationReferences()
+    {
+        Transform searchRoot = worldCanvas != null ? worldCanvas.transform : transform;
+
+        if (navigationBarObject == null)
+        {
+            Transform foundNavigation = FindChildTransformContainsAll(searchRoot, "navigation", "bar");
+
+            if (foundNavigation == null)
+            {
+                foundNavigation = FindChildTransformContains(searchRoot, "navbar");
+            }
+
+            if (foundNavigation == null)
+            {
+                foundNavigation = FindChildTransformContains(searchRoot, "nav");
+            }
+
+            // 현재 씬 스크린샷 기준 이름이 menuPanel이라서 예비로 찾는다.
+            if (foundNavigation == null)
+            {
+                foundNavigation = FindChildTransformContains(searchRoot, "menupanel");
+            }
+
+            if (foundNavigation != null)
+            {
+                navigationBarObject = foundNavigation.gameObject;
+            }
+        }
+
+        if (navigationBarRect == null && navigationBarObject != null)
+        {
+            navigationBarRect = navigationBarObject.GetComponent<RectTransform>();
+        }
+    }
+
+    private RectTransform ResolveNavigationBarRect()
+    {
+        if (navigationBarRect != null)
+        {
+            return navigationBarRect;
+        }
+
+        ResolveNavigationReferences();
+        return navigationBarRect;
+    }
+
+    private void UpdateNavigationBarPlacement()
+    {
+        if (!keepNavigationBarBelowView)
+        {
+            return;
+        }
+
+        RectTransform rect = ResolveNavigationBarRect();
+
+        if (rect == null)
+        {
+            return;
+        }
+
+        if (forceNavigationBarCenterAnchor)
+        {
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+        }
+
+        rect.anchoredPosition = navigationBarAnchoredPosition;
+
+        if (applyNavigationBarSize && navigationBarSize.x > 0f && navigationBarSize.y > 0f)
+        {
+            rect.sizeDelta = navigationBarSize;
+        }
+    }
+
+
+    private void ResolveNavigationButtons()
+    {
+        Transform searchRoot = navigationBarObject != null
+            ? navigationBarObject.transform
+            : (worldCanvas != null ? worldCanvas.transform : transform);
+
+        if (durryNoteButton == null)
+        {
+            durryNoteButton = FindButtonByKeywords(searchRoot, "durry", "note");
+
+            // 이미지 파일명이 Dury Note처럼 r이 하나인 경우도 있어서 예비 검색.
+            if (durryNoteButton == null)
+            {
+                durryNoteButton = FindButtonByKeywords(searchRoot, "dury", "note");
+            }
+        }
+
+        if (shopButton == null)
+        {
+            shopButton = FindButtonByKeywords(searchRoot, "shop");
+        }
+
+        if (myPageButton == null)
+        {
+            myPageButton = FindButtonByKeywords(searchRoot, "my", "page");
+
+            if (myPageButton == null)
+            {
+                myPageButton = FindButtonByKeywords(searchRoot, "mypage");
+            }
+        }
+
+        if (menuButton == null)
+        {
+            menuButton = FindButtonByKeywords(searchRoot, "menu");
+        }
+    }
+
+    private Button FindButtonByKeywords(Transform root, params string[] keywords)
+    {
+        Transform found = FindChildTransformContainsAll(root, keywords);
+        if (found == null)
+        {
+            return null;
+        }
+
+        Button directButton = found.GetComponent<Button>();
+        if (directButton != null)
+        {
+            return directButton;
+        }
+
+        return found.GetComponentInChildren<Button>(true);
+    }
+
+    private void ConnectNavigationButtonEvents()
+    {
+        if (!autoConnectNavigationButtons)
+        {
+            return;
+        }
+
+        ResolveNavigationButtons();
+
+        ConnectButtonClick(durryNoteButton, OnDurryNoteButtonClicked);
+        ConnectButtonClick(shopButton, OnShopButtonClicked);
+        ConnectButtonClick(myPageButton, OnMyPageButtonClicked);
+        ConnectButtonClick(menuButton, OnMenuButtonClicked);
+    }
+
+    private void ConnectButtonClick(Button button, UnityEngine.Events.UnityAction action)
+    {
+        if (button == null || action == null)
+        {
+            return;
+        }
+
+        button.onClick.RemoveListener(action);
+        button.onClick.AddListener(action);
+    }
+
+    public void SetNavigationBarVisible(bool visible)
+    {
+        ResolveNavigationReferences();
+
+        if (navigationBarObject != null)
+        {
+            navigationBarObject.SetActive(visible);
+        }
+    }
+
+    public void ShowNavigationBar()
+    {
+        SetNavigationBarVisible(true);
+    }
+
+    public void HideNavigationBar()
+    {
+        SetNavigationBarVisible(false);
+    }
+
+    public void ToggleNavigationBar()
+    {
+        ResolveNavigationReferences();
+
+        if (navigationBarObject != null)
+        {
+            navigationBarObject.SetActive(!navigationBarObject.activeSelf);
+        }
+    }
+
+    // 네비게이션 바 버튼 OnClick에 바로 연결할 수 있는 함수들.
+    // 하단바 버튼을 누르거나 핀치하면 큰 노트 Root가 펼쳐지고, 해당 페이지와 태그가 활성화된다.
+    public void OnDurryNoteButtonClicked()
+    {
+        OpenNotePage();
+    }
+
+    public void OnShopButtonClicked()
+    {
+        OpenShopPage();
+    }
+
+    public void OnMyPageButtonClicked()
+    {
+        OpenMyPage();
+    }
+
+    public void OnMenuButtonClicked()
+    {
+        OpenMenuPage();
+    }
+
+    public void OpenNotePage()
+    {
+        OpenBigNotePage(DustinyPage.Note);
+    }
+
+    public void OpenShopPage()
+    {
+        OpenBigNotePage(DustinyPage.Shop);
+    }
+
+    public void OpenMyPage()
+    {
+        OpenBigNotePage(DustinyPage.MyPage);
+    }
+
+    public void OpenMenuPage()
+    {
+        // 메뉴 페이지를 아직 만들지 않았다면 NOTE 페이지로 열어두고, 나중에 menuPageObject만 연결하면 된다.
+        if (menuPageObject != null)
+        {
+            OpenBigNotePage(DustinyPage.Menu);
+        }
+        else
+        {
+            OpenBigNotePage(DustinyPage.Note);
+        }
+    }
+
+    public void CloseBigNote()
+    {
+        SetBigNoteVisible(false);
+        currentBigNotePage = DustinyPage.None;
+        UpdateBigNoteTags();
+    }
+
+    private void ResolveBigNoteReferences()
+    {
+        Transform searchRoot = worldCanvas != null ? worldCanvas.transform : transform;
+
+        if (bigNoteRoot == null)
+        {
+            Transform found = FindChildTransformContainsAll(searchRoot, "big", "note");
+
+            if (found == null)
+            {
+                found = FindChildTransformContains(searchRoot, "viewpoint");
+            }
+
+            if (found == null)
+            {
+                found = FindChildTransformContainsAll(searchRoot, "page", "root");
+            }
+
+            if (found != null)
+            {
+                bigNoteRoot = found.gameObject;
+            }
+        }
+
+        if (bigNoteRect == null && bigNoteRoot != null)
+        {
+            bigNoteRect = bigNoteRoot.GetComponent<RectTransform>();
+        }
+
+        Transform pageRoot = bigNoteRoot != null ? bigNoteRoot.transform : searchRoot;
+
+        if (notePageObject == null)
+        {
+            Transform foundNote = FindChildTransformContainsAll(pageRoot, "note", "page");
+            if (foundNote == null)
+            {
+                foundNote = FindChildTransformContains(pageRoot, "notepanel");
+            }
+            if (foundNote != null && (bigNoteRoot == null || foundNote != bigNoteRoot.transform))
+            {
+                notePageObject = foundNote.gameObject;
+            }
+        }
+
+        if (shopPageObject == null)
+        {
+            Transform foundShop = FindChildTransformContainsAll(pageRoot, "shop", "page");
+            if (foundShop == null)
+            {
+                foundShop = FindChildTransformContains(pageRoot, "shoppanel");
+            }
+            if (foundShop != null && (bigNoteRoot == null || foundShop != bigNoteRoot.transform))
+            {
+                shopPageObject = foundShop.gameObject;
+            }
+        }
+
+        if (myPageObject == null)
+        {
+            Transform foundMyPage = FindChildTransformContainsAll(pageRoot, "my", "page");
+            if (foundMyPage == null)
+            {
+                foundMyPage = FindChildTransformContains(pageRoot, "mypagepanel");
+            }
+            if (foundMyPage != null && (bigNoteRoot == null || foundMyPage != bigNoteRoot.transform))
+            {
+                myPageObject = foundMyPage.gameObject;
+            }
+        }
+
+        if (menuPageObject == null)
+        {
+            Transform foundMenu = FindChildTransformContainsAll(pageRoot, "menu", "page");
+            if (foundMenu == null)
+            {
+                foundMenu = FindChildTransformContains(pageRoot, "menupanel");
+            }
+            if (foundMenu != null && (bigNoteRoot == null || foundMenu != bigNoteRoot.transform) && foundMenu.gameObject != navigationBarObject)
+            {
+                menuPageObject = foundMenu.gameObject;
+            }
+        }
+    }
+
+    private void ResolveBigNoteButtons()
+    {
+        ResolveBigNoteReferences();
+
+        Transform pageRoot = bigNoteRoot != null ? bigNoteRoot.transform : (worldCanvas != null ? worldCanvas.transform : transform);
+
+        if (closePageButton == null)
+        {
+            closePageButton = FindButtonByKeywords(pageRoot, "close");
+            if (closePageButton == null)
+            {
+                closePageButton = FindButtonByKeywords(pageRoot, "x");
+            }
+        }
+
+        if (noteTagButton == null)
+        {
+            noteTagButton = FindButtonByKeywords(pageRoot, "note");
+        }
+
+        if (shopTagButton == null)
+        {
+            shopTagButton = FindButtonByKeywords(pageRoot, "shop");
+        }
+
+        if (myPageTagButton == null)
+        {
+            myPageTagButton = FindButtonByKeywords(pageRoot, "my", "page");
+            if (myPageTagButton == null)
+            {
+                myPageTagButton = FindButtonByKeywords(pageRoot, "mypage");
+            }
+        }
+
+        if (menuTagButton == null)
+        {
+            menuTagButton = FindButtonByKeywords(pageRoot, "menu");
+        }
+
+        if (closeTagRect == null && closePageButton != null) closeTagRect = closePageButton.GetComponent<RectTransform>();
+        if (noteTagRect == null && noteTagButton != null) noteTagRect = noteTagButton.GetComponent<RectTransform>();
+        if (shopTagRect == null && shopTagButton != null) shopTagRect = shopTagButton.GetComponent<RectTransform>();
+        if (myPageTagRect == null && myPageTagButton != null) myPageTagRect = myPageTagButton.GetComponent<RectTransform>();
+        if (menuTagRect == null && menuTagButton != null) menuTagRect = menuTagButton.GetComponent<RectTransform>();
+
+        SaveBigNoteTagBasePositions();
+    }
+
+    private void ConnectBigNoteButtonEvents()
+    {
+        if (!autoConnectBigNoteButtons)
+        {
+            return;
+        }
+
+        ResolveBigNoteButtons();
+
+        ConnectButtonClick(closePageButton, CloseBigNote);
+        ConnectButtonClick(noteTagButton, OpenNotePage);
+        ConnectButtonClick(shopTagButton, OpenShopPage);
+        ConnectButtonClick(myPageTagButton, OpenMyPage);
+        ConnectButtonClick(menuTagButton, OpenMenuPage);
+    }
+
+    private void UpdateBigNotePlacement()
+    {
+        if (!keepBigNoteInView)
+        {
+            return;
+        }
+
+        ResolveBigNoteReferences();
+
+        if (bigNoteRect == null)
+        {
+            return;
+        }
+
+        if (forceBigNoteCenterAnchor)
+        {
+            bigNoteRect.anchorMin = new Vector2(0.5f, 0.5f);
+            bigNoteRect.anchorMax = new Vector2(0.5f, 0.5f);
+            bigNoteRect.pivot = new Vector2(0.5f, 0.5f);
+        }
+
+        bigNoteRect.anchoredPosition = bigNoteAnchoredPosition;
+
+        if (applyBigNoteSize && bigNoteSize.x > 0f && bigNoteSize.y > 0f)
+        {
+            bigNoteRect.sizeDelta = bigNoteSize;
+        }
+    }
+
+    private void SetBigNoteVisible(bool visible)
+    {
+        ResolveBigNoteReferences();
+
+        bigNoteOpen = visible;
+
+        if (bigNoteRoot != null)
+        {
+            bigNoteRoot.SetActive(visible);
+        }
+
+        if (hideNavigationBarWhenBigNoteOpen)
+        {
+            SetNavigationBarVisible(!visible && navigationBarStartsVisible);
+        }
+    }
+
+    private void OpenBigNotePage(DustinyPage page)
+    {
+        if (page == DustinyPage.None)
+        {
+            CloseBigNote();
+            return;
+        }
+
+        ResolveBigNoteReferences();
+        ResolveBigNoteButtons();
+
+        currentBigNotePage = page;
+        SetBigNoteVisible(true);
+
+        if (hideDialogueWhenBigNoteOpens)
+        {
+            HideDialoguePanels();
+        }
+
+        SetPageObjectVisible(notePageObject, page == DustinyPage.Note);
+        SetPageObjectVisible(shopPageObject, page == DustinyPage.Shop);
+        SetPageObjectVisible(myPageObject, page == DustinyPage.MyPage);
+        SetPageObjectVisible(menuPageObject, page == DustinyPage.Menu);
+
+        UpdateBigNoteTags();
+        UpdateBigNotePlacement();
+
+        Debug.Log($"Big note page opened: {page}");
+    }
+
+    private void SetPageObjectVisible(GameObject pageObject, bool visible)
+    {
+        if (pageObject != null)
+        {
+            pageObject.SetActive(visible);
+        }
+    }
+
+    private void SaveBigNoteTagBasePositions()
+    {
+        if (bigNoteTagBasePositionsSaved)
+        {
+            return;
+        }
+
+        if (closeTagRect != null) closeTagBasePosition = closeTagRect.anchoredPosition;
+        if (noteTagRect != null) noteTagBasePosition = noteTagRect.anchoredPosition;
+        if (shopTagRect != null) shopTagBasePosition = shopTagRect.anchoredPosition;
+        if (myPageTagRect != null) myPageTagBasePosition = myPageTagRect.anchoredPosition;
+        if (menuTagRect != null) menuTagBasePosition = menuTagRect.anchoredPosition;
+
+        bigNoteTagBasePositionsSaved = true;
+    }
+
+    private void UpdateBigNoteTags()
+    {
+        if (!popOutActiveTag)
+        {
+            return;
+        }
+
+        ResolveBigNoteButtons();
+        SaveBigNoteTagBasePositions();
+
+        bool isOpen = bigNoteOpen && bigNoteRoot != null && bigNoteRoot.activeSelf;
+
+        SetTagPopped(closeTagRect, closeTagBasePosition, isOpen && closeTagAlwaysPopped);
+        SetTagPopped(noteTagRect, noteTagBasePosition, isOpen && currentBigNotePage == DustinyPage.Note);
+        SetTagPopped(shopTagRect, shopTagBasePosition, isOpen && currentBigNotePage == DustinyPage.Shop);
+        SetTagPopped(myPageTagRect, myPageTagBasePosition, isOpen && currentBigNotePage == DustinyPage.MyPage);
+        SetTagPopped(menuTagRect, menuTagBasePosition, isOpen && currentBigNotePage == DustinyPage.Menu);
+    }
+
+    private void SetTagPopped(RectTransform tagRect, Vector2 basePosition, bool popped)
+    {
+        if (tagRect == null)
+        {
+            return;
+        }
+
+        float offset = popped ? activeTagOffsetX : inactiveTagOffsetX;
+        tagRect.anchoredPosition = basePosition + new Vector2(offset, 0f);
+    }
+
     private void SetupHandTrackingUI()
     {
         statusWindowOpen = statusWindowStartsOpen;
@@ -244,24 +938,379 @@ public class DustinyDemoFlow : MonoBehaviour
         UpdateWristBandVisual();
     }
 
+    private void ResolveDialogueReferences()
+    {
+        Transform searchRoot = worldCanvas != null ? worldCanvas.transform : transform;
+
+        if (speechBubbleObject == null)
+        {
+            Transform foundSpeech = FindChildTransformContainsAll(searchRoot, "speech", "bubble");
+            if (foundSpeech == null)
+            {
+                foundSpeech = FindChildTransformContains(searchRoot, "speechbubble");
+            }
+            if (foundSpeech != null)
+            {
+                speechBubbleObject = foundSpeech.gameObject;
+            }
+        }
+
+        if (descriptionObject == null)
+        {
+            Transform foundDescription = FindChildTransformContains(searchRoot, "description");
+            if (foundDescription != null)
+            {
+                descriptionObject = foundDescription.gameObject;
+            }
+        }
+
+        if (speechText == null && speechBubbleObject != null)
+        {
+            speechText = speechBubbleObject.GetComponentInChildren<TMP_Text>(true);
+        }
+
+        if (descriptionText == null && descriptionObject != null)
+        {
+            descriptionText = descriptionObject.GetComponentInChildren<TMP_Text>(true);
+        }
+
+        if (speechText == null && questText != null)
+        {
+            speechText = questText;
+        }
+
+        if (questText == null && speechText != null)
+        {
+            questText = speechText;
+        }
+
+        if (speechBubbleRect == null && speechBubbleObject != null)
+        {
+            speechBubbleRect = speechBubbleObject.GetComponent<RectTransform>();
+        }
+
+        if (descriptionRect == null && descriptionObject != null)
+        {
+            descriptionRect = descriptionObject.GetComponent<RectTransform>();
+        }
+
+        speechAutoSize = speechBubbleObject != null ? speechBubbleObject.GetComponent<SpeechBubbleAutoSize>() : null;
+        descriptionAutoSize = descriptionObject != null ? descriptionObject.GetComponent<SpeechBubbleAutoSize>() : null;
+
+        if (speechAutoSize != null && speechText != null)
+        {
+            speechAutoSize.questText = speechText;
+            if (speechAutoSize.textRect == null)
+            {
+                speechAutoSize.textRect = speechText.GetComponent<RectTransform>();
+            }
+            if (speechAutoSize.bubbleRect == null && speechBubbleRect != null)
+            {
+                speechAutoSize.bubbleRect = speechBubbleRect;
+            }
+        }
+
+        if (descriptionAutoSize != null && descriptionText != null)
+        {
+            descriptionAutoSize.questText = descriptionText;
+            if (descriptionAutoSize.textRect == null)
+            {
+                descriptionAutoSize.textRect = descriptionText.GetComponent<RectTransform>();
+            }
+            if (descriptionAutoSize.bubbleRect == null && descriptionRect != null)
+            {
+                descriptionAutoSize.bubbleRect = descriptionRect;
+            }
+        }
+
+        if (durryNameInputObject == null && durryNameInputField != null)
+        {
+            durryNameInputObject = durryNameInputField.gameObject;
+        }
+
+        if (durryNameInputField != null)
+        {
+            durryNameInputField.text = "";
+            durryNameInputField.onSubmit.RemoveListener(OnNameInputSubmitted);
+            durryNameInputField.onSubmit.AddListener(OnNameInputSubmitted);
+        }
+
+        SetNameInputVisible(false);
+    }
+
+    private void BeginOnboardingFlow()
+    {
+        onboardingActive = true;
+        onboardingState = OnboardingState.IntroSpeech;
+        step = 0;
+        durryName = string.IsNullOrWhiteSpace(durryName) ? defaultDurryName : durryName;
+
+        if (scanZoneObject != null)
+        {
+            scanZoneObject.SetActive(false);
+        }
+
+        ShowSpeech(introSpeech);
+        UpdateBosongText();
+    }
+
+    private void AdvanceOnboardingFlow()
+    {
+        if (Time.time - lastDialogueAdvanceTime < dialogueAdvanceCooldown)
+        {
+            return;
+        }
+        lastDialogueAdvanceTime = Time.time;
+
+        if (!onboardingActive)
+        {
+            return;
+        }
+
+        switch (onboardingState)
+        {
+            case OnboardingState.IntroSpeech:
+                StartFirstMissionDescription();
+                break;
+
+            case OnboardingState.MissionDescription:
+                // 미션 설명 상태에서는 핀치로 대사를 넘기지 않는다.
+                // 실제 정리가 끝났다는 입력은 오른손 약지 핀치 또는 B 버튼으로 받는다.
+                break;
+
+            case OnboardingState.NameQuestionSpeech:
+                ConfirmDurryNameAndShowDescription();
+                break;
+
+            case OnboardingState.NamedDescription:
+                ShowFinalSpeech();
+                break;
+
+            case OnboardingState.FinalSpeech:
+                FinishOnboardingFlow();
+                break;
+        }
+    }
+
+    private void StartFirstMissionDescription()
+    {
+        onboardingState = OnboardingState.MissionDescription;
+        step = 1;
+
+        if (summonDurryOnMissionStart)
+        {
+            SummonDurryToUser();
+        }
+
+        if (scanZoneObject != null)
+        {
+            scanZoneObject.SetActive(true);
+        }
+
+        ShowDescription(firstMissionDescription);
+        UpdateBosongText();
+    }
+
+    private void ShowNameQuestionSpeech()
+    {
+        onboardingState = OnboardingState.NameQuestionSpeech;
+        ShowSpeech(nameQuestionSpeech);
+
+        if (showNameInputWithNameQuestion)
+        {
+            SetNameInputVisible(true);
+            if (durryNameInputField != null)
+            {
+                durryNameInputField.text = "";
+                durryNameInputField.ActivateInputField();
+            }
+        }
+    }
+
+    private void OnNameInputSubmitted(string submittedName)
+    {
+        if (!onboardingActive || onboardingState != OnboardingState.NameQuestionSpeech)
+        {
+            return;
+        }
+
+        ConfirmDurryNameAndShowDescription(submittedName);
+    }
+
+    // 나중에 무료 STT나 Meta Voice SDK를 붙이면, 인식 결과 문자열을 이 함수로 넘기면 된다.
+    public void SetDurryNameFromVoice(string recognizedName)
+    {
+        if (!onboardingActive || onboardingState != OnboardingState.NameQuestionSpeech)
+        {
+            return;
+        }
+
+        ConfirmDurryNameAndShowDescription(recognizedName);
+    }
+
+    private void ConfirmDurryNameAndShowDescription(string inputName = null)
+    {
+        string rawName = inputName;
+
+        if (string.IsNullOrWhiteSpace(rawName) && durryNameInputField != null)
+        {
+            rawName = durryNameInputField.text;
+        }
+
+        if (string.IsNullOrWhiteSpace(rawName))
+        {
+            rawName = defaultDurryName;
+        }
+
+        durryName = rawName.Trim();
+        if (string.IsNullOrWhiteSpace(durryName))
+        {
+            durryName = defaultDurryName;
+        }
+
+        SetNameInputVisible(false);
+        onboardingState = OnboardingState.NamedDescription;
+        ShowDescription(string.Format(namedDescriptionFormat, durryName));
+        UpdateBosongText();
+    }
+
+    private void ShowFinalSpeech()
+    {
+        onboardingState = OnboardingState.FinalSpeech;
+        ShowSpeech(string.Format(finalSpeechFormat, durryName));
+    }
+
+    private void FinishOnboardingFlow()
+    {
+        onboardingActive = false;
+        onboardingState = OnboardingState.Finished;
+        SetNameInputVisible(false);
+        HideDialoguePanels();
+        UpdateUI(
+            "오른손 검지 핀치: 더리 부르기\n오른손 중지 핀치: 미션 시작\n오른손 검지로 왼쪽 손목 밴드 터치: 상태창",
+            $"보송력 {bosongPower}"
+        );
+    }
+
+    private void ShowSpeech(string message)
+    {
+        ResolveDialogueReferences();
+        SetSpeechVisible(true);
+        SetDescriptionVisible(false);
+
+        if (speechText != null)
+        {
+            speechText.text = message;
+        }
+
+        if (speechAutoSize != null)
+        {
+            speechAutoSize.SetText(message);
+            speechAutoSize.ResizeBubble();
+        }
+
+        UpdateSpeechBubblePlacement();
+    }
+
+    private void ShowDescription(string message)
+    {
+        ResolveDialogueReferences();
+        SetSpeechVisible(false);
+        SetDescriptionVisible(true);
+        SetNameInputVisible(false);
+
+        if (descriptionText != null)
+        {
+            descriptionText.text = message;
+        }
+        else if (questText != null && speechText == null)
+        {
+            questText.text = message;
+        }
+
+        if (descriptionAutoSize != null)
+        {
+            descriptionAutoSize.SetText(message);
+            descriptionAutoSize.ResizeBubble();
+        }
+
+        UpdateDescriptionPlacement();
+    }
+
+    private void HideDialoguePanels()
+    {
+        SetSpeechVisible(false);
+        SetDescriptionVisible(false);
+        SetNameInputVisible(false);
+    }
+
+    private void SetSpeechVisible(bool visible)
+    {
+        if (speechBubbleObject != null)
+        {
+            speechBubbleObject.SetActive(visible);
+        }
+        else if (speechText != null)
+        {
+            speechText.gameObject.SetActive(visible);
+        }
+    }
+
+    private void SetDescriptionVisible(bool visible)
+    {
+        if (descriptionObject != null)
+        {
+            descriptionObject.SetActive(visible);
+        }
+        else if (descriptionText != null)
+        {
+            descriptionText.gameObject.SetActive(visible);
+        }
+    }
+
+    private void SetNameInputVisible(bool visible)
+    {
+        if (durryNameInputObject != null)
+        {
+            durryNameInputObject.SetActive(visible);
+        }
+        else if (durryNameInputField != null)
+        {
+            durryNameInputField.gameObject.SetActive(visible);
+        }
+    }
+
+    private void UpdateBosongText()
+    {
+        if (bosongText != null)
+        {
+            bosongText.text = $"보송력 {bosongPower}";
+        }
+    }
+
     private void UpdateHandTrackingInput()
     {
         UpdateWristBandVisual();
 
-        if (rightIndexPinchSummonsDurry &&
-            GetHandPinchDown(rightHand, OVRHand.HandFinger.Index, ref wasRightIndexPinching))
+        bool rightIndexPinchDown = GetHandPinchDown(rightHand, OVRHand.HandFinger.Index, ref wasRightIndexPinching);
+        bool rightMiddlePinchDown = GetHandPinchDown(rightHand, OVRHand.HandFinger.Middle, ref wasRightMiddlePinching);
+        bool rightRingPinchDown = GetHandPinchDown(rightHand, OVRHand.HandFinger.Ring, ref wasRightRingPinching);
+
+        if (pinchAdvancesDialogue && onboardingActive && rightIndexPinchDown)
+        {
+            AdvanceOnboardingFlow();
+        }
+        else if (rightIndexPinchSummonsDurry && rightIndexPinchDown)
         {
             OnPressTrigger();
         }
 
-        if (rightMiddlePinchStartsMission &&
-            GetHandPinchDown(rightHand, OVRHand.HandFinger.Middle, ref wasRightMiddlePinching))
+        if (rightMiddlePinchStartsMission && rightMiddlePinchDown)
         {
             OnPressA();
         }
 
-        if (rightRingPinchCompletesMission &&
-            GetHandPinchDown(rightHand, OVRHand.HandFinger.Ring, ref wasRightRingPinching))
+        if (rightRingPinchCompletesMission && rightRingPinchDown)
         {
             CompleteMission();
         }
@@ -820,6 +1869,8 @@ public class DustinyDemoFlow : MonoBehaviour
             if (removeTextShadow)
             {
                 RemoveTMPShadow(questText);
+                RemoveTMPShadow(speechText);
+                RemoveTMPShadow(descriptionText);
                 RemoveTMPShadow(bosongText);
             }
 
@@ -906,9 +1957,11 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private void ApplyTextLayout()
     {
-        ApplyTextRect(questText, questTextY, questTextHeight, questFontSize);
+        // 말풍선/디스크립션 크기와 내부 텍스트 위치는 SpeechBubbleAutoSize가 담당한다.
+        // 여기서는 상태 텍스트처럼 별도 패널에 있는 텍스트만 정리한다.
         ApplyTextRect(bosongText, bosongTextY, bosongTextHeight, bosongFontSize);
         UpdateSpeechBubblePlacement();
+        UpdateDescriptionPlacement();
     }
 
     private void UpdateSpeechBubblePlacement()
@@ -934,6 +1987,94 @@ public class DustinyDemoFlow : MonoBehaviour
         bubble.anchoredPosition = speechBubbleAnchoredPosition;
     }
 
+    private void UpdateDescriptionPlacement()
+    {
+        if (!keepDescriptionBelowView)
+        {
+            return;
+        }
+
+        RectTransform rect = ResolveDescriptionRect();
+        if (rect == null)
+        {
+            return;
+        }
+
+        if (forceDescriptionCenterAnchor)
+        {
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+        }
+
+        rect.anchoredPosition = descriptionAnchoredPosition;
+    }
+
+    private RectTransform ResolveDescriptionRect()
+    {
+        if (descriptionRect != null)
+        {
+            return descriptionRect;
+        }
+
+        if (descriptionObject != null)
+        {
+            descriptionRect = descriptionObject.GetComponent<RectTransform>();
+            if (descriptionRect != null)
+            {
+                return descriptionRect;
+            }
+        }
+
+        if (descriptionText == null)
+        {
+            return null;
+        }
+
+        SpeechBubbleAutoSize autoSize = descriptionText.GetComponentInParent<SpeechBubbleAutoSize>(true);
+        if (autoSize != null && autoSize.bubbleRect != null)
+        {
+            descriptionRect = autoSize.bubbleRect;
+            return descriptionRect;
+        }
+
+        Transform current = descriptionText.transform.parent;
+        while (current != null)
+        {
+            if (worldCanvas != null && current == worldCanvas.transform)
+            {
+                break;
+            }
+
+            RectTransform rect = current as RectTransform;
+            if (rect != null)
+            {
+                string lowerName = current.name.ToLowerInvariant();
+                bool looksLikeDescription =
+                    lowerName.Contains("description") ||
+                    lowerName.Contains("mission") ||
+                    lowerName.Contains("bubble") ||
+                    lowerName.Contains("panel") ||
+                    current.GetComponent<Image>() != null;
+
+                if (looksLikeDescription)
+                {
+                    descriptionRect = rect;
+                    return descriptionRect;
+                }
+            }
+
+            current = current.parent;
+        }
+
+        if (descriptionText.transform.parent is RectTransform parentRect)
+        {
+            descriptionRect = parentRect;
+        }
+
+        return descriptionRect;
+    }
+
     private RectTransform ResolveSpeechBubbleRect()
     {
         if (speechBubbleRect != null)
@@ -941,19 +2082,21 @@ public class DustinyDemoFlow : MonoBehaviour
             return speechBubbleRect;
         }
 
-        if (questText == null)
+        TMP_Text targetSpeechText = speechText != null ? speechText : questText;
+
+        if (targetSpeechText == null)
         {
             return null;
         }
 
-        SpeechBubbleAutoSize autoSize = questText.GetComponentInParent<SpeechBubbleAutoSize>(true);
+        SpeechBubbleAutoSize autoSize = targetSpeechText.GetComponentInParent<SpeechBubbleAutoSize>(true);
         if (autoSize != null && autoSize.bubbleRect != null)
         {
             speechBubbleRect = autoSize.bubbleRect;
             return speechBubbleRect;
         }
 
-        Transform current = questText.transform.parent;
+        Transform current = targetSpeechText.transform.parent;
 
         while (current != null)
         {
@@ -982,7 +2125,7 @@ public class DustinyDemoFlow : MonoBehaviour
             current = current.parent;
         }
 
-        if (questText.transform.parent is RectTransform parentRect)
+        if (targetSpeechText.transform.parent is RectTransform parentRect)
         {
             speechBubbleRect = parentRect;
         }
@@ -1062,6 +2205,13 @@ public class DustinyDemoFlow : MonoBehaviour
         foreach (Image image in images)
         {
             if (image == null) continue;
+
+            // 네비게이션 바는 항상 보여야 하므로 배경 투명화 대상에서 제외한다.
+            if (navigationBarObject != null &&
+                (image.transform == navigationBarObject.transform || image.transform.IsChildOf(navigationBarObject.transform)))
+            {
+                continue;
+            }
 
             string objectName = image.gameObject.name.ToLowerInvariant();
 
@@ -1152,6 +2302,12 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private void OnPressA()
     {
+        if (onboardingActive)
+        {
+            AdvanceOnboardingFlow();
+            return;
+        }
+
         Debug.Log("Mission start requested");
 
         step = 1;
@@ -1167,10 +2323,10 @@ public class DustinyDemoFlow : MonoBehaviour
             Debug.Log("ScanZone SetActive(true)");
         }
 
-        UpdateUI(
-            "미션 시작!\n더리 주변의 어질러진 물건 3개를 정리해줘.\n완료 테스트: 오른손 약지 핀치",
-            $"보송력 {bosongPower}"
+        ShowDescription(
+            "미션 시작!\n더리 주변의 어질러진 물건 3개를 정리해줘.\n완료 테스트: 오른손 약지 핀치"
         );
+        UpdateBosongText();
     }
 
     private void OnPressTrigger()
@@ -1212,10 +2368,16 @@ public class DustinyDemoFlow : MonoBehaviour
             RecoverDurry();
         }
 
-        UpdateUI(
-            $"미션 완료!\n보송력 +{rewardBosongPower}",
-            $"보송력 {bosongPower}"
-        );
+        UpdateBosongText();
+
+        if (onboardingActive && onboardingState == OnboardingState.MissionDescription)
+        {
+            ShowNameQuestionSpeech();
+        }
+        else
+        {
+            ShowDescription($"미션 완료!\n보송력 +{rewardBosongPower}");
+        }
     }
 
     private bool GetRightTriggerDown()
@@ -1264,7 +2426,11 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private void UpdateUI(string questMessage, string bosongMessage)
     {
-        if (questText != null)
+        if (descriptionText != null)
+        {
+            descriptionText.text = questMessage;
+        }
+        else if (questText != null)
         {
             questText.text = questMessage;
         }
@@ -1272,6 +2438,11 @@ public class DustinyDemoFlow : MonoBehaviour
         if (bosongText != null)
         {
             bosongText.text = bosongMessage;
+        }
+
+        if (descriptionAutoSize != null && descriptionText != null)
+        {
+            descriptionAutoSize.SetText(questMessage);
         }
 
         if (applyTextLayout)

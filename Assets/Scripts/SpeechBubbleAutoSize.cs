@@ -15,45 +15,64 @@ public class SpeechBubbleAutoSize : MonoBehaviour
     public Vector2 minBubbleSize = new Vector2(520f, 140f);
 
     [Header("Position Settings")]
-    public bool lockBubblePosition = true;                 // true면 말풍선 위치를 매 프레임 고정.
-    public Vector2 bubbleAnchoredPosition = new Vector2(0f, -260f); // y를 더 음수로 하면 더 아래로 내려감.
+    public bool lockBubblePosition = true;
+    public Vector2 bubbleAnchoredPosition = new Vector2(0f, -260f);
     public bool forceCenterAnchorAndPivot = true;
 
     private string lastText;
+    private Vector2 lastPreferredSize;
 
     private void Reset()
     {
-        bubbleRect = GetComponent<RectTransform>();
-        questText = GetComponentInChildren<TMP_Text>();
-
-        if (questText != null)
-            textRect = questText.GetComponent<RectTransform>();
+        AutoResolveReferences();
     }
 
     private void OnEnable()
     {
+        AutoResolveReferences();
+        ApplyBubblePosition();
+        ResizeBubble();
+    }
+
+    private void OnValidate()
+    {
+        AutoResolveReferences();
         ApplyBubblePosition();
         ResizeBubble();
     }
 
     private void LateUpdate()
     {
+        AutoResolveReferences();
         ApplyBubblePosition();
-
-        if (questText == null) return;
-
-        if (lastText != questText.text)
-        {
-            ResizeBubble();
-        }
+        ResizeBubbleIfNeeded();
     }
 
     public void SetText(string message)
     {
+        AutoResolveReferences();
         if (questText == null) return;
 
         questText.text = message;
         ResizeBubble();
+    }
+
+    private void AutoResolveReferences()
+    {
+        if (bubbleRect == null)
+        {
+            bubbleRect = GetComponent<RectTransform>();
+        }
+
+        if (questText == null)
+        {
+            questText = GetComponentInChildren<TMP_Text>(true);
+        }
+
+        if (textRect == null && questText != null)
+        {
+            textRect = questText.GetComponent<RectTransform>();
+        }
     }
 
     public void ApplyBubblePosition()
@@ -70,25 +89,44 @@ public class SpeechBubbleAutoSize : MonoBehaviour
         bubbleRect.anchoredPosition = bubbleAnchoredPosition;
     }
 
+    private void ResizeBubbleIfNeeded()
+    {
+        if (bubbleRect == null || textRect == null || questText == null) return;
+
+        questText.enableWordWrapping = true;
+        questText.ForceMeshUpdate();
+
+        Vector2 preferredSize = questText.GetPreferredValues(questText.text, maxTextWidth, 0f);
+        bool textChanged = lastText != questText.text;
+        bool sizeChanged = (preferredSize - lastPreferredSize).sqrMagnitude > 0.5f;
+
+        if (textChanged || sizeChanged)
+        {
+            ResizeBubble(preferredSize);
+        }
+    }
+
     public void ResizeBubble()
     {
         if (bubbleRect == null || textRect == null || questText == null) return;
 
-        ApplyBubblePosition();
-
         questText.enableWordWrapping = true;
-
         questText.ForceMeshUpdate();
 
-        Vector2 preferredSize = questText.GetPreferredValues(
-            questText.text,
-            maxTextWidth,
-            0
-        );
+        Vector2 preferredSize = questText.GetPreferredValues(questText.text, maxTextWidth, 0f);
+        ResizeBubble(preferredSize);
+    }
+
+    private void ResizeBubble(Vector2 preferredSize)
+    {
+        ApplyBubblePosition();
 
         float textWidth = Mathf.Min(preferredSize.x, maxTextWidth);
         float textHeight = preferredSize.y;
 
+        textRect.anchorMin = new Vector2(0.5f, 0.5f);
+        textRect.anchorMax = new Vector2(0.5f, 0.5f);
+        textRect.pivot = new Vector2(0.5f, 0.5f);
         textRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, textWidth);
         textRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, textHeight);
         textRect.anchoredPosition = Vector2.zero;
@@ -100,5 +138,6 @@ public class SpeechBubbleAutoSize : MonoBehaviour
         bubbleRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, bubbleHeight);
 
         lastText = questText.text;
+        lastPreferredSize = preferredSize;
     }
 }
