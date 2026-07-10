@@ -1,20 +1,22 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>
-/// Keeps the waist navigation coordinate system in front of the user's body/head yaw,
-/// while allowing a Meta Interaction SDK Grabbable child to be moved locally.
+/// Touch-only waist navigation follow controller for Dustiny.
 ///
-/// Recommended hierarchy:
+/// Recommended hierarchy after removing grab:
 /// MainMRScene
 /// └─ WaistFollowRoot                 <- attach this script here
-///    └─ WaistNavGrabbableRoot        <- ISDK Grabbable / HandGrabInteractable / DistanceGrab target
-///       └─ WaistNavCanvas            <- World Space Canvas + PointableCanvas + Ray/Poke Interactable
-///          └─ NavigationBar
+///    └─ WaistNavCanvas               <- World Space Canvas + PointableCanvas + Ray/Poke Interactable
+///       └─ NavigationBar
+///          ├─ DurryNoteButton
+///          ├─ ShopButton
+///          ├─ MyPageButton
+///          └─ MenuButton
 ///
-/// Important:
-/// - This script moves only WaistFollowRoot.
-/// - It applies the initial local pose to WaistNavGrabbableRoot once.
-/// - It does not force the child pose every frame, so ISDK Grab can move it.
+/// This script only keeps WaistFollowRoot in front of the user's body/head yaw.
+/// It can optionally place WaistNavCanvas once at Start/Reset.
+/// It does not use Rigidbody, Grabbable, HandGrabInteractable, BoxCollider, or GrabHandle.
 /// </summary>
 public class DustinyWaistNavFollow : MonoBehaviour
 {
@@ -22,8 +24,9 @@ public class DustinyWaistNavFollow : MonoBehaviour
     [Tooltip("OVRCameraRig / TrackingSpace / CenterEyeAnchor")]
     public Transform centerEyeAnchor;
 
-    [Tooltip("Child object that contains the grabbable navigation canvas. Example: WaistNavGrabbableRoot")]
-    public Transform waistNavGrabbableRoot;
+    [FormerlySerializedAs("waistNavGrabbableRoot")]
+    [Tooltip("Child transform that contains the navigation canvas. Usually WaistNavCanvas after removing grab.")]
+    public Transform waistNavRoot;
 
     [Header("Follow User")]
     [Tooltip("Follow the user's head position every frame.")]
@@ -33,27 +36,23 @@ public class DustinyWaistNavFollow : MonoBehaviour
     public bool followHeadYawOnly = true;
 
     [Tooltip("0 = instant. 18~35 = smooth but responsive.")]
-    public float followSmoothing = 0f;
+    public float followSmoothing = 20f;
 
     [Header("Initial Waist Nav Offset")]
-    [Tooltip("Applied once to WaistNavGrabbableRoot on Start/Reset. X: left-right, Y: down-up, Z: forward.")]
-    public Vector3 defaultLocalPosition = new Vector3(0f, -1.45f, 0.65f);
+    [Tooltip("Applied once to WaistNavRoot on Start/Reset. X: left-right, Y: down-up, Z: forward.")]
+    public Vector3 defaultLocalPosition = new Vector3(0f, -1f, 1f);
 
-    [Tooltip("Tilt the canvas upward toward the user. If the UI is flipped, try -72 instead.")]
-    public Vector3 defaultLocalEuler = new Vector3(72f, 0f, 0f);
+    [Tooltip("Tilt the canvas upward toward the user. If the UI is flipped, try -60 or 60.")]
+    public Vector3 defaultLocalEuler = new Vector3(60f, 0f, 0f);
 
-    [Tooltip("Usually keep this 1. Put the tiny UI scale on WaistNavCanvas, not here.")]
+    [Tooltip("Usually do not force this when WaistNavRoot is the actual Canvas. Keep the Canvas scale you set in the scene.")]
+    public bool applyDefaultScaleOnStart = false;
+
+    [Tooltip("Only used if Apply Default Scale On Start is true.")]
     public Vector3 defaultLocalScale = Vector3.one;
 
-    [Tooltip("If true, resets WaistNavGrabbableRoot to the default local pose once when the scene starts.")]
+    [Tooltip("If true, resets WaistNavRoot to the default local pose once when the scene starts.")]
     public bool applyDefaultPoseOnStart = true;
-
-    [Header("Safety Clamp While Grabbed")]
-    [Tooltip("Keeps the grabbable child from drifting too far after being moved.")]
-    public bool clampChildLocalPosition = true;
-
-    public Vector3 minLocalPosition = new Vector3(-0.65f, -1.80f, 0.35f);
-    public Vector3 maxLocalPosition = new Vector3(0.65f, -0.85f, 1.05f);
 
     [Header("Debug")]
     public bool drawDebugRay = false;
@@ -81,26 +80,34 @@ public class DustinyWaistNavFollow : MonoBehaviour
     private void LateUpdate()
     {
         ApplyFollow(false);
-        ClampChildIfNeeded();
     }
 
     [ContextMenu("Reset Waist Nav Pose")]
     public void ResetWaistNavPose()
     {
-        if (waistNavGrabbableRoot == null)
+        if (waistNavRoot == null)
         {
-            Debug.LogWarning("DustinyWaistNavFollow: Waist Nav Grabbable Root is not assigned.");
+            AutoFindReferences();
+        }
+
+        if (waistNavRoot == null)
+        {
+            Debug.LogWarning("DustinyWaistNavFollow: Waist Nav Root is not assigned. Assign WaistNavCanvas.");
             return;
         }
 
-        if (waistNavGrabbableRoot.parent != transform)
+        if (waistNavRoot.parent != transform)
         {
-            waistNavGrabbableRoot.SetParent(transform, true);
+            waistNavRoot.SetParent(transform, true);
         }
 
-        waistNavGrabbableRoot.localPosition = defaultLocalPosition;
-        waistNavGrabbableRoot.localRotation = Quaternion.Euler(defaultLocalEuler);
-        waistNavGrabbableRoot.localScale = defaultLocalScale;
+        waistNavRoot.localPosition = defaultLocalPosition;
+        waistNavRoot.localRotation = Quaternion.Euler(defaultLocalEuler);
+
+        if (applyDefaultScaleOnStart)
+        {
+            waistNavRoot.localScale = defaultLocalScale;
+        }
     }
 
     private void ApplyFollow(bool force)
@@ -154,20 +161,6 @@ public class DustinyWaistNavFollow : MonoBehaviour
         return Quaternion.LookRotation(forward, Vector3.up);
     }
 
-    private void ClampChildIfNeeded()
-    {
-        if (!clampChildLocalPosition || waistNavGrabbableRoot == null)
-        {
-            return;
-        }
-
-        Vector3 p = waistNavGrabbableRoot.localPosition;
-        p.x = Mathf.Clamp(p.x, minLocalPosition.x, maxLocalPosition.x);
-        p.y = Mathf.Clamp(p.y, minLocalPosition.y, maxLocalPosition.y);
-        p.z = Mathf.Clamp(p.z, minLocalPosition.z, maxLocalPosition.z);
-        waistNavGrabbableRoot.localPosition = p;
-    }
-
     private void AutoFindReferences()
     {
         if (centerEyeAnchor == null)
@@ -183,14 +176,44 @@ public class DustinyWaistNavFollow : MonoBehaviour
             }
         }
 
-        if (waistNavGrabbableRoot == null)
+        if (waistNavRoot == null)
         {
-            Transform foundChild = transform.Find("WaistNavGrabbableRoot");
-            if (foundChild != null)
+            Transform foundCanvas = FindChildByName(transform, "WaistNavCanvas");
+            if (foundCanvas != null)
             {
-                waistNavGrabbableRoot = foundChild;
+                waistNavRoot = foundCanvas;
+                return;
+            }
+
+            Transform foundRoot = FindChildByName(transform, "WaistNavRoot");
+            if (foundRoot != null)
+            {
+                waistNavRoot = foundRoot;
+                return;
+            }
+
+            Transform foundOldRoot = FindChildByName(transform, "WaistNavGrabbableRoot");
+            if (foundOldRoot != null)
+            {
+                waistNavRoot = foundOldRoot;
             }
         }
+    }
+
+    private Transform FindChildByName(Transform root, string childName)
+    {
+        if (root == null || string.IsNullOrEmpty(childName)) return null;
+
+        Transform[] children = root.GetComponentsInChildren<Transform>(true);
+        foreach (Transform child in children)
+        {
+            if (child != null && child.name == childName)
+            {
+                return child;
+            }
+        }
+
+        return null;
     }
 
     private void OnDrawGizmosSelected()
@@ -207,10 +230,10 @@ public class DustinyWaistNavFollow : MonoBehaviour
         forward.Normalize();
         Gizmos.DrawRay(centerEyeAnchor.position, forward * 0.8f);
 
-        if (waistNavGrabbableRoot != null)
+        if (waistNavRoot != null)
         {
             Gizmos.color = Color.yellow;
-            Gizmos.DrawWireSphere(waistNavGrabbableRoot.position, 0.04f);
+            Gizmos.DrawWireSphere(waistNavRoot.position, 0.04f);
         }
     }
 }

@@ -70,13 +70,9 @@ public class DustinyDemoFlow : MonoBehaviour
     public float descriptionMinAnchoredY = -620f;
 
     [Header("Navigation Bar - ISDK")]
-    [Tooltip("WaistNavCanvas 아래의 NavigationBar 오브젝트를 연결하세요. 위치/회전/잡기는 DustinyWaistNavFollow와 Interaction SDK가 담당합니다.")]
+    [Tooltip("WaistNavCanvas 아래의 NavigationBar 오브젝트를 연결하세요. 이 스크립트는 표시/숨김과 버튼 연결만 담당합니다. 위치/회전/스케일/그랩은 DustinyWaistNavFollow와 Interaction SDK가 담당합니다.")]
     public GameObject navigationBarObject;
-    public RectTransform navigationBarRect;
     public bool navigationBarStartsVisible = true;
-    public bool keepNavigationBarRectCentered = true;
-    public bool applyNavigationBarSize = false;
-    public Vector2 navigationBarSize = new Vector2(900f, 170f);
 
     [Header("Navigation Buttons")]
     public Button durryNoteButton;
@@ -256,7 +252,6 @@ public class DustinyDemoFlow : MonoBehaviour
         UpdateViewLockedUI(true);
         UpdateSpeechBubblePlacement();
         UpdateDescriptionPlacement();
-        UpdateNavigationBarRect();
         UpdateBigNotePlacement();
 
         if (startOnboardingFlowOnStart) BeginOnboardingFlow();
@@ -274,7 +269,6 @@ public class DustinyDemoFlow : MonoBehaviour
         UpdateViewLockedUI(false);
         UpdateSpeechBubblePlacement();
         UpdateDescriptionPlacement();
-        UpdateNavigationBarRect();
         UpdateBigNotePlacement();
 
         if (useHandTrackingGestures) UpdateHandGestureInput();
@@ -355,24 +349,6 @@ public class DustinyDemoFlow : MonoBehaviour
             if (found != null) navigationBarObject = found.gameObject;
         }
 
-        if (navigationBarRect == null && navigationBarObject != null) navigationBarRect = navigationBarObject.GetComponent<RectTransform>();
-    }
-
-    private void UpdateNavigationBarRect()
-    {
-        ResolveNavigationReferences();
-        if (navigationBarRect == null) return;
-
-        if (keepNavigationBarRectCentered)
-        {
-            navigationBarRect.anchorMin = new Vector2(0.5f, 0.5f);
-            navigationBarRect.anchorMax = new Vector2(0.5f, 0.5f);
-            navigationBarRect.pivot = new Vector2(0.5f, 0.5f);
-            navigationBarRect.anchoredPosition = Vector2.zero;
-            navigationBarRect.localEulerAngles = Vector3.zero;
-        }
-
-        if (applyNavigationBarSize && navigationBarSize.x > 0f && navigationBarSize.y > 0f) navigationBarRect.sizeDelta = navigationBarSize;
     }
 
     public void SetNavigationBarVisible(bool visible)
