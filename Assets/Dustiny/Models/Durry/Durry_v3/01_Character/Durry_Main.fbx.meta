@@ -1,14 +1,9 @@
 fileFormatVersion: 2
-guid: 0cea63c0d258658479636386a685a08e
+guid: 1476b86166b258242b6d54f8aa91aec4
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
-  externalObjects:
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: Durry_c
-    second: {fileID: 2100000, guid: 94201f9631e44ed4fb0ba298330ff9fe, type: 2}
+  externalObjects: {}
   materials:
     materialImportMode: 2
     materialName: 0
