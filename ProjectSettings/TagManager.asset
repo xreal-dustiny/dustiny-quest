@@ -5,6 +5,7 @@ TagManager:
   serializedVersion: 3
   tags:
   - Durry
+  - Hand
   layers:
   - Default
   - TransparentFX
