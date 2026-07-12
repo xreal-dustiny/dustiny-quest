@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Serialization;
 using TMPro;
 
 public class DustinyDemoFlow : MonoBehaviour
@@ -93,7 +94,18 @@ public class DustinyDemoFlow : MonoBehaviour
     public Vector2 bigNoteSize = new Vector2(1900f, 1150f);
 
     public GameObject viewpointBackgroundObject;
-    public bool forceBigNoteChildrenToFillRoot = true;
+
+    [Header("Big Note Layout Preservation")]
+    [Tooltip("켜면 BigNoteRoot의 앵커, 위치, 크기를 코드가 덮어쓰지 않고 인스펙터에서 만든 레이아웃을 그대로 유지합니다.")]
+    public bool preserveBigNoteInspectorLayout = true;
+
+    [FormerlySerializedAs("forceBigNoteChildrenToFillRoot")]
+    [Tooltip("공통 ViewpointBackground만 BigNoteRoot 전체를 채우게 합니다. Note/Shop/MyPage의 RectTransform은 변경하지 않습니다.")]
+    public bool stretchViewpointBackgroundToFillRoot = true;
+
+    [Tooltip("ViewpointBackground에 Image 컴포넌트가 있으면 원본 이미지의 가로세로 비율을 유지합니다.")]
+    public bool preserveViewpointBackgroundImageAspect = true;
+
     public bool bringBigNoteToFrontWhenOpen = true;
     public bool hideDialogueWhenBigNoteOpens = true;
     public bool hideNavigationBarWhenBigNoteOpen = false;
@@ -496,27 +508,40 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private void UpdateBigNotePlacement()
     {
-        if (!keepBigNoteInView) return;
         ResolveBigNoteReferences();
         if (bigNoteRect == null) return;
 
-        if (forceBigNoteCenterAnchor)
+        // 이 옵션이 켜져 있으면 BigNoteRoot뿐 아니라 ViewpointBackground까지
+        // 인스펙터에서 만든 RectTransform / Scale / Image 설정을 전혀 덮어쓰지 않습니다.
+        // 따라서 태그, 페이지 콘텐츠, 설명 박스가 Scene에서 배치한 위치와 동일하게 유지됩니다.
+        if (preserveBigNoteInspectorLayout) return;
+
+        if (keepBigNoteInView)
         {
-            bigNoteRect.anchorMin = new Vector2(0.5f, 0.5f);
-            bigNoteRect.anchorMax = new Vector2(0.5f, 0.5f);
-            bigNoteRect.pivot = new Vector2(0.5f, 0.5f);
+            if (forceBigNoteCenterAnchor)
+            {
+                bigNoteRect.anchorMin = new Vector2(0.5f, 0.5f);
+                bigNoteRect.anchorMax = new Vector2(0.5f, 0.5f);
+                bigNoteRect.pivot = new Vector2(0.5f, 0.5f);
+            }
+
+            bigNoteRect.anchoredPosition = bigNoteAnchoredPosition;
+
+            if (applyBigNoteSize && bigNoteSize.x > 0f && bigNoteSize.y > 0f)
+            {
+                bigNoteRect.sizeDelta = bigNoteSize;
+            }
         }
 
-        bigNoteRect.anchoredPosition = bigNoteAnchoredPosition;
-        if (applyBigNoteSize && bigNoteSize.x > 0f && bigNoteSize.y > 0f) bigNoteRect.sizeDelta = bigNoteSize;
-
-        if (forceBigNoteChildrenToFillRoot)
+        if (stretchViewpointBackgroundToFillRoot)
         {
             StretchChildToFill(viewpointBackgroundObject);
-            StretchChildToFill(notePageObject);
-            StretchChildToFill(shopPageObject);
-            StretchChildToFill(myPageObject);
-            StretchChildToFill(menuPageObject);
+        }
+
+        if (preserveViewpointBackgroundImageAspect && viewpointBackgroundObject != null)
+        {
+            Image backgroundImage = viewpointBackgroundObject.GetComponent<Image>();
+            if (backgroundImage != null) backgroundImage.preserveAspect = true;
         }
     }
 
