@@ -1,0 +1,7 @@
+cable_charger
+cup_bottle
+laptop
+paper_book
+small_device
+toy_decor
+writing_tool
