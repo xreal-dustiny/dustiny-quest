@@ -225,6 +225,63 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 106826166}
   m_CullTransparentMesh: 1
+--- !u!1001 &173040341
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 706794882}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 1476b86166b258242b6d54f8aa91aec4, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 2.7311199
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 1476b86166b258242b6d54f8aa91aec4, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.32780004
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 1476b86166b258242b6d54f8aa91aec4, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 9.72036
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 1476b86166b258242b6d54f8aa91aec4, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 1476b86166b258242b6d54f8aa91aec4, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 1476b86166b258242b6d54f8aa91aec4, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 1476b86166b258242b6d54f8aa91aec4, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 1476b86166b258242b6d54f8aa91aec4, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 1476b86166b258242b6d54f8aa91aec4, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 1476b86166b258242b6d54f8aa91aec4, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 1476b86166b258242b6d54f8aa91aec4, type: 3}
+      propertyPath: m_Name
+      value: Durry_Main
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 1476b86166b258242b6d54f8aa91aec4, type: 3}
 --- !u!1 &194935796
 GameObject:
   m_ObjectHideFlags: 0
@@ -1572,7 +1629,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 950955601}
+  - {fileID: 1145117767}
   m_Father: {fileID: 784206817}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &784206816
@@ -2394,68 +2451,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!1001 &950955600
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 706794882}
-    m_Modifications:
-    - target: {fileID: -8679921383154817045, guid: 0cea63c0d258658479636386a685a08e, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 0cea63c0d258658479636386a685a08e, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 0cea63c0d258658479636386a685a08e, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 0cea63c0d258658479636386a685a08e, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 0cea63c0d258658479636386a685a08e, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 0cea63c0d258658479636386a685a08e, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 0cea63c0d258658479636386a685a08e, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 0cea63c0d258658479636386a685a08e, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 0cea63c0d258658479636386a685a08e, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 180
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 0cea63c0d258658479636386a685a08e, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 919132149155446097, guid: 0cea63c0d258658479636386a685a08e, type: 3}
-      propertyPath: m_Name
-      value: Durry_v3
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 0cea63c0d258658479636386a685a08e, type: 3}
---- !u!4 &950955601 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 0cea63c0d258658479636386a685a08e, type: 3}
-  m_PrefabInstance: {fileID: 950955600}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &992872459
 GameObject:
   m_ObjectHideFlags: 0
@@ -2805,6 +2800,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &1145117767 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 1476b86166b258242b6d54f8aa91aec4, type: 3}
+  m_PrefabInstance: {fileID: 173040341}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1148834909
 GameObject:
   m_ObjectHideFlags: 0
@@ -4367,8 +4367,6 @@ MonoBehaviour:
   uiRootLocalPosition: {x: 0, y: -0.45, z: 2}
   uiRootLocalEuler: {x: 0, y: 0, z: 0}
   uiRootLocalScale: 1
-  questText: {fileID: 1775048803}
-  bosongText: {fileID: 1472979510}
   startOnboardingFlowOnStart: 1
   pinchAdvancesDialogue: 1
   dialogueAdvanceCooldown: 0.25
@@ -4403,20 +4401,7 @@ MonoBehaviour:
   speechBubbleMinAnchoredY: -620
   descriptionMinAnchoredY: -620
   navigationBarObject: {fileID: 1502717940}
-  navigationBarRect: {fileID: 1502717941}
   navigationBarStartsVisible: 1
-  keepNavigationBarBelowView: 1
-  navigationBarAnchoredPosition: {x: 0, y: -430}
-  forceNavigationBarCenterAnchor: 1
-  applyNavigationBarSize: 0
-  navigationBarSize: {x: 900, y: 170}
-  placeNavigationBarAsWaistBelt: 1
-  navigationBeltRoot: {fileID: 0}
-  navigationBeltFollowHeadYawOnly: 1
-  navigationBeltLocalPosition: {x: 0, y: -0.72, z: 0.65}
-  navigationBeltLocalEuler: {x: 65, y: 0, z: 0}
-  navigationBeltLocalScale: 0.0012
-  keepNavigationBarRectCenteredInBelt: 1
   durryNoteButton: {fileID: 946102642}
   shopButton: {fileID: 2143751256}
   myPageButton: {fileID: 677893500}
@@ -4426,23 +4411,31 @@ MonoBehaviour:
   bigNoteRect: {fileID: 1061557153}
   bigNoteStartsOpen: 0
   startBigNotePage: 1
-  keepBigNoteInView: 1
-  bigNoteAnchoredPosition: {x: 0, y: -40}
-  forceBigNoteCenterAnchor: 1
-  applyBigNoteSize: 0
-  bigNoteSize: {x: 1100, y: 800}
-  hideDialogueWhenBigNoteOpens: 1
-  hideNavigationBarWhenBigNoteOpen: 0
+  preservePageRootInspectorLayout: 1
+  keepPageRootInView: 1
+  pageRootAnchoredPosition: {x: 0, y: -40}
+  forcePageRootCenterAnchor: 1
+  applyPageRootSize: 1
+  pageRootSize: {x: 1900, y: 1150}
+  bringPageRootToFrontWhenOpen: 1
+  hideDialogueWhenPageOpens: 1
+  hideNavigationBarWhenPageOpen: 0
   notePageObject: {fileID: 992872459}
   shopPageObject: {fileID: 845778123}
   myPageObject: {fileID: 1232997350}
   menuPageObject: {fileID: 0}
+  noteBackgroundObject: {fileID: 0}
+  menuBackgroundObject: {fileID: 0}
+  obsoleteSharedBackgroundObject: {fileID: 0}
+  useSharedBackgroundForShopAndMyPage: 1
+  disableGraphicOnPageRoot: 1
+  sideTagsRoot: {fileID: 0}
   closePageButton: {fileID: 1810650195}
   noteTagButton: {fileID: 553349874}
   shopTagButton: {fileID: 514366246}
   myPageTagButton: {fileID: 194935798}
   menuTagButton: {fileID: 0}
-  autoConnectBigNoteButtons: 1
+  autoConnectPageButtons: 1
   closeTagRect: {fileID: 1810650194}
   noteTagRect: {fileID: 553349873}
   shopTagRect: {fileID: 514366245}
@@ -4459,52 +4452,12 @@ MonoBehaviour:
   allowControllerFallback: 1
   bButtonCompletesMission: 1
   triggerAlsoCompletesMission: 0
-  useHandTracking: 1
-  leftHand: {fileID: 1675479667}
+  useHandTrackingGestures: 1
   rightHand: {fileID: 274672752}
-  leftWristTransform: {fileID: 1675479665}
-  rightIndexPinchSummonsDurry: 1
+  autoFindRightOVRHandIfMissing: 1
+  rightIndexPinchSummonsDurry: 0
   rightMiddlePinchStartsMission: 1
   rightRingPinchCompletesMission: 1
-  enableSimpleHandUIButtonFallback: 1
-  rightIndexTouchClicksUI: 0
-  rightIndexPinchRayClicksUI: 1
-  handUITouchDistance: 0.055
-  handUIRayLength: 1.6
-  handUIClickCooldown: 0.35
-  showSimpleHandRay: 1
-  simpleHandRayLine: {fileID: 0}
-  rightHandRayOrigin: {fileID: 821686859}
-  rightIndexPinchGrabsWaistBelt: 1
-  navigationBeltGrabRayLength: 1.8
-  clampGrabbedNavigationBeltPosition: 1
-  navigationBeltGrabMinLocalPosition: {x: -0.55, y: -1.05, z: 0.35}
-  navigationBeltGrabMaxLocalPosition: {x: 0.55, y: -0.35, z: 1.1}
-  navigationBeltGrabSmoothing: 28
-  statusWindowObject: {fileID: 0}
-  statusWindowStartsOpen: 0
-  toggleStatusByRightIndexTouchingLeftWristBand: 1
-  rightIndexTipTransform: {fileID: 0}
-  statusTouchTarget: {fileID: 1078412484}
-  wristBandTouchRadius: 0.065
-  wristBandTouchHoldTime: 0.12
-  wristBandTouchCooldown: 0.7
-  requireRightIndexPinchWhileTouchingBand: 0
-  toggleStatusWhenLeftWristRaised: 0
-  requireLeftIndexPinchToToggleStatus: 0
-  wristRaiseHoldTime: 0.45
-  wristToggleCooldown: 0.8
-  wristViewMinX: -0.75
-  wristViewMaxX: 0.35
-  wristViewMinY: -0.75
-  wristViewMaxY: 0.25
-  wristViewMinZ: 0.15
-  wristViewMaxZ: 1.15
-  wristBandObject: {fileID: 1749286178}
-  showWristBandWhenHandTracked: 1
-  wristBandLocalPosition: {x: 0, y: 0, z: 0}
-  wristBandLocalEuler: {x: 0, y: 0, z: 0}
-  wristBandLocalScale: {x: 1, y: 1, z: 1}
   useCurrentSceneDurryPositionOnStart: 0
   durryStartWorldPosition: {x: 0, y: -0.35, z: 1.2}
   durryStartWorldEuler: {x: 0, y: 180, z: 0}
@@ -4515,24 +4468,16 @@ MonoBehaviour:
   durryYawOffset: 180
   durryRootScale: 1
   durryVisualScale: 10
-  applyTextLayout: 1
-  questTextY: 360
-  bosongTextY: -360
-  textWidth: 1500
-  questTextHeight: 180
-  bosongTextHeight: 140
-  questFontSize: 44
-  bosongFontSize: 38
   removeTextShadow: 1
-  makeCanvasBackgroundTransparent: 1
-  disableUIShadowComponents: 1
+  disableDialogueShadowComponents: 1
   disableDurryShadows: 1
+  makeOnlyDialogueBlackDimTransparent: 0
   moveScanZoneWhenDurrySummoned: 1
   scanZoneDistance: 1.7
   scanZoneHeightOffset: -0.55
   scanZoneSize: 0.8
-  rewardBosongPower: 1
   changeDurryColorOnMissionComplete: 0
+  fallbackCreditWhenManagersMissing: 1
 --- !u!1 &1940155247
 GameObject:
   m_ObjectHideFlags: 0

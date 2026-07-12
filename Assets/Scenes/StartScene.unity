@@ -1006,7 +1006,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8707437246090135284, guid: 0c812d952fe36be48a263d304b766961, type: 3}
       propertyPath: m_Name
-      value: OVRCameraRig2 Variant
+      value: OVRCameraRig
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -7,6 +7,8 @@ public class SpeechBubbleAutoSize : MonoBehaviour
     [Header("References")]
     public RectTransform bubbleRect;
     public RectTransform textRect;
+
+    [Tooltip("말풍선 또는 디스크립션에서 실제로 표시할 TMP 텍스트입니다.")]
     public TMP_Text questText;
 
     [Header("Size Settings")]
@@ -51,7 +53,10 @@ public class SpeechBubbleAutoSize : MonoBehaviour
     public void SetText(string message)
     {
         AutoResolveReferences();
-        if (questText == null) return;
+        if (questText == null)
+        {
+            return;
+        }
 
         questText.text = message;
         ResizeBubble();
@@ -77,7 +82,10 @@ public class SpeechBubbleAutoSize : MonoBehaviour
 
     public void ApplyBubblePosition()
     {
-        if (!lockBubblePosition || bubbleRect == null) return;
+        if (!lockBubblePosition || bubbleRect == null)
+        {
+            return;
+        }
 
         if (forceCenterAnchorAndPivot)
         {
@@ -91,10 +99,12 @@ public class SpeechBubbleAutoSize : MonoBehaviour
 
     private void ResizeBubbleIfNeeded()
     {
-        if (bubbleRect == null || textRect == null || questText == null) return;
+        if (bubbleRect == null || textRect == null || questText == null)
+        {
+            return;
+        }
 
-        questText.enableWordWrapping = true;
-        questText.ForceMeshUpdate();
+        PrepareTextForMeasurement();
 
         Vector2 preferredSize = questText.GetPreferredValues(questText.text, maxTextWidth, 0f);
         bool textChanged = lastText != questText.text;
@@ -108,13 +118,21 @@ public class SpeechBubbleAutoSize : MonoBehaviour
 
     public void ResizeBubble()
     {
-        if (bubbleRect == null || textRect == null || questText == null) return;
+        if (bubbleRect == null || textRect == null || questText == null)
+        {
+            return;
+        }
 
-        questText.enableWordWrapping = true;
-        questText.ForceMeshUpdate();
-
+        PrepareTextForMeasurement();
         Vector2 preferredSize = questText.GetPreferredValues(questText.text, maxTextWidth, 0f);
         ResizeBubble(preferredSize);
+    }
+
+    private void PrepareTextForMeasurement()
+    {
+        // Unity 6 / current TMP replacement for the obsolete enableWordWrapping property.
+        questText.textWrappingMode = TextWrappingModes.Normal;
+        questText.ForceMeshUpdate();
     }
 
     private void ResizeBubble(Vector2 preferredSize)
