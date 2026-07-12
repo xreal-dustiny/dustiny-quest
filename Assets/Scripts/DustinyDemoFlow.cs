@@ -1,11 +1,44 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Serialization;
-using TMPro;
 
+/// <summary>
+/// Scene/XR presentation controller for Dustiny.
+///
+/// Data ownership after the merge:
+/// - CleanlinessManager: cleanliness value and six-hour decay
+/// - CreditManager: credit balance
+/// - QuestGenerator: YOLO JSON conversion
+/// - QuestProgressManager: quest completion, daily mission, streak rewards
+/// - ShopInventoryManager: purchased/equipped items
+/// - DustinyDemoFlow: Durry placement, dialogue, gestures, navigation, page visibility
+///
+/// Page background rule:
+/// - NotePage owns its own Note background.
+/// - MenuPage owns its own Menu background.
+/// - ShopPage and MyPage use the existing shared ViewpointBackground.
+/// - The shared background is hidden while Note or Menu is open.
+/// </summary>
 public class DustinyDemoFlow : MonoBehaviour
 {
-    public enum DustinyPage { None, Note, Shop, MyPage, Menu }
+    public enum DustinyPage
+    {
+        None,
+        Note,
+        Shop,
+        MyPage,
+        Menu
+    }
+
+    private enum OnboardingState
+    {
+        IntroSpeech,
+        MissionDescription,
+        NameQuestionSpeech,
+        NamedDescription,
+        FinalSpeech,
+        Finished
+    }
 
     [Header("XR Reference")]
     public Transform centerEyeAnchor;
@@ -23,11 +56,6 @@ public class DustinyDemoFlow : MonoBehaviour
     public Vector3 uiRootLocalPosition = new Vector3(0f, -0.12f, 1.35f);
     public Vector3 uiRootLocalEuler = Vector3.zero;
     public float uiRootLocalScale = 1f;
-
-    [Header("Texts")]
-    [Tooltip("기존 호환용입니다. 가능하면 Speech Text / Description Text를 따로 연결해주세요.")]
-    public TMP_Text questText;
-    public TMP_Text bosongText;
 
     [Header("Dialogue / Description")]
     public bool startOnboardingFlowOnStart = true;
@@ -71,7 +99,7 @@ public class DustinyDemoFlow : MonoBehaviour
     public float descriptionMinAnchoredY = -620f;
 
     [Header("Navigation Bar - ISDK")]
-    [Tooltip("WaistNavCanvas 아래의 NavigationBar 오브젝트를 연결하세요. 이 스크립트는 표시/숨김과 버튼 연결만 담당합니다. 위치/회전/스케일/그랩은 DustinyWaistNavFollow와 Interaction SDK가 담당합니다.")]
+    [Tooltip("WaistNavCanvas 아래 NavigationBar를 연결하세요. 위치는 DustinyWaistNavFollow가 담당합니다.")]
     public GameObject navigationBarObject;
     public bool navigationBarStartsVisible = true;
 
@@ -82,48 +110,65 @@ public class DustinyDemoFlow : MonoBehaviour
     public Button menuButton;
     public bool autoConnectNavigationButtons = true;
 
-    [Header("Big Note / Page Panels")]
+    [Header("Page Container - No Shared Background")]
+    [Tooltip("페이지를 묶는 빈 컨테이너입니다. 이 오브젝트 자체에는 Image/RawImage를 두지 마세요.")]
     public GameObject bigNoteRoot;
     public RectTransform bigNoteRect;
     public bool bigNoteStartsOpen = false;
     public DustinyPage startBigNotePage = DustinyPage.Note;
-    public bool keepBigNoteInView = true;
-    public Vector2 bigNoteAnchoredPosition = new Vector2(0f, -40f);
-    public bool forceBigNoteCenterAnchor = true;
-    public bool applyBigNoteSize = true;
-    public Vector2 bigNoteSize = new Vector2(1900f, 1150f);
 
-    public GameObject viewpointBackgroundObject;
+    [Tooltip("켜면 PageRoot의 RectTransform을 코드가 수정하지 않습니다.")]
+    public bool preservePageRootInspectorLayout = true;
+    public bool keepPageRootInView = true;
+    public Vector2 pageRootAnchoredPosition = new Vector2(0f, -40f);
+    public bool forcePageRootCenterAnchor = true;
+    public bool applyPageRootSize = true;
+    public Vector2 pageRootSize = new Vector2(1900f, 1150f);
 
-    [Header("Big Note Layout Preservation")]
-    [Tooltip("켜면 BigNoteRoot의 앵커, 위치, 크기를 코드가 덮어쓰지 않고 인스펙터에서 만든 레이아웃을 그대로 유지합니다.")]
-    public bool preserveBigNoteInspectorLayout = true;
+    public bool bringPageRootToFrontWhenOpen = true;
+    public bool hideDialogueWhenPageOpens = true;
+    public bool hideNavigationBarWhenPageOpen = false;
 
-    [FormerlySerializedAs("forceBigNoteChildrenToFillRoot")]
-    [Tooltip("공통 ViewpointBackground만 BigNoteRoot 전체를 채우게 합니다. Note/Shop/MyPage의 RectTransform은 변경하지 않습니다.")]
-    public bool stretchViewpointBackgroundToFillRoot = true;
-
-    [Tooltip("ViewpointBackground에 Image 컴포넌트가 있으면 원본 이미지의 가로세로 비율을 유지합니다.")]
-    public bool preserveViewpointBackgroundImageAspect = true;
-
-    public bool bringBigNoteToFrontWhenOpen = true;
-    public bool hideDialogueWhenBigNoteOpens = true;
-    public bool hideNavigationBarWhenBigNoteOpen = false;
-
+    [Header("Page Roots - Each Page Owns Its Background")]
+    [Tooltip("더리 미션 노트 전체 루트. NoteBackground를 이 오브젝트 안에 둡니다.")]
     public GameObject notePageObject;
+
+    [Tooltip("기존 Shop 배경을 포함한 ShopPage 전체 루트입니다. 코드는 내부 배경을 수정하지 않습니다.")]
     public GameObject shopPageObject;
+
+    [Tooltip("기존 MyPage 배경을 포함한 MyPage 전체 루트입니다. 코드는 내부 배경을 수정하지 않습니다.")]
     public GameObject myPageObject;
+
+    [Tooltip("메뉴 전체 루트. MenuBackground를 이 오브젝트 안에 둡니다.")]
     public GameObject menuPageObject;
 
-    [Header("Big Note Side Tag Buttons")]
+    [Header("Note / Menu Background References (Optional)")]
+    [Tooltip("NotePage 내부의 전용 배경. 비워두면 NotePage 아래에서 Background를 자동 탐색합니다.")]
+    public GameObject noteBackgroundObject;
+
+    [Tooltip("MenuPage 내부의 전용 배경. 비워두면 MenuPage 아래에서 Background를 자동 탐색합니다.")]
+    public GameObject menuBackgroundObject;
+
+    [Header("Shared Background For Shop / MyPage")]
+    [Tooltip("BigNoteRoot 아래의 기존 ViewpointBackground를 연결하세요. Shop/MyPage에서만 표시됩니다.")]
+    public GameObject obsoleteSharedBackgroundObject;
+    [Tooltip("켜면 Shop과 MyPage에서 기존 ViewpointBackground를 사용하고, Note/Menu에서는 숨깁니다.")]
+    public bool useSharedBackgroundForShopAndMyPage = true;
+
+    [Tooltip("BigNoteRoot 자체에 Image가 붙어 있다면 해당 Graphic만 끕니다. 자식 페이지 배경은 건드리지 않습니다.")]
+    public bool disableGraphicOnPageRoot = true;
+
+    [Header("Page Side Tag Buttons")]
+    [Tooltip("SideTags 루트를 연결하면 자동 탐색이 다른 페이지 버튼을 잘못 잡는 일을 막을 수 있습니다.")]
+    public Transform sideTagsRoot;
     public Button closePageButton;
     public Button noteTagButton;
     public Button shopTagButton;
     public Button myPageTagButton;
     public Button menuTagButton;
-    public bool autoConnectBigNoteButtons = true;
+    public bool autoConnectPageButtons = true;
 
-    [Header("Big Note Tag Pop Out")]
+    [Header("Page Tag Pop Out")]
     public RectTransform closeTagRect;
     public RectTransform noteTagRect;
     public RectTransform shopTagRect;
@@ -146,12 +191,10 @@ public class DustinyDemoFlow : MonoBehaviour
     public bool triggerAlsoCompletesMission = false;
 
     [Header("Hand Tracking Gestures")]
-    [Tooltip("하단바 UI 입력은 Interaction SDK가 담당합니다. 이 값은 더리 대사/미션 제스처만 담당합니다.")]
+    [Tooltip("하단바 UI 입력은 Interaction SDK가 담당합니다. 이 옵션은 더리 대사/미션 제스처용입니다.")]
     public bool useHandTrackingGestures = true;
     public OVRHand rightHand;
     public bool autoFindRightOVRHandIfMissing = true;
-
-    [Tooltip("검지 핀치는 온보딩 대사를 넘기는 데 사용합니다. 하단바 선택도 같은 검지 핀치라서, 온보딩이 끝난 뒤 더리 소환은 기본적으로 꺼둡니다.")]
     public bool rightIndexPinchSummonsDurry = false;
     public bool rightMiddlePinchStartsMission = true;
     public bool rightRingPinchCompletesMission = true;
@@ -169,23 +212,15 @@ public class DustinyDemoFlow : MonoBehaviour
     public float durryYawOffset = 180f;
 
     [Header("Durry Size")]
-    public float durryRootScale = 1.0f;
+    public float durryRootScale = 1f;
     public float durryVisualScale = 10f;
-
-    [Header("Text Layout")]
-    public bool applyTextLayout = true;
-    public float bosongTextY = -360f;
-    public float textWidth = 1500f;
-    public float bosongTextHeight = 140f;
-    public float bosongFontSize = 38f;
 
     [Header("Visual Cleanup")]
     public bool removeTextShadow = true;
-    public bool disableUIShadowComponents = true;
+    [Tooltip("말풍선과 디스크립션 안의 Shadow만 끕니다. Shop/MyPage 디자인의 Shadow는 유지합니다.")]
+    public bool disableDialogueShadowComponents = true;
     public bool disableDurryShadows = true;
-
-    [Tooltip("필요할 때만 켜세요. NOTE/SHOP 배경 이미지까지 투명해질 수 있어서 기본값은 꺼둡니다.")]
-    public bool makeOnlyBlackDimUITransparent = false;
+    public bool makeOnlyDialogueBlackDimTransparent = false;
 
     [Header("Scan Zone Placement")]
     public bool moveScanZoneWhenDurrySummoned = true;
@@ -193,30 +228,26 @@ public class DustinyDemoFlow : MonoBehaviour
     public float scanZoneHeightOffset = -0.55f;
     public float scanZoneSize = 0.8f;
 
-    [Header("Reward")]
-    public int rewardBosongPower = 1;
+    [Header("Mission Completion Visual")]
     public bool changeDurryColorOnMissionComplete = false;
-
-    private int bosongPower = 0;
-    private int step = 0;
-
-    private enum OnboardingState { IntroSpeech, MissionDescription, NameQuestionSpeech, NamedDescription, FinalSpeech, Finished }
+    [SerializeField, Min(0)] private int fallbackCreditWhenManagersMissing = 1;
 
     private OnboardingState onboardingState = OnboardingState.IntroSpeech;
-    private bool onboardingActive = false;
+    private bool onboardingActive;
+    private bool missionRoundActive;
     private float lastDialogueAdvanceTime = -999f;
 
     private SpeechBubbleAutoSize speechAutoSize;
     private SpeechBubbleAutoSize descriptionAutoSize;
 
-    private bool wasTriggerPressed = false;
-    private bool wasRightIndexPinching = false;
-    private bool wasRightMiddlePinching = false;
-    private bool wasRightRingPinching = false;
+    private bool wasTriggerPressed;
+    private bool wasRightIndexPinching;
+    private bool wasRightMiddlePinching;
+    private bool wasRightRingPinching;
 
-    private DustinyPage currentBigNotePage = DustinyPage.None;
-    private bool bigNoteOpen = false;
-    private bool bigNoteTagBasePositionsSaved = false;
+    private DustinyPage currentPage = DustinyPage.None;
+    private bool pageRootOpen;
+    private bool tagBasePositionsSaved;
     private Vector2 closeTagBasePosition;
     private Vector2 noteTagBasePosition;
     private Vector2 shopTagBasePosition;
@@ -230,12 +261,13 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private void OnValidate()
     {
+        // Index pinch is shared with UI selection, so summoning stays disabled by default.
         rightIndexPinchSummonsDurry = false;
     }
 
     private void Start()
     {
-        Debug.Log("DustinyDemoFlow Start - ISDK optimized");
+        Debug.Log("DustinyDemoFlow Start - modular manager integration");
 
         ResolveRightHandIfNeeded();
         ResolveUIRoot();
@@ -247,243 +279,360 @@ public class DustinyDemoFlow : MonoBehaviour
         ResolveNavigationButtons();
         ConnectNavigationButtonEvents();
 
-        ResolveBigNoteReferences();
-        ResolveBigNoteButtons();
-        ConnectBigNoteButtonEvents();
+        ResolvePageReferences();
+        ResolvePageBackgroundReferences();
+        ResolvePageButtons();
+        ConnectPageButtonEvents();
+        ConfigurePageRootGraphics();
 
         SetupWorldCanvas();
-
         SetNavigationBarVisible(navigationBarStartsVisible);
-        if (bigNoteStartsOpen) OpenBigNotePage(startBigNotePage);
-        else SetBigNoteVisible(false);
+
+        if (bigNoteStartsOpen)
+        {
+            OpenPage(startBigNotePage);
+        }
+        else
+        {
+            SetPageRootVisible(false);
+        }
 
         PlaceDurryAtStartWorldPosition();
 
-        if (summonDurryOnStart) SummonDurryToUser();
+        if (summonDurryOnStart)
+        {
+            SummonDurryToUser();
+        }
 
-        UpdateViewLockedUI(true);
+        UpdateViewLockedUI();
         UpdateSpeechBubblePlacement();
         UpdateDescriptionPlacement();
-        UpdateBigNotePlacement();
+        UpdatePageRootPlacement();
 
-        if (startOnboardingFlowOnStart) BeginOnboardingFlow();
+        if (startOnboardingFlowOnStart)
+        {
+            BeginOnboardingFlow();
+        }
         else
         {
-            HideDialoguePanels();
-            UpdateUI("하단바: Interaction SDK로 터치/레이 핀치 선택\n오른손 중지 핀치: 미션 시작\n오른손 약지 핀치: 미션 완료", "보송력 0");
+            ShowDescription(
+                "하단바에서 NOTE / SHOP / MY PAGE / MENU를 선택할 수 있어.\n" +
+                "오른손 중지 핀치: 미션 시작\n오른손 약지 핀치: 미션 완료"
+            );
         }
     }
 
     private void Update()
     {
-        if (centerEyeAnchor == null) return;
+        if (centerEyeAnchor == null)
+        {
+            return;
+        }
 
-        UpdateViewLockedUI(false);
+        UpdateViewLockedUI();
         UpdateSpeechBubblePlacement();
         UpdateDescriptionPlacement();
-        UpdateBigNotePlacement();
+        UpdatePageRootPlacement();
 
-        if (useHandTrackingGestures) UpdateHandGestureInput();
+        if (useHandTrackingGestures)
+        {
+            UpdateHandGestureInput();
+        }
 
         if (allowControllerFallback)
         {
-            if (OVRInput.GetDown(OVRInput.Button.One, OVRInput.Controller.RTouch)) OnPressA();
-            if (bButtonCompletesMission && OVRInput.GetDown(OVRInput.Button.Two, OVRInput.Controller.RTouch)) CompleteMission();
+            if (OVRInput.GetDown(OVRInput.Button.One, OVRInput.Controller.RTouch))
+            {
+                OnPressA();
+            }
+
+            if (bButtonCompletesMission && OVRInput.GetDown(OVRInput.Button.Two, OVRInput.Controller.RTouch))
+            {
+                CompleteMission();
+            }
 
             if (GetRightTriggerDown())
             {
-                if (onboardingActive && pinchAdvancesDialogue) AdvanceOnboardingFlow();
-                else OnPressTrigger();
+                if (onboardingActive && pinchAdvancesDialogue)
+                {
+                    AdvanceOnboardingFlow();
+                }
+                else
+                {
+                    OnPressTrigger();
+                }
             }
         }
 
-        if (!lockUIToUserView) FaceCanvasToUser();
-    }
-
-    private void ResolveRightHandIfNeeded()
-    {
-        if (!autoFindRightOVRHandIfMissing || rightHand != null) return;
-
-        OVRHand[] hands = FindObjectsOfType<OVRHand>(true);
-        foreach (OVRHand hand in hands)
+        if (!lockUIToUserView)
         {
-            if (hand == null) continue;
-            string name = hand.gameObject.name.ToLowerInvariant();
-            string parent = hand.transform.parent != null ? hand.transform.parent.name.ToLowerInvariant() : "";
-            if ((name + " " + parent).Contains("right"))
-            {
-                rightHand = hand;
-                return;
-            }
+            FaceCanvasToUser();
         }
     }
 
-    private void UpdateHandGestureInput()
-    {
-        ResolveRightHandIfNeeded();
-        if (!IsHandTracked(rightHand)) return;
-
-        bool rightIndexPinchDown = GetHandPinchDown(rightHand, OVRHand.HandFinger.Index, ref wasRightIndexPinching);
-        bool rightMiddlePinchDown = GetHandPinchDown(rightHand, OVRHand.HandFinger.Middle, ref wasRightMiddlePinching);
-        bool rightRingPinchDown = GetHandPinchDown(rightHand, OVRHand.HandFinger.Ring, ref wasRightRingPinching);
-
-        if (rightIndexPinchDown)
-        {
-            if (pinchAdvancesDialogue && onboardingActive) AdvanceOnboardingFlow();
-            else if (rightIndexPinchSummonsDurry) OnPressTrigger();
-        }
-
-        if (rightMiddlePinchStartsMission && rightMiddlePinchDown) OnPressA();
-        if (rightRingPinchCompletesMission && rightRingPinchDown) CompleteMission();
-    }
-
-    private bool GetHandPinchDown(OVRHand hand, OVRHand.HandFinger finger, ref bool wasPinching)
-    {
-        bool isPinching = IsHandTracked(hand) && hand.GetFingerIsPinching(finger);
-        bool pinchDown = isPinching && !wasPinching;
-        wasPinching = isPinching;
-        return pinchDown;
-    }
-
-    private bool IsHandTracked(OVRHand hand)
-    {
-        return hand != null && hand.IsTracked && hand.IsDataValid;
-    }
+    #region Navigation And Pages
 
     private void ResolveNavigationReferences()
     {
-        if (navigationBarObject == null)
+        if (navigationBarObject != null)
         {
-            Transform searchRoot = worldCanvas != null ? worldCanvas.transform : transform;
-            Transform found = FindChildTransformContainsAll(searchRoot, "navigation", "bar") ??
-                              FindChildTransformContains(searchRoot, "navbar") ??
-                              FindChildTransformContains(searchRoot, "nav");
-            if (found != null) navigationBarObject = found.gameObject;
+            return;
         }
 
+        Transform searchRoot = worldCanvas != null ? worldCanvas.transform : transform;
+        Transform found = FindChildTransformContainsAll(searchRoot, "navigation", "bar") ??
+                          FindChildTransformContains(searchRoot, "navbar") ??
+                          FindChildTransformContains(searchRoot, "navigationbar");
+
+        if (found != null)
+        {
+            navigationBarObject = found.gameObject;
+        }
     }
 
     public void SetNavigationBarVisible(bool visible)
     {
         ResolveNavigationReferences();
-        if (navigationBarObject != null) navigationBarObject.SetActive(visible);
+
+        if (navigationBarObject != null)
+        {
+            navigationBarObject.SetActive(visible);
+        }
     }
 
-    public void ShowNavigationBar() => SetNavigationBarVisible(true);
-    public void HideNavigationBar() => SetNavigationBarVisible(false);
+    public void ShowNavigationBar()
+    {
+        SetNavigationBarVisible(true);
+    }
+
+    public void HideNavigationBar()
+    {
+        SetNavigationBarVisible(false);
+    }
 
     public void ToggleNavigationBar()
     {
         ResolveNavigationReferences();
-        if (navigationBarObject != null) navigationBarObject.SetActive(!navigationBarObject.activeSelf);
+
+        if (navigationBarObject != null)
+        {
+            navigationBarObject.SetActive(!navigationBarObject.activeSelf);
+        }
     }
 
     private void ResolveNavigationButtons()
     {
-        Transform searchRoot = navigationBarObject != null ? navigationBarObject.transform : (worldCanvas != null ? worldCanvas.transform : transform);
-        if (durryNoteButton == null) durryNoteButton = FindButtonByKeywords(searchRoot, "durry", "note") ?? FindButtonByKeywords(searchRoot, "dury", "note");
-        if (shopButton == null) shopButton = FindButtonByKeywords(searchRoot, "shop");
-        if (myPageButton == null) myPageButton = FindButtonByKeywords(searchRoot, "my", "page") ?? FindButtonByKeywords(searchRoot, "mypage");
-        if (menuButton == null) menuButton = FindButtonByKeywords(searchRoot, "menu");
+        Transform searchRoot = navigationBarObject != null
+            ? navigationBarObject.transform
+            : worldCanvas != null ? worldCanvas.transform : transform;
+
+        if (durryNoteButton == null)
+        {
+            durryNoteButton = FindButtonByKeywords(searchRoot, "durry", "note") ??
+                              FindButtonByKeywords(searchRoot, "dury", "note") ??
+                              FindButtonByKeywords(searchRoot, "note");
+        }
+
+        if (shopButton == null)
+        {
+            shopButton = FindButtonByKeywords(searchRoot, "shop");
+        }
+
+        if (myPageButton == null)
+        {
+            myPageButton = FindButtonByKeywords(searchRoot, "my", "page") ??
+                           FindButtonByKeywords(searchRoot, "mypage");
+        }
+
+        if (menuButton == null)
+        {
+            menuButton = FindButtonByKeywords(searchRoot, "menu");
+        }
     }
 
     private void ConnectNavigationButtonEvents()
     {
-        if (!autoConnectNavigationButtons) return;
+        if (!autoConnectNavigationButtons)
+        {
+            return;
+        }
+
         ResolveNavigationButtons();
-        ConnectButtonClick(durryNoteButton, OnDurryNoteButtonClicked);
-        ConnectButtonClick(shopButton, OnShopButtonClicked);
-        ConnectButtonClick(myPageButton, OnMyPageButtonClicked);
-        ConnectButtonClick(menuButton, OnMenuButtonClicked);
+        ConnectButtonClick(durryNoteButton, OpenNotePage);
+        ConnectButtonClick(shopButton, OpenShopPage);
+        ConnectButtonClick(myPageButton, OpenMyPage);
+        ConnectButtonClick(menuButton, OpenMenuPage);
     }
 
-    public void OnDurryNoteButtonClicked() => OpenNotePage();
-    public void OnShopButtonClicked() => OpenShopPage();
-    public void OnMyPageButtonClicked() => OpenMyPage();
-    public void OnMenuButtonClicked() => OpenMenuPage();
-
-    public void OpenNotePage() => OpenBigNotePage(DustinyPage.Note);
-    public void OpenShopPage() => OpenBigNotePage(DustinyPage.Shop);
-    public void OpenMyPage() => OpenBigNotePage(DustinyPage.MyPage);
-    public void OpenMenuPage() => OpenBigNotePage(menuPageObject != null ? DustinyPage.Menu : DustinyPage.Note);
-
-    public void CloseBigNote()
-    {
-        SetBigNoteVisible(false);
-        currentBigNotePage = DustinyPage.None;
-        UpdateBigNoteTags();
-    }
-
-    private void ResolveBigNoteReferences()
+    private void ResolvePageReferences()
     {
         Transform searchRoot = worldCanvas != null ? worldCanvas.transform : transform;
 
         if (bigNoteRoot == null)
         {
-            Transform found = FindChildTransformContainsAll(searchRoot, "big", "note") ??
-                              FindChildTransformContains(searchRoot, "viewpoint") ??
-                              FindChildTransformContainsAll(searchRoot, "page", "root");
-            if (found != null) bigNoteRoot = found.gameObject;
+            Transform foundRoot = FindChildTransformExact(searchRoot, "BigNoteRoot") ??
+                                  FindChildTransformExact(searchRoot, "PageRoot") ??
+                                  FindChildTransformContainsAll(searchRoot, "page", "root");
+
+            if (foundRoot != null)
+            {
+                bigNoteRoot = foundRoot.gameObject;
+            }
         }
 
-        if (bigNoteRect == null && bigNoteRoot != null) bigNoteRect = bigNoteRoot.GetComponent<RectTransform>();
-
-        Transform pageRoot = bigNoteRoot != null ? bigNoteRoot.transform : searchRoot;
-
-        if (viewpointBackgroundObject == null && bigNoteRoot != null)
+        if (bigNoteRect == null && bigNoteRoot != null)
         {
-            viewpointBackgroundObject = GetGameObjectFromTransform(FindChildTransformContainsAll(bigNoteRoot.transform, "viewpoint", "background")) ??
-                                       GetGameObjectFromTransform(FindChildTransformContainsAll(bigNoteRoot.transform, "note", "background")) ??
-                                       GetGameObjectFromTransform(FindChildTransformContains(bigNoteRoot.transform, "background"));
+            bigNoteRect = bigNoteRoot.GetComponent<RectTransform>();
         }
 
-        if (notePageObject == null) notePageObject = GetPageObject(pageRoot, "note");
-        if (shopPageObject == null) shopPageObject = GetPageObject(pageRoot, "shop");
-        if (myPageObject == null) myPageObject = GetGameObjectFromTransform(FindChildTransformContainsAll(pageRoot, "my", "page")) ?? GetGameObjectFromTransform(FindChildTransformContains(pageRoot, "mypagepanel"));
+        if (notePageObject == null)
+        {
+            notePageObject = GetGameObjectFromTransform(FindBestPageTransform(searchRoot, "note"));
+        }
+
+        if (shopPageObject == null)
+        {
+            shopPageObject = GetGameObjectFromTransform(FindBestPageTransform(searchRoot, "shop"));
+        }
+
+        if (myPageObject == null)
+        {
+            myPageObject = GetGameObjectFromTransform(FindBestPageTransform(searchRoot, "mypage")) ??
+                           GetGameObjectFromTransform(FindBestPageTransform(searchRoot, "my"));
+        }
+
         if (menuPageObject == null)
         {
-            GameObject foundMenu = GetPageObject(pageRoot, "menu");
-            if (foundMenu != navigationBarObject) menuPageObject = foundMenu;
+            menuPageObject = GetGameObjectFromTransform(FindBestPageTransform(searchRoot, "menu"));
+        }
+
+        if (sideTagsRoot == null)
+        {
+            Transform tagSearchRoot = bigNoteRoot != null ? bigNoteRoot.transform : searchRoot;
+            sideTagsRoot = FindChildTransformContainsAll(tagSearchRoot, "side", "tag") ??
+                           FindChildTransformContains(tagSearchRoot, "sidetags");
         }
     }
 
-    private GameObject GetPageObject(Transform root, string pageName)
+    private void ResolvePageBackgroundReferences()
     {
-        Transform found = FindChildTransformContainsAll(root, pageName, "page") ?? FindChildTransformContains(root, pageName + "panel");
-        return GetGameObjectFromTransform(found);
+        if (noteBackgroundObject == null && notePageObject != null)
+        {
+            Transform background = FindChildTransformContains(notePageObject.transform, "background");
+            if (background != null)
+            {
+                noteBackgroundObject = background.gameObject;
+            }
+        }
+
+        if (menuBackgroundObject == null && menuPageObject != null)
+        {
+            Transform background = FindChildTransformContains(menuPageObject.transform, "background");
+            if (background != null)
+            {
+                menuBackgroundObject = background.gameObject;
+            }
+        }
+
+        if (obsoleteSharedBackgroundObject == null && bigNoteRoot != null)
+        {
+            obsoleteSharedBackgroundObject = FindDirectChildExact(bigNoteRoot.transform, "ViewpointBackground") ??
+                                               FindDirectChildExact(bigNoteRoot.transform, "SharedBackground") ??
+                                               FindDirectChildExact(bigNoteRoot.transform, "CommonBackground");
+        }
     }
 
-    private GameObject GetGameObjectFromTransform(Transform target)
+    private void ConfigurePageRootGraphics()
     {
-        if (target == null) return null;
-        if (bigNoteRoot != null && target == bigNoteRoot.transform) return null;
-        return target.gameObject;
+        ResolvePageReferences();
+        ResolvePageBackgroundReferences();
+
+        if (disableGraphicOnPageRoot && bigNoteRoot != null)
+        {
+            Graphic[] rootGraphics = bigNoteRoot.GetComponents<Graphic>();
+            foreach (Graphic graphic in rootGraphics)
+            {
+                if (graphic != null)
+                {
+                    graphic.enabled = false;
+                    graphic.raycastTarget = false;
+                }
+            }
+        }
     }
 
-    private void ResolveBigNoteButtons()
+    private void ResolvePageButtons()
     {
-        ResolveBigNoteReferences();
-        Transform pageRoot = bigNoteRoot != null ? bigNoteRoot.transform : (worldCanvas != null ? worldCanvas.transform : transform);
+        ResolvePageReferences();
 
-        if (closePageButton == null) closePageButton = FindButtonByKeywords(pageRoot, "close") ?? FindButtonByKeywords(pageRoot, "x");
-        if (noteTagButton == null) noteTagButton = FindButtonByKeywords(pageRoot, "note");
-        if (shopTagButton == null) shopTagButton = FindButtonByKeywords(pageRoot, "shop");
-        if (myPageTagButton == null) myPageTagButton = FindButtonByKeywords(pageRoot, "my", "page") ?? FindButtonByKeywords(pageRoot, "mypage");
-        if (menuTagButton == null) menuTagButton = FindButtonByKeywords(pageRoot, "menu");
+        Transform searchRoot = sideTagsRoot != null
+            ? sideTagsRoot
+            : bigNoteRoot != null ? bigNoteRoot.transform
+            : worldCanvas != null ? worldCanvas.transform : transform;
 
-        if (closeTagRect == null && closePageButton != null) closeTagRect = closePageButton.GetComponent<RectTransform>();
-        if (noteTagRect == null && noteTagButton != null) noteTagRect = noteTagButton.GetComponent<RectTransform>();
-        if (shopTagRect == null && shopTagButton != null) shopTagRect = shopTagButton.GetComponent<RectTransform>();
-        if (myPageTagRect == null && myPageTagButton != null) myPageTagRect = myPageTagButton.GetComponent<RectTransform>();
-        if (menuTagRect == null && menuTagButton != null) menuTagRect = menuTagButton.GetComponent<RectTransform>();
+        if (closePageButton == null)
+        {
+            closePageButton = FindButtonByKeywords(searchRoot, "close") ??
+                              FindButtonByKeywords(searchRoot, "exit");
+        }
 
-        SaveBigNoteTagBasePositions();
+        if (noteTagButton == null)
+        {
+            noteTagButton = FindButtonByKeywords(searchRoot, "note");
+        }
+
+        if (shopTagButton == null)
+        {
+            shopTagButton = FindButtonByKeywords(searchRoot, "shop");
+        }
+
+        if (myPageTagButton == null)
+        {
+            myPageTagButton = FindButtonByKeywords(searchRoot, "my", "page") ??
+                              FindButtonByKeywords(searchRoot, "mypage");
+        }
+
+        if (menuTagButton == null)
+        {
+            menuTagButton = FindButtonByKeywords(searchRoot, "menu");
+        }
+
+        if (closeTagRect == null && closePageButton != null)
+        {
+            closeTagRect = closePageButton.GetComponent<RectTransform>();
+        }
+
+        if (noteTagRect == null && noteTagButton != null)
+        {
+            noteTagRect = noteTagButton.GetComponent<RectTransform>();
+        }
+
+        if (shopTagRect == null && shopTagButton != null)
+        {
+            shopTagRect = shopTagButton.GetComponent<RectTransform>();
+        }
+
+        if (myPageTagRect == null && myPageTagButton != null)
+        {
+            myPageTagRect = myPageTagButton.GetComponent<RectTransform>();
+        }
+
+        if (menuTagRect == null && menuTagButton != null)
+        {
+            menuTagRect = menuTagButton.GetComponent<RectTransform>();
+        }
+
+        SavePageTagBasePositions();
     }
 
-    private void ConnectBigNoteButtonEvents()
+    private void ConnectPageButtonEvents()
     {
-        if (!autoConnectBigNoteButtons) return;
-        ResolveBigNoteButtons();
+        if (!autoConnectPageButtons)
+        {
+            return;
+        }
+
+        ResolvePageButtons();
         ConnectButtonClick(closePageButton, CloseBigNote);
         ConnectButtonClick(noteTagButton, OpenNotePage);
         ConnectButtonClick(shopTagButton, OpenShopPage);
@@ -491,83 +640,34 @@ public class DustinyDemoFlow : MonoBehaviour
         ConnectButtonClick(menuTagButton, OpenMenuPage);
     }
 
-    private void ConnectButtonClick(Button button, UnityEngine.Events.UnityAction action)
+    public void OpenNotePage()
     {
-        if (button == null || action == null) return;
-        button.onClick.RemoveListener(action);
-        button.onClick.AddListener(action);
+        OpenPage(DustinyPage.Note);
     }
 
-    private Button FindButtonByKeywords(Transform root, params string[] keywords)
+    public void OpenShopPage()
     {
-        Transform found = FindChildTransformContainsAll(root, keywords);
-        if (found == null) return null;
-        Button directButton = found.GetComponent<Button>();
-        return directButton != null ? directButton : found.GetComponentInChildren<Button>(true);
+        OpenPage(DustinyPage.Shop);
     }
 
-    private void UpdateBigNotePlacement()
+    public void OpenMyPage()
     {
-        ResolveBigNoteReferences();
-        if (bigNoteRect == null) return;
-
-        // 이 옵션이 켜져 있으면 BigNoteRoot뿐 아니라 ViewpointBackground까지
-        // 인스펙터에서 만든 RectTransform / Scale / Image 설정을 전혀 덮어쓰지 않습니다.
-        // 따라서 태그, 페이지 콘텐츠, 설명 박스가 Scene에서 배치한 위치와 동일하게 유지됩니다.
-        if (preserveBigNoteInspectorLayout) return;
-
-        if (keepBigNoteInView)
-        {
-            if (forceBigNoteCenterAnchor)
-            {
-                bigNoteRect.anchorMin = new Vector2(0.5f, 0.5f);
-                bigNoteRect.anchorMax = new Vector2(0.5f, 0.5f);
-                bigNoteRect.pivot = new Vector2(0.5f, 0.5f);
-            }
-
-            bigNoteRect.anchoredPosition = bigNoteAnchoredPosition;
-
-            if (applyBigNoteSize && bigNoteSize.x > 0f && bigNoteSize.y > 0f)
-            {
-                bigNoteRect.sizeDelta = bigNoteSize;
-            }
-        }
-
-        if (stretchViewpointBackgroundToFillRoot)
-        {
-            StretchChildToFill(viewpointBackgroundObject);
-        }
-
-        if (preserveViewpointBackgroundImageAspect && viewpointBackgroundObject != null)
-        {
-            Image backgroundImage = viewpointBackgroundObject.GetComponent<Image>();
-            if (backgroundImage != null) backgroundImage.preserveAspect = true;
-        }
+        OpenPage(DustinyPage.MyPage);
     }
 
-    private void StretchChildToFill(GameObject target)
+    public void OpenMenuPage()
     {
-        if (target == null) return;
-        RectTransform rect = target.GetComponent<RectTransform>();
-        if (rect == null) return;
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.offsetMin = Vector2.zero;
-        rect.offsetMax = Vector2.zero;
-        rect.localScale = Vector3.one;
-        rect.localEulerAngles = Vector3.zero;
+        OpenPage(DustinyPage.Menu);
     }
 
-    private void SetBigNoteVisible(bool visible)
+    public void CloseBigNote()
     {
-        ResolveBigNoteReferences();
-        bigNoteOpen = visible;
-        if (bigNoteRoot != null) bigNoteRoot.SetActive(visible);
-        if (hideNavigationBarWhenBigNoteOpen) SetNavigationBarVisible(!visible && navigationBarStartsVisible);
+        currentPage = DustinyPage.None;
+        SetPageRootVisible(false);
+        UpdatePageTags();
     }
 
-    private void OpenBigNotePage(DustinyPage page)
+    public void OpenPage(DustinyPage page)
     {
         if (page == DustinyPage.None)
         {
@@ -575,60 +675,204 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        ResolveBigNoteReferences();
-        ResolveBigNoteButtons();
-        currentBigNotePage = page;
-        SetBigNoteVisible(true);
+        ResolvePageReferences();
+        ResolvePageBackgroundReferences();
+        ResolvePageButtons();
+        ConfigurePageRootGraphics();
 
-        if (bringBigNoteToFrontWhenOpen && bigNoteRect != null) bigNoteRect.SetAsLastSibling();
-        if (hideDialogueWhenBigNoteOpens) HideDialoguePanels();
+        GameObject requestedPage = GetPageObject(page);
+        if (requestedPage == null)
+        {
+            Debug.LogWarning($"[페이지 열기 실패] {page} Page Object가 연결되지 않았습니다.");
+            return;
+        }
+
+        currentPage = page;
+        SetPageRootVisible(true);
 
         SetPageObjectVisible(notePageObject, page == DustinyPage.Note);
         SetPageObjectVisible(shopPageObject, page == DustinyPage.Shop);
         SetPageObjectVisible(myPageObject, page == DustinyPage.MyPage);
         SetPageObjectVisible(menuPageObject, page == DustinyPage.Menu);
 
-        UpdateBigNoteTags();
-        UpdateBigNotePlacement();
-        Debug.Log($"Big note page opened: {page}");
+        bool showSharedBackground = useSharedBackgroundForShopAndMyPage &&
+                                    (page == DustinyPage.Shop || page == DustinyPage.MyPage);
+        if (obsoleteSharedBackgroundObject != null)
+        {
+            obsoleteSharedBackgroundObject.SetActive(showSharedBackground);
+        }
+
+        // Note and Menu own separate backgrounds. Shop/MyPage use the shared background above.
+        SetSeparateBackgroundVisible(noteBackgroundObject, page == DustinyPage.Note, notePageObject);
+        SetSeparateBackgroundVisible(menuBackgroundObject, page == DustinyPage.Menu, menuPageObject);
+
+        if (bringPageRootToFrontWhenOpen && bigNoteRect != null)
+        {
+            bigNoteRect.SetAsLastSibling();
+        }
+
+        if (hideDialogueWhenPageOpens)
+        {
+            HideDialoguePanels();
+        }
+
+        UpdatePageTags();
+        UpdatePageRootPlacement();
+        Debug.Log($"[페이지 열기] {page}");
     }
 
-    private void SetPageObjectVisible(GameObject pageObject, bool visible)
+    private GameObject GetPageObject(DustinyPage page)
     {
-        if (pageObject != null) pageObject.SetActive(visible);
+        switch (page)
+        {
+            case DustinyPage.Note: return notePageObject;
+            case DustinyPage.Shop: return shopPageObject;
+            case DustinyPage.MyPage: return myPageObject;
+            case DustinyPage.Menu: return menuPageObject;
+            default: return null;
+        }
     }
 
-    private void SaveBigNoteTagBasePositions()
+    private void SetPageRootVisible(bool visible)
     {
-        if (bigNoteTagBasePositionsSaved) return;
+        ResolvePageReferences();
+        pageRootOpen = visible;
+
+        if (bigNoteRoot != null)
+        {
+            bigNoteRoot.SetActive(visible);
+        }
+
+        if (!visible)
+        {
+            SetPageObjectVisible(notePageObject, false);
+            SetPageObjectVisible(shopPageObject, false);
+            SetPageObjectVisible(myPageObject, false);
+            SetPageObjectVisible(menuPageObject, false);
+            SetSeparateBackgroundVisible(noteBackgroundObject, false, notePageObject);
+            SetSeparateBackgroundVisible(menuBackgroundObject, false, menuPageObject);
+            if (obsoleteSharedBackgroundObject != null)
+            {
+                obsoleteSharedBackgroundObject.SetActive(false);
+            }
+        }
+
+        if (hideNavigationBarWhenPageOpen)
+        {
+            SetNavigationBarVisible(!visible && navigationBarStartsVisible);
+        }
+    }
+
+    private static void SetPageObjectVisible(GameObject pageObject, bool visible)
+    {
+        if (pageObject != null)
+        {
+            pageObject.SetActive(visible);
+        }
+    }
+
+    private static void SetSeparateBackgroundVisible(GameObject backgroundObject, bool visible, GameObject owningPage)
+    {
+        if (backgroundObject == null)
+        {
+            return;
+        }
+
+        // A child background naturally follows its page. Setting it explicitly is still safe.
+        // A separately placed background is also supported.
+        if (owningPage == null || backgroundObject != owningPage)
+        {
+            backgroundObject.SetActive(visible);
+        }
+    }
+
+    private void UpdatePageRootPlacement()
+    {
+        if (preservePageRootInspectorLayout)
+        {
+            return;
+        }
+
+        ResolvePageReferences();
+        if (bigNoteRect == null || !keepPageRootInView)
+        {
+            return;
+        }
+
+        if (forcePageRootCenterAnchor)
+        {
+            bigNoteRect.anchorMin = new Vector2(0.5f, 0.5f);
+            bigNoteRect.anchorMax = new Vector2(0.5f, 0.5f);
+            bigNoteRect.pivot = new Vector2(0.5f, 0.5f);
+        }
+
+        bigNoteRect.anchoredPosition = pageRootAnchoredPosition;
+
+        if (applyPageRootSize && pageRootSize.x > 0f && pageRootSize.y > 0f)
+        {
+            bigNoteRect.sizeDelta = pageRootSize;
+        }
+    }
+
+    private void SavePageTagBasePositions()
+    {
+        if (tagBasePositionsSaved)
+        {
+            return;
+        }
+
         if (closeTagRect != null) closeTagBasePosition = closeTagRect.anchoredPosition;
         if (noteTagRect != null) noteTagBasePosition = noteTagRect.anchoredPosition;
         if (shopTagRect != null) shopTagBasePosition = shopTagRect.anchoredPosition;
         if (myPageTagRect != null) myPageTagBasePosition = myPageTagRect.anchoredPosition;
         if (menuTagRect != null) menuTagBasePosition = menuTagRect.anchoredPosition;
-        bigNoteTagBasePositionsSaved = true;
+
+        tagBasePositionsSaved = true;
     }
 
-    private void UpdateBigNoteTags()
+    private void UpdatePageTags()
     {
-        if (!popOutActiveTag) return;
-        ResolveBigNoteButtons();
-        SaveBigNoteTagBasePositions();
+        if (!popOutActiveTag)
+        {
+            return;
+        }
 
-        bool isOpen = bigNoteOpen && bigNoteRoot != null && bigNoteRoot.activeSelf;
+        ResolvePageButtons();
+        SavePageTagBasePositions();
+
+        bool isOpen = pageRootOpen;
         SetTagPopped(closeTagRect, closeTagBasePosition, isOpen && closeTagAlwaysPopped);
-        SetTagPopped(noteTagRect, noteTagBasePosition, isOpen && currentBigNotePage == DustinyPage.Note);
-        SetTagPopped(shopTagRect, shopTagBasePosition, isOpen && currentBigNotePage == DustinyPage.Shop);
-        SetTagPopped(myPageTagRect, myPageTagBasePosition, isOpen && currentBigNotePage == DustinyPage.MyPage);
-        SetTagPopped(menuTagRect, menuTagBasePosition, isOpen && currentBigNotePage == DustinyPage.Menu);
+        SetTagPopped(noteTagRect, noteTagBasePosition, isOpen && currentPage == DustinyPage.Note);
+        SetTagPopped(shopTagRect, shopTagBasePosition, isOpen && currentPage == DustinyPage.Shop);
+        SetTagPopped(myPageTagRect, myPageTagBasePosition, isOpen && currentPage == DustinyPage.MyPage);
+        SetTagPopped(menuTagRect, menuTagBasePosition, isOpen && currentPage == DustinyPage.Menu);
     }
 
     private void SetTagPopped(RectTransform tagRect, Vector2 basePosition, bool popped)
     {
-        if (tagRect == null) return;
+        if (tagRect == null)
+        {
+            return;
+        }
+
         float offset = popped ? activeTagOffsetX : inactiveTagOffsetX;
         tagRect.anchoredPosition = basePosition + new Vector2(offset, 0f);
     }
+
+    private static void ConnectButtonClick(Button button, UnityEngine.Events.UnityAction action)
+    {
+        if (button == null || action == null)
+        {
+            return;
+        }
+
+        button.onClick.RemoveListener(action);
+        button.onClick.AddListener(action);
+    }
+
+    #endregion
+
+    #region Dialogue And Onboarding
 
     private void ResolveDialogueReferences()
     {
@@ -636,33 +880,82 @@ public class DustinyDemoFlow : MonoBehaviour
 
         if (speechBubbleObject == null)
         {
-            Transform foundSpeech = FindChildTransformContainsAll(searchRoot, "speech", "bubble") ?? FindChildTransformContains(searchRoot, "speechbubble");
-            if (foundSpeech != null) speechBubbleObject = foundSpeech.gameObject;
+            Transform speech = FindChildTransformContainsAll(searchRoot, "speech", "bubble") ??
+                               FindChildTransformContains(searchRoot, "speechbubble");
+            if (speech != null)
+            {
+                speechBubbleObject = speech.gameObject;
+            }
         }
 
         if (descriptionObject == null)
         {
-            Transform foundDescription = FindChildTransformContains(searchRoot, "description");
-            if (foundDescription != null) descriptionObject = foundDescription.gameObject;
+            Transform description = FindChildTransformExact(searchRoot, "Description") ??
+                                    FindChildTransformContains(searchRoot, "description");
+            if (description != null)
+            {
+                descriptionObject = description.gameObject;
+            }
         }
 
-        if (speechText == null && speechBubbleObject != null) speechText = speechBubbleObject.GetComponentInChildren<TMP_Text>(true);
-        if (descriptionText == null && descriptionObject != null) descriptionText = descriptionObject.GetComponentInChildren<TMP_Text>(true);
-        if (speechText == null && questText != null) speechText = questText;
-        if (questText == null && speechText != null) questText = speechText;
-        if (speechBubbleRect == null && speechBubbleObject != null) speechBubbleRect = speechBubbleObject.GetComponent<RectTransform>();
-        if (descriptionRect == null && descriptionObject != null) descriptionRect = descriptionObject.GetComponent<RectTransform>();
+        if (speechText == null && speechBubbleObject != null)
+        {
+            speechText = speechBubbleObject.GetComponentInChildren<TMP_Text>(true);
+        }
 
-        speechAutoSize = speechBubbleObject != null ? speechBubbleObject.GetComponent<SpeechBubbleAutoSize>() : null;
-        descriptionAutoSize = descriptionObject != null ? descriptionObject.GetComponent<SpeechBubbleAutoSize>() : null;
+        if (descriptionText == null && descriptionObject != null)
+        {
+            TMP_Text[] texts = descriptionObject.GetComponentsInChildren<TMP_Text>(true);
+            foreach (TMP_Text text in texts)
+            {
+                if (text == null)
+                {
+                    continue;
+                }
+
+                string lowerName = text.name.ToLowerInvariant();
+                if (lowerName.Contains("description") || lowerName.Contains("quest"))
+                {
+                    descriptionText = text;
+                    break;
+                }
+            }
+
+            if (descriptionText == null && texts.Length > 0)
+            {
+                descriptionText = texts[0];
+            }
+        }
+
+        if (speechBubbleRect == null && speechBubbleObject != null)
+        {
+            speechBubbleRect = speechBubbleObject.GetComponent<RectTransform>();
+        }
+
+        if (descriptionRect == null && descriptionObject != null)
+        {
+            descriptionRect = descriptionObject.GetComponent<RectTransform>();
+        }
+
+        speechAutoSize = speechBubbleObject != null
+            ? speechBubbleObject.GetComponent<SpeechBubbleAutoSize>()
+            : null;
+
+        descriptionAutoSize = descriptionObject != null
+            ? descriptionObject.GetComponent<SpeechBubbleAutoSize>()
+            : null;
+
         ConfigureAutoSize(speechAutoSize, speechText, speechBubbleRect);
         ConfigureAutoSize(descriptionAutoSize, descriptionText, descriptionRect);
 
-        if (durryNameInputObject == null && durryNameInputField != null) durryNameInputObject = durryNameInputField.gameObject;
+        if (durryNameInputObject == null && durryNameInputField != null)
+        {
+            durryNameInputObject = durryNameInputField.gameObject;
+        }
 
         if (durryNameInputField != null)
         {
-            durryNameInputField.text = "";
+            durryNameInputField.text = string.Empty;
             durryNameInputField.onSubmit.RemoveListener(OnNameInputSubmitted);
             durryNameInputField.onSubmit.AddListener(OnNameInputSubmitted);
         }
@@ -670,44 +963,69 @@ public class DustinyDemoFlow : MonoBehaviour
         SetNameInputVisible(false);
     }
 
-    private void ConfigureAutoSize(SpeechBubbleAutoSize autoSize, TMP_Text text, RectTransform bubbleRect)
+    private static void ConfigureAutoSize(SpeechBubbleAutoSize autoSize, TMP_Text text, RectTransform bubbleRect)
     {
-        if (autoSize == null || text == null) return;
+        if (autoSize == null || text == null)
+        {
+            return;
+        }
+
+        // SpeechBubbleAutoSize keeps the legacy field name questText.
         autoSize.questText = text;
-        if (autoSize.textRect == null) autoSize.textRect = text.GetComponent<RectTransform>();
-        if (autoSize.bubbleRect == null && bubbleRect != null) autoSize.bubbleRect = bubbleRect;
+
+        if (autoSize.textRect == null)
+        {
+            autoSize.textRect = text.GetComponent<RectTransform>();
+        }
+
+        if (autoSize.bubbleRect == null && bubbleRect != null)
+        {
+            autoSize.bubbleRect = bubbleRect;
+        }
     }
 
     private void BeginOnboardingFlow()
     {
         onboardingActive = true;
         onboardingState = OnboardingState.IntroSpeech;
-        step = 0;
+        missionRoundActive = false;
         durryName = string.IsNullOrWhiteSpace(durryName) ? defaultDurryName : durryName;
-        if (scanZoneObject != null) scanZoneObject.SetActive(false);
+
+        if (scanZoneObject != null)
+        {
+            scanZoneObject.SetActive(false);
+        }
+
         ShowSpeech(introSpeech);
-        UpdateBosongText();
     }
 
     private void AdvanceOnboardingFlow()
     {
-        if (Time.time - lastDialogueAdvanceTime < dialogueAdvanceCooldown) return;
+        if (Time.time - lastDialogueAdvanceTime < dialogueAdvanceCooldown || !onboardingActive)
+        {
+            return;
+        }
+
         lastDialogueAdvanceTime = Time.time;
-        if (!onboardingActive) return;
 
         switch (onboardingState)
         {
             case OnboardingState.IntroSpeech:
                 StartFirstMissionDescription();
                 break;
+
             case OnboardingState.MissionDescription:
+                // The user must finish the physical mission before this state advances.
                 break;
+
             case OnboardingState.NameQuestionSpeech:
                 ConfirmDurryNameAndShowDescription();
                 break;
+
             case OnboardingState.NamedDescription:
                 ShowFinalSpeech();
                 break;
+
             case OnboardingState.FinalSpeech:
                 FinishOnboardingFlow();
                 break;
@@ -717,11 +1035,7 @@ public class DustinyDemoFlow : MonoBehaviour
     private void StartFirstMissionDescription()
     {
         onboardingState = OnboardingState.MissionDescription;
-        step = 1;
-        if (summonDurryOnMissionStart) SummonDurryToUser();
-        if (scanZoneObject != null) scanZoneObject.SetActive(true);
-        ShowDescription(firstMissionDescription);
-        UpdateBosongText();
+        StartMissionRound(firstMissionDescription);
     }
 
     private void ShowNameQuestionSpeech()
@@ -729,41 +1043,63 @@ public class DustinyDemoFlow : MonoBehaviour
         onboardingState = OnboardingState.NameQuestionSpeech;
         ShowSpeech(nameQuestionSpeech);
 
-        if (showNameInputWithNameQuestion)
+        if (!showNameInputWithNameQuestion)
         {
-            SetNameInputVisible(true);
-            if (durryNameInputField != null)
-            {
-                durryNameInputField.text = "";
-                durryNameInputField.ActivateInputField();
-            }
+            return;
+        }
+
+        SetNameInputVisible(true);
+
+        if (durryNameInputField != null)
+        {
+            durryNameInputField.text = string.Empty;
+            durryNameInputField.ActivateInputField();
         }
     }
 
     private void OnNameInputSubmitted(string submittedName)
     {
-        if (!onboardingActive || onboardingState != OnboardingState.NameQuestionSpeech) return;
+        if (!onboardingActive || onboardingState != OnboardingState.NameQuestionSpeech)
+        {
+            return;
+        }
+
         ConfirmDurryNameAndShowDescription(submittedName);
     }
 
     public void SetDurryNameFromVoice(string recognizedName)
     {
-        if (!onboardingActive || onboardingState != OnboardingState.NameQuestionSpeech) return;
+        if (!onboardingActive || onboardingState != OnboardingState.NameQuestionSpeech)
+        {
+            return;
+        }
+
         ConfirmDurryNameAndShowDescription(recognizedName);
     }
 
     private void ConfirmDurryNameAndShowDescription(string inputName = null)
     {
         string rawName = inputName;
-        if (string.IsNullOrWhiteSpace(rawName) && durryNameInputField != null) rawName = durryNameInputField.text;
-        if (string.IsNullOrWhiteSpace(rawName)) rawName = defaultDurryName;
+
+        if (string.IsNullOrWhiteSpace(rawName) && durryNameInputField != null)
+        {
+            rawName = durryNameInputField.text;
+        }
+
+        if (string.IsNullOrWhiteSpace(rawName))
+        {
+            rawName = defaultDurryName;
+        }
+
         durryName = rawName.Trim();
-        if (string.IsNullOrWhiteSpace(durryName)) durryName = defaultDurryName;
+        if (string.IsNullOrWhiteSpace(durryName))
+        {
+            durryName = defaultDurryName;
+        }
 
         SetNameInputVisible(false);
         onboardingState = OnboardingState.NamedDescription;
         ShowDescription(string.Format(namedDescriptionFormat, durryName));
-        UpdateBosongText();
     }
 
     private void ShowFinalSpeech()
@@ -777,8 +1113,17 @@ public class DustinyDemoFlow : MonoBehaviour
         onboardingActive = false;
         onboardingState = OnboardingState.Finished;
         SetNameInputVisible(false);
-        HideDialoguePanels();
-        UpdateUI("하단바에서 NOTE / SHOP / MY PAGE를 선택할 수 있어.", $"보송력 {bosongPower}");
+        ShowDescription("하단바에서 NOTE / SHOP / MY PAGE / MENU를 선택할 수 있어.");
+    }
+
+    public void ShowDescriptionMessage(string message)
+    {
+        ShowDescription(message);
+    }
+
+    public void ShowSpeechMessage(string message)
+    {
+        ShowSpeech(message);
     }
 
     private void ShowSpeech(string message)
@@ -786,12 +1131,18 @@ public class DustinyDemoFlow : MonoBehaviour
         ResolveDialogueReferences();
         SetSpeechVisible(true);
         SetDescriptionVisible(false);
-        if (speechText != null) speechText.text = message;
+
+        if (speechText != null)
+        {
+            speechText.text = message;
+        }
+
         if (speechAutoSize != null)
         {
             speechAutoSize.SetText(message);
             speechAutoSize.ResizeBubble();
         }
+
         UpdateSpeechBubblePlacement();
     }
 
@@ -801,13 +1152,18 @@ public class DustinyDemoFlow : MonoBehaviour
         SetSpeechVisible(false);
         SetDescriptionVisible(true);
         SetNameInputVisible(false);
-        if (descriptionText != null) descriptionText.text = message;
-        else if (questText != null && speechText == null) questText.text = message;
+
+        if (descriptionText != null)
+        {
+            descriptionText.text = message;
+        }
+
         if (descriptionAutoSize != null)
         {
             descriptionAutoSize.SetText(message);
             descriptionAutoSize.ResizeBubble();
         }
+
         UpdateDescriptionPlacement();
     }
 
@@ -820,55 +1176,275 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private void SetSpeechVisible(bool visible)
     {
-        if (speechBubbleObject != null) speechBubbleObject.SetActive(visible);
-        else if (speechText != null) speechText.gameObject.SetActive(visible);
+        if (speechBubbleObject != null)
+        {
+            speechBubbleObject.SetActive(visible);
+        }
+        else if (speechText != null)
+        {
+            speechText.gameObject.SetActive(visible);
+        }
     }
 
     private void SetDescriptionVisible(bool visible)
     {
-        if (descriptionObject != null) descriptionObject.SetActive(visible);
-        else if (descriptionText != null) descriptionText.gameObject.SetActive(visible);
+        if (descriptionObject != null)
+        {
+            descriptionObject.SetActive(visible);
+        }
+        else if (descriptionText != null)
+        {
+            descriptionText.gameObject.SetActive(visible);
+        }
     }
 
     private void SetNameInputVisible(bool visible)
     {
-        if (durryNameInputObject != null) durryNameInputObject.SetActive(visible);
-        else if (durryNameInputField != null) durryNameInputField.gameObject.SetActive(visible);
-    }
-
-    private void UpdateBosongText()
-    {
-        if (bosongText != null) bosongText.text = $"보송력 {bosongPower}";
-    }
-
-    private void ResolveUIRoot()
-    {
-        if (worldCanvas == null)
+        if (durryNameInputObject != null)
         {
-            resolvedUIRoot = uiRoot;
+            durryNameInputObject.SetActive(visible);
+        }
+        else if (durryNameInputField != null)
+        {
+            durryNameInputField.gameObject.SetActive(visible);
+        }
+    }
+
+    #endregion
+
+    #region Mission Flow
+
+    private void OnPressA()
+    {
+        if (onboardingActive)
+        {
+            AdvanceOnboardingFlow();
             return;
         }
 
-        if (uiRoot != null)
+        if (QuestProgressManager.Instance != null && QuestProgressManager.Instance.IsTodayMissionCompleted)
         {
-            resolvedUIRoot = uiRoot;
+            ShowDescription(BuildCleanlinessMessage("오늘의 미션은 이미 완료했어!"));
             return;
         }
 
-        resolvedUIRoot = worldCanvas.transform.parent != null && worldCanvas.transform.parent != centerEyeAnchor ? worldCanvas.transform.parent : worldCanvas.transform;
+        StartMissionRound(
+            "미션 시작!\n더리 주변의 어질러진 물건 3개를 정리해줘.\n" +
+            "정리가 끝나면 오른손 약지 핀치로 완료해줘."
+        );
     }
 
-    private void UpdateViewLockedUI(bool force)
+    private void StartMissionRound(string message)
     {
-        if (!lockUIToUserView || centerEyeAnchor == null) return;
-        if (resolvedUIRoot == null) ResolveUIRoot();
-        if (resolvedUIRoot == null) return;
-        if (forceUIRootUnderCenterEye && resolvedUIRoot.parent != centerEyeAnchor) resolvedUIRoot.SetParent(centerEyeAnchor, false);
+        missionRoundActive = true;
 
-        resolvedUIRoot.localPosition = uiRootLocalPosition;
-        resolvedUIRoot.localRotation = Quaternion.Euler(uiRootLocalEuler);
-        resolvedUIRoot.localScale = Vector3.one * Mathf.Max(0.001f, uiRootLocalScale);
+        if (summonDurryOnMissionStart)
+        {
+            SummonDurryToUser();
+        }
+
+        if (scanZoneObject != null)
+        {
+            scanZoneObject.SetActive(true);
+        }
+
+        ShowDescription(message);
     }
+
+    private void OnPressTrigger()
+    {
+        if (recenterOnTrigger)
+        {
+            SummonDurryToUser();
+        }
+
+        if (triggerAlsoCompletesMission)
+        {
+            CompleteMission();
+        }
+    }
+
+    public void CompleteMission()
+    {
+        if (!missionRoundActive)
+        {
+            Debug.Log("[미션 완료 무시] 현재 진행 중인 미션이 없습니다.");
+            return;
+        }
+
+        bool completed = false;
+
+        if (QuestProgressManager.Instance != null)
+        {
+            completed = QuestProgressManager.Instance.CompleteCurrentCleaningRound();
+        }
+        else
+        {
+            Debug.LogWarning("[미션 완료] QuestProgressManager가 없어 임시 보상 방식으로 처리합니다.");
+            CleanlinessManager.Instance?.OnCleanSuccess();
+
+            if (fallbackCreditWhenManagersMissing > 0)
+            {
+                CreditManager.Instance?.AddCredit(fallbackCreditWhenManagersMissing);
+            }
+
+            completed = true;
+        }
+
+        if (!completed)
+        {
+            ShowDescription("아직 완료할 미션이 남아 있어.");
+            return;
+        }
+
+        missionRoundActive = false;
+
+        if (scanZoneObject != null)
+        {
+            scanZoneObject.SetActive(false);
+        }
+
+        if (changeDurryColorOnMissionComplete)
+        {
+            RecoverDurryByCleanliness();
+        }
+
+        if (onboardingActive && onboardingState == OnboardingState.MissionDescription)
+        {
+            ShowNameQuestionSpeech();
+            return;
+        }
+
+        ShowDescription(BuildCleanlinessMessage("미션 완료!"));
+    }
+
+    private string BuildCleanlinessMessage(string prefix)
+    {
+        if (CleanlinessManager.Instance == null)
+        {
+            return prefix;
+        }
+
+        int score = CleanlinessManager.Instance.CleanlinessScore;
+        string stateName = CleanlinessManager.Instance.GetBosongStateName(score);
+        return $"{prefix}\n현재 보송력 {score} / 4\n{stateName}";
+    }
+
+    #endregion
+
+    #region Hand And Controller Input
+
+    private void ResolveRightHandIfNeeded()
+    {
+        if (!autoFindRightOVRHandIfMissing || rightHand != null)
+        {
+            return;
+        }
+
+        OVRHand[] hands = FindObjectsByType<OVRHand>(
+            FindObjectsInactive.Include,
+            FindObjectsSortMode.None
+        );
+
+        foreach (OVRHand hand in hands)
+        {
+            if (hand == null)
+            {
+                continue;
+            }
+
+            string objectName = hand.gameObject.name.ToLowerInvariant();
+            string parentName = hand.transform.parent != null
+                ? hand.transform.parent.name.ToLowerInvariant()
+                : string.Empty;
+
+            if ((objectName + " " + parentName).Contains("right"))
+            {
+                rightHand = hand;
+                return;
+            }
+        }
+    }
+
+    private void UpdateHandGestureInput()
+    {
+        ResolveRightHandIfNeeded();
+
+        if (!IsHandTracked(rightHand))
+        {
+            return;
+        }
+
+        bool indexPinchDown = GetHandPinchDown(
+            rightHand,
+            OVRHand.HandFinger.Index,
+            ref wasRightIndexPinching
+        );
+
+        bool middlePinchDown = GetHandPinchDown(
+            rightHand,
+            OVRHand.HandFinger.Middle,
+            ref wasRightMiddlePinching
+        );
+
+        bool ringPinchDown = GetHandPinchDown(
+            rightHand,
+            OVRHand.HandFinger.Ring,
+            ref wasRightRingPinching
+        );
+
+        if (indexPinchDown)
+        {
+            if (pinchAdvancesDialogue && onboardingActive)
+            {
+                AdvanceOnboardingFlow();
+            }
+            else if (rightIndexPinchSummonsDurry)
+            {
+                OnPressTrigger();
+            }
+        }
+
+        if (rightMiddlePinchStartsMission && middlePinchDown)
+        {
+            OnPressA();
+        }
+
+        if (rightRingPinchCompletesMission && ringPinchDown)
+        {
+            CompleteMission();
+        }
+    }
+
+    private static bool GetHandPinchDown(OVRHand hand, OVRHand.HandFinger finger, ref bool wasPinching)
+    {
+        bool isPinching = IsHandTracked(hand) && hand.GetFingerIsPinching(finger);
+        bool pinchDown = isPinching && !wasPinching;
+        wasPinching = isPinching;
+        return pinchDown;
+    }
+
+    private static bool IsHandTracked(OVRHand hand)
+    {
+        return hand != null && hand.IsTracked && hand.IsDataValid;
+    }
+
+    private bool GetRightTriggerDown()
+    {
+        float triggerValue = OVRInput.Get(
+            OVRInput.Axis1D.PrimaryIndexTrigger,
+            OVRInput.Controller.RTouch
+        );
+
+        bool isPressed = triggerValue > 0.8f;
+        bool pressedThisFrame = isPressed && !wasTriggerPressed;
+        wasTriggerPressed = isPressed;
+        return pressedThisFrame;
+    }
+
+    #endregion
+
+    #region Durry And Scan Zone
 
     private void SetupDurry()
     {
@@ -878,19 +1454,31 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        if (detachDurryAndScanZoneFromParent) durryObject.transform.SetParent(null, true);
+        if (detachDurryAndScanZoneFromParent)
+        {
+            durryObject.transform.SetParent(null, true);
+        }
+
         durryObject.SetActive(true);
 
-        if (durryVisual == null) durryVisual = durryObject.transform.Find("Durry Visual") ?? durryObject.transform.Find("DurryVisual");
+        if (durryVisual == null)
+        {
+            durryVisual = durryObject.transform.Find("Durry Visual") ??
+                          durryObject.transform.Find("DurryVisual");
+        }
+
         ApplyDurryScale();
 
         durryRenderers = durryObject.GetComponentsInChildren<Renderer>(true);
         durryRuntimeMaterials = new Material[durryRenderers.Length];
 
-        for (int i = 0; i < durryRenderers.Length; i++)
+        for (int index = 0; index < durryRenderers.Length; index++)
         {
-            Renderer renderer = durryRenderers[i];
-            if (renderer == null) continue;
+            Renderer renderer = durryRenderers[index];
+            if (renderer == null)
+            {
+                continue;
+            }
 
             if (disableDurryShadows)
             {
@@ -898,21 +1486,35 @@ public class DustinyDemoFlow : MonoBehaviour
                 renderer.receiveShadows = false;
             }
 
-            Material runtimeMat = renderer.material;
-            if (runtimeMat != null) SetFloatIfHas(runtimeMat, "_ReceiveShadows", 0f);
-            durryRuntimeMaterials[i] = runtimeMat;
+            Material runtimeMaterial = renderer.material;
+            if (runtimeMaterial != null)
+            {
+                SetFloatIfHas(runtimeMaterial, "_ReceiveShadows", 0f);
+            }
+
+            durryRuntimeMaterials[index] = runtimeMaterial;
         }
     }
 
     private void ApplyDurryScale()
     {
-        if (durryObject != null) durryObject.transform.localScale = Vector3.one * durryRootScale;
-        if (durryVisual != null) durryVisual.localScale = Vector3.one * durryVisualScale;
+        if (durryObject != null)
+        {
+            durryObject.transform.localScale = Vector3.one * durryRootScale;
+        }
+
+        if (durryVisual != null)
+        {
+            durryVisual.localScale = Vector3.one * durryVisualScale;
+        }
     }
 
     private void PlaceDurryAtStartWorldPosition()
     {
-        if (durryObject == null) return;
+        if (durryObject == null)
+        {
+            return;
+        }
 
         if (!useCurrentSceneDurryPositionOnStart)
         {
@@ -921,19 +1523,233 @@ public class DustinyDemoFlow : MonoBehaviour
         }
         else if (faceDurryToUserOnStart && centerEyeAnchor != null)
         {
-            durryObject.transform.rotation = GetRotationFacingUser(durryObject.transform.position, durryYawOffset);
+            durryObject.transform.rotation = GetRotationFacingUser(
+                durryObject.transform.position,
+                durryYawOffset
+            );
         }
 
         ApplyDurryScale();
     }
 
+    private void SummonDurryToUser()
+    {
+        if (centerEyeAnchor == null)
+        {
+            return;
+        }
+
+        Vector3 headPosition = centerEyeAnchor.position;
+        Vector3 forward = GetFlatForward();
+        Vector3 right = centerEyeAnchor.right;
+        right.y = 0f;
+
+        if (right.sqrMagnitude < 0.001f)
+        {
+            right = Vector3.right;
+        }
+
+        right.Normalize();
+
+        Vector3 durryPosition = headPosition +
+                                forward * durryDistance +
+                                right * durrySideOffset +
+                                Vector3.up * durryHeightOffset;
+
+        if (durryObject != null)
+        {
+            durryObject.transform.position = durryPosition;
+            durryObject.transform.rotation = GetRotationFacingUser(durryPosition, durryYawOffset);
+            ApplyDurryScale();
+        }
+
+        if (moveScanZoneWhenDurrySummoned)
+        {
+            PlaceScanZoneInFrontOfUser(forward);
+        }
+    }
+
+    private void RecoverDurryByCleanliness()
+    {
+        if (durryRuntimeMaterials == null || durryRuntimeMaterials.Length == 0)
+        {
+            return;
+        }
+
+        int score = CleanlinessManager.Instance != null
+            ? CleanlinessManager.Instance.CleanlinessScore
+            : 0;
+
+        float normalizedScore = Mathf.Clamp01(score / 4f);
+        Color currentColor = Color.Lerp(
+            new Color(0.55f, 0.52f, 0.48f, 1f),
+            new Color(1f, 0.94f, 0.86f, 1f),
+            normalizedScore
+        );
+
+        foreach (Material material in durryRuntimeMaterials)
+        {
+            if (material == null)
+            {
+                continue;
+            }
+
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", currentColor);
+            }
+            else if (material.HasProperty("_Color"))
+            {
+                material.SetColor("_Color", currentColor);
+            }
+        }
+    }
+
     private void SetupScanZone()
     {
-        if (scanZoneObject == null) return;
-        if (detachDurryAndScanZoneFromParent) scanZoneObject.transform.SetParent(null, true);
+        if (scanZoneObject == null)
+        {
+            return;
+        }
+
+        if (detachDurryAndScanZoneFromParent)
+        {
+            scanZoneObject.transform.SetParent(null, true);
+        }
+
         scanZoneRenderer = scanZoneObject.GetComponent<Renderer>();
         SetupScanZoneMaterial();
         scanZoneObject.SetActive(true);
+    }
+
+    private void PlaceScanZoneInFrontOfUser(Vector3 forward)
+    {
+        if (scanZoneObject == null || centerEyeAnchor == null)
+        {
+            return;
+        }
+
+        Vector3 scanPosition = centerEyeAnchor.position +
+                               forward * scanZoneDistance +
+                               Vector3.up * scanZoneHeightOffset;
+
+        scanZoneObject.transform.position = scanPosition;
+        scanZoneObject.transform.rotation = Quaternion.LookRotation(Vector3.up, forward);
+        scanZoneObject.transform.localScale = Vector3.one * scanZoneSize;
+    }
+
+    private void SetupScanZoneMaterial()
+    {
+        if (scanZoneRenderer == null)
+        {
+            return;
+        }
+
+        Shader shader = Shader.Find("Universal Render Pipeline/Unlit") ??
+                        Shader.Find("Unlit/Color");
+
+        if (shader == null)
+        {
+            return;
+        }
+
+        Material material = new Material(shader)
+        {
+            name = "M_ScanZone_SoftBlue_Runtime",
+            renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent
+        };
+
+        Color scanColor = new Color(0.45f, 0.85f, 1f, 0.55f);
+
+        if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", scanColor);
+        if (material.HasProperty("_Color")) material.SetColor("_Color", scanColor);
+        if (material.HasProperty("_Surface")) material.SetFloat("_Surface", 1f);
+        if (material.HasProperty("_Blend")) material.SetFloat("_Blend", 0f);
+        if (material.HasProperty("_SrcBlend")) material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        if (material.HasProperty("_DstBlend")) material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        if (material.HasProperty("_ZWrite")) material.SetFloat("_ZWrite", 0f);
+        if (material.HasProperty("_Cull")) material.SetFloat("_Cull", 0f);
+
+        scanZoneRenderer.material = material;
+        scanZoneRenderer.enabled = true;
+    }
+
+    private Vector3 GetFlatForward()
+    {
+        Vector3 forward = centerEyeAnchor.forward;
+        forward.y = 0f;
+
+        if (forward.sqrMagnitude < 0.001f)
+        {
+            forward = Vector3.forward;
+        }
+
+        return forward.normalized;
+    }
+
+    private Quaternion GetRotationFacingUser(Vector3 objectPosition, float yawOffset)
+    {
+        Vector3 toUser = centerEyeAnchor.position - objectPosition;
+        toUser.y = 0f;
+
+        if (toUser.sqrMagnitude < 0.001f)
+        {
+            toUser = -GetFlatForward();
+        }
+
+        Quaternion lookAtUser = Quaternion.LookRotation(toUser.normalized, Vector3.up);
+        return lookAtUser * Quaternion.Euler(0f, yawOffset, 0f);
+    }
+
+    #endregion
+
+    #region UI Placement And Cleanup
+
+    private void ResolveUIRoot()
+    {
+        if (uiRoot != null)
+        {
+            resolvedUIRoot = uiRoot;
+            return;
+        }
+
+        if (worldCanvas == null)
+        {
+            resolvedUIRoot = null;
+            return;
+        }
+
+        resolvedUIRoot = worldCanvas.transform.parent != null &&
+                         worldCanvas.transform.parent != centerEyeAnchor
+            ? worldCanvas.transform.parent
+            : worldCanvas.transform;
+    }
+
+    private void UpdateViewLockedUI()
+    {
+        if (!lockUIToUserView || centerEyeAnchor == null)
+        {
+            return;
+        }
+
+        if (resolvedUIRoot == null)
+        {
+            ResolveUIRoot();
+        }
+
+        if (resolvedUIRoot == null)
+        {
+            return;
+        }
+
+        if (forceUIRootUnderCenterEye && resolvedUIRoot.parent != centerEyeAnchor)
+        {
+            resolvedUIRoot.SetParent(centerEyeAnchor, false);
+        }
+
+        resolvedUIRoot.localPosition = uiRootLocalPosition;
+        resolvedUIRoot.localRotation = Quaternion.Euler(uiRootLocalEuler);
+        resolvedUIRoot.localScale = Vector3.one * Mathf.Max(0.001f, uiRootLocalScale);
     }
 
     private void SetupWorldCanvas()
@@ -946,83 +1762,42 @@ public class DustinyDemoFlow : MonoBehaviour
 
         worldCanvas.gameObject.SetActive(true);
         worldCanvas.renderMode = RenderMode.WorldSpace;
-        Camera centerEyeCamera = centerEyeAnchor != null ? centerEyeAnchor.GetComponent<Camera>() : null;
+
+        Camera centerEyeCamera = centerEyeAnchor != null
+            ? centerEyeAnchor.GetComponent<Camera>()
+            : null;
+
         worldCanvas.worldCamera = centerEyeCamera != null ? centerEyeCamera : Camera.main;
 
-        if (applyTextLayout) ApplyTextLayout();
         if (removeTextShadow)
         {
-            RemoveTMPShadow(questText);
             RemoveTMPShadow(speechText);
             RemoveTMPShadow(descriptionText);
-            RemoveTMPShadow(bosongText);
         }
-        if (disableUIShadowComponents) DisableUIShadowEffects();
-        if (makeOnlyBlackDimUITransparent) MakeOnlyBlackDimUITransparent();
-    }
 
-    private void SummonDurryToUser()
-    {
-        if (centerEyeAnchor == null) return;
-
-        Vector3 headPos = centerEyeAnchor.position;
-        Vector3 forward = GetFlatForward();
-        Vector3 right = centerEyeAnchor.right;
-        right.y = 0f;
-        if (right.sqrMagnitude < 0.001f) right = Vector3.right;
-        right.Normalize();
-
-        Vector3 durryPos = headPos + forward * durryDistance + right * durrySideOffset + Vector3.up * durryHeightOffset;
-
-        if (durryObject != null)
+        if (disableDialogueShadowComponents)
         {
-            durryObject.transform.position = durryPos;
-            durryObject.transform.rotation = GetRotationFacingUser(durryPos, durryYawOffset);
-            ApplyDurryScale();
+            DisableShadowEffectsInDialogue();
         }
 
-        if (moveScanZoneWhenDurrySummoned) PlaceScanZoneInFrontOfUser(forward);
-    }
-
-    private void PlaceScanZoneInFrontOfUser(Vector3 forward)
-    {
-        if (scanZoneObject == null || centerEyeAnchor == null) return;
-        Vector3 headPos = centerEyeAnchor.position;
-        Vector3 scanZonePos = headPos + forward * scanZoneDistance + Vector3.up * scanZoneHeightOffset;
-        scanZoneObject.transform.position = scanZonePos;
-        scanZoneObject.transform.rotation = Quaternion.LookRotation(Vector3.up, forward);
-        scanZoneObject.transform.localScale = Vector3.one * scanZoneSize;
-    }
-
-    private Vector3 GetFlatForward()
-    {
-        Vector3 forward = centerEyeAnchor.forward;
-        forward.y = 0f;
-        if (forward.sqrMagnitude < 0.001f) forward = Vector3.forward;
-        return forward.normalized;
-    }
-
-    private Quaternion GetRotationFacingUser(Vector3 objectPosition, float yawOffset)
-    {
-        Vector3 toUser = centerEyeAnchor.position - objectPosition;
-        toUser.y = 0f;
-        if (toUser.sqrMagnitude < 0.001f) toUser = -GetFlatForward();
-        Quaternion lookAtUser = Quaternion.LookRotation(toUser.normalized, Vector3.up);
-        return lookAtUser * Quaternion.Euler(0f, yawOffset, 0f);
-    }
-
-    private void ApplyTextLayout()
-    {
-        ApplyTextRect(bosongText, bosongTextY, bosongTextHeight, bosongFontSize);
-        UpdateSpeechBubblePlacement();
-        UpdateDescriptionPlacement();
+        if (makeOnlyDialogueBlackDimTransparent)
+        {
+            MakeDialogueBlackDimTransparent();
+        }
     }
 
     private void UpdateSpeechBubblePlacement()
     {
-        if (!keepSpeechBubbleBelowView) return;
+        if (!keepSpeechBubbleBelowView)
+        {
+            return;
+        }
+
         RectTransform bubble = ResolveSpeechBubbleRect();
-        if (bubble == null) return;
+        if (bubble == null)
+        {
+            return;
+        }
 
         if (forceSpeechBubbleCenterAnchor)
         {
@@ -1032,15 +1807,26 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         Vector2 targetPosition = speechBubbleAnchoredPosition;
-        if (clampDialogueAboveWaistNav) targetPosition.y = Mathf.Max(targetPosition.y, speechBubbleMinAnchoredY);
+        if (clampDialogueAboveWaistNav)
+        {
+            targetPosition.y = Mathf.Max(targetPosition.y, speechBubbleMinAnchoredY);
+        }
+
         bubble.anchoredPosition = targetPosition;
     }
 
     private void UpdateDescriptionPlacement()
     {
-        if (!keepDescriptionBelowView) return;
+        if (!keepDescriptionBelowView)
+        {
+            return;
+        }
+
         RectTransform rect = ResolveDescriptionRect();
-        if (rect == null) return;
+        if (rect == null)
+        {
+            return;
+        }
 
         if (forceDescriptionCenterAnchor)
         {
@@ -1050,82 +1836,130 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         Vector2 targetPosition = descriptionAnchoredPosition;
-        if (clampDialogueAboveWaistNav) targetPosition.y = Mathf.Max(targetPosition.y, descriptionMinAnchoredY);
+        if (clampDialogueAboveWaistNav)
+        {
+            targetPosition.y = Mathf.Max(targetPosition.y, descriptionMinAnchoredY);
+        }
+
         rect.anchoredPosition = targetPosition;
     }
 
     private RectTransform ResolveDescriptionRect()
     {
-        if (descriptionRect != null) return descriptionRect;
-        if (descriptionObject != null) return descriptionRect = descriptionObject.GetComponent<RectTransform>();
-        return descriptionText != null ? descriptionText.GetComponentInParent<RectTransform>(true) : null;
+        if (descriptionRect != null)
+        {
+            return descriptionRect;
+        }
+
+        if (descriptionObject != null)
+        {
+            descriptionRect = descriptionObject.GetComponent<RectTransform>();
+            return descriptionRect;
+        }
+
+        return descriptionText != null
+            ? descriptionText.GetComponentInParent<RectTransform>(true)
+            : null;
     }
 
     private RectTransform ResolveSpeechBubbleRect()
     {
-        if (speechBubbleRect != null) return speechBubbleRect;
-        if (speechBubbleObject != null) return speechBubbleRect = speechBubbleObject.GetComponent<RectTransform>();
-        TMP_Text targetSpeechText = speechText != null ? speechText : questText;
-        return targetSpeechText != null ? targetSpeechText.GetComponentInParent<RectTransform>(true) : null;
-    }
-
-    private void ApplyTextRect(TMP_Text text, float y, float height, float fontSize)
-    {
-        if (text == null) return;
-        RectTransform rect = text.GetComponent<RectTransform>();
-        if (rect != null)
+        if (speechBubbleRect != null)
         {
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = new Vector2(0f, y);
-            rect.sizeDelta = new Vector2(textWidth, height);
+            return speechBubbleRect;
         }
 
-        text.alignment = TextAlignmentOptions.Center;
-        text.textWrappingMode = TextWrappingModes.Normal;
-        if (fontSize > 0f) text.fontSize = fontSize;
+        if (speechBubbleObject != null)
+        {
+            speechBubbleRect = speechBubbleObject.GetComponent<RectTransform>();
+            return speechBubbleRect;
+        }
+
+        return speechText != null
+            ? speechText.GetComponentInParent<RectTransform>(true)
+            : null;
     }
 
-    private void RemoveTMPShadow(TMP_Text text)
+    private static void RemoveTMPShadow(TMP_Text text)
     {
-        if (text == null || text.fontMaterial == null) return;
-        Material mat = new Material(text.fontMaterial);
-        mat.name = text.name + "_NoShadow_Runtime";
-        mat.DisableKeyword("UNDERLAY_ON");
-        mat.DisableKeyword("UNDERLAY_INNER");
-        SetFloatIfHas(mat, "_OutlineWidth", 0f);
-        SetFloatIfHas(mat, "_OutlineSoftness", 0f);
-        SetFloatIfHas(mat, "_FaceDilate", 0f);
-        SetFloatIfHas(mat, "_UnderlayOffsetX", 0f);
-        SetFloatIfHas(mat, "_UnderlayOffsetY", 0f);
-        SetFloatIfHas(mat, "_UnderlayDilate", 0f);
-        SetFloatIfHas(mat, "_UnderlaySoftness", 0f);
-        SetColorIfHas(mat, "_UnderlayColor", new Color(0f, 0f, 0f, 0f));
-        SetColorIfHas(mat, "_OutlineColor", new Color(0f, 0f, 0f, 0f));
-        text.fontMaterial = mat;
+        if (text == null || text.fontMaterial == null)
+        {
+            return;
+        }
+
+        Material material = new Material(text.fontMaterial)
+        {
+            name = text.name + "_NoShadow_Runtime"
+        };
+
+        material.DisableKeyword("UNDERLAY_ON");
+        material.DisableKeyword("UNDERLAY_INNER");
+        SetFloatIfHas(material, "_OutlineWidth", 0f);
+        SetFloatIfHas(material, "_OutlineSoftness", 0f);
+        SetFloatIfHas(material, "_FaceDilate", 0f);
+        SetFloatIfHas(material, "_UnderlayOffsetX", 0f);
+        SetFloatIfHas(material, "_UnderlayOffsetY", 0f);
+        SetFloatIfHas(material, "_UnderlayDilate", 0f);
+        SetFloatIfHas(material, "_UnderlaySoftness", 0f);
+        SetColorIfHas(material, "_UnderlayColor", new Color(0f, 0f, 0f, 0f));
+        SetColorIfHas(material, "_OutlineColor", new Color(0f, 0f, 0f, 0f));
+        text.fontMaterial = material;
     }
 
-    private void DisableUIShadowEffects()
+    private void DisableShadowEffectsInDialogue()
     {
-        if (worldCanvas == null) return;
-        Shadow[] shadows = worldCanvas.GetComponentsInChildren<Shadow>(true);
+        DisableShadowEffectsInRoot(speechBubbleObject);
+        DisableShadowEffectsInRoot(descriptionObject);
+    }
+
+    private static void DisableShadowEffectsInRoot(GameObject root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        Shadow[] shadows = root.GetComponentsInChildren<Shadow>(true);
         foreach (Shadow shadow in shadows)
         {
-            if (shadow != null) shadow.enabled = false;
+            if (shadow != null)
+            {
+                shadow.enabled = false;
+            }
         }
     }
 
-    private void MakeOnlyBlackDimUITransparent()
+    private void MakeDialogueBlackDimTransparent()
     {
-        if (worldCanvas == null) return;
-        Image[] images = worldCanvas.GetComponentsInChildren<Image>(true);
+        MakeBlackDimTransparentInRoot(speechBubbleObject);
+        MakeBlackDimTransparentInRoot(descriptionObject);
+    }
+
+    private static void MakeBlackDimTransparentInRoot(GameObject root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        Image[] images = root.GetComponentsInChildren<Image>(true);
         foreach (Image image in images)
         {
-            if (image == null) continue;
+            if (image == null)
+            {
+                continue;
+            }
+
             string objectName = image.gameObject.name.ToLowerInvariant();
-            bool looksLikeBlackDim = objectName.Contains("shadow") || objectName.Contains("dim") || objectName.Contains("black");
-            if (!looksLikeBlackDim) continue;
+            bool isBlackDim = objectName.Contains("shadow") ||
+                              objectName.Contains("dim") ||
+                              objectName.Contains("black");
+
+            if (!isBlackDim)
+            {
+                continue;
+            }
+
             Color color = image.color;
             color.a = 0f;
             image.color = color;
@@ -1133,150 +1967,218 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
-    private void SetupScanZoneMaterial()
-    {
-        if (scanZoneRenderer == null) return;
-        Shader shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color");
-        if (shader == null) return;
-
-        Material mat = new Material(shader);
-        mat.name = "M_ScanZone_SoftBlue_Runtime";
-        Color scanColor = new Color(0.45f, 0.85f, 1f, 0.55f);
-        if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", scanColor);
-        if (mat.HasProperty("_Color")) mat.SetColor("_Color", scanColor);
-        if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f);
-        if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);
-        if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-        if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-        if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
-        if (mat.HasProperty("_Cull")) mat.SetFloat("_Cull", 0f);
-        mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-        scanZoneRenderer.material = mat;
-        scanZoneRenderer.enabled = true;
-    }
-
-    private void OnPressA()
-    {
-        if (onboardingActive)
-        {
-            AdvanceOnboardingFlow();
-            return;
-        }
-
-        step = 1;
-        if (summonDurryOnMissionStart) SummonDurryToUser();
-        if (scanZoneObject != null) scanZoneObject.SetActive(true);
-        ShowDescription("미션 시작!\n더리 주변의 어질러진 물건 3개를 정리해줘.\n완료 테스트: 오른손 약지 핀치");
-        UpdateBosongText();
-    }
-
-    private void OnPressTrigger()
-    {
-        if (recenterOnTrigger) SummonDurryToUser();
-        if (triggerAlsoCompletesMission) CompleteMission();
-    }
-
-    private void CompleteMission()
-    {
-        if (step != 1)
-        {
-            Debug.Log("Mission complete ignored. Mission has not started yet.");
-            return;
-        }
-
-        step = 2;
-        bosongPower += rewardBosongPower;
-        if (scanZoneObject != null) scanZoneObject.SetActive(false);
-        if (changeDurryColorOnMissionComplete) RecoverDurry();
-        UpdateBosongText();
-
-        if (onboardingActive && onboardingState == OnboardingState.MissionDescription) ShowNameQuestionSpeech();
-        else ShowDescription($"미션 완료!\n보송력 +{rewardBosongPower}");
-    }
-
-    private bool GetRightTriggerDown()
-    {
-        float triggerValue = OVRInput.Get(OVRInput.Axis1D.PrimaryIndexTrigger, OVRInput.Controller.RTouch);
-        bool isPressed = triggerValue > 0.8f;
-        bool pressedThisFrame = isPressed && !wasTriggerPressed;
-        wasTriggerPressed = isPressed;
-        return pressedThisFrame;
-    }
-
-    private void RecoverDurry()
-    {
-        if (durryRuntimeMaterials == null || durryRuntimeMaterials.Length == 0) return;
-
-        float t = Mathf.Clamp01(bosongPower / 100f);
-        Color currentColor = Color.Lerp(new Color(0.55f, 0.52f, 0.48f, 1f), new Color(1f, 0.94f, 0.86f, 1f), t);
-
-        foreach (Material mat in durryRuntimeMaterials)
-        {
-            if (mat == null) continue;
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", currentColor);
-            else if (mat.HasProperty("_Color")) mat.SetColor("_Color", currentColor);
-        }
-    }
-
-    private void UpdateUI(string questMessage, string bosongMessage)
-    {
-        if (descriptionText != null) descriptionText.text = questMessage;
-        else if (questText != null) questText.text = questMessage;
-        if (bosongText != null) bosongText.text = bosongMessage;
-        if (descriptionAutoSize != null && descriptionText != null) descriptionAutoSize.SetText(questMessage);
-        if (applyTextLayout) ApplyTextLayout();
-    }
-
     private void FaceCanvasToUser()
     {
-        if (worldCanvas == null || centerEyeAnchor == null) return;
+        if (worldCanvas == null || centerEyeAnchor == null)
+        {
+            return;
+        }
+
         Vector3 direction = worldCanvas.transform.position - centerEyeAnchor.position;
         direction.y = 0f;
-        if (direction.sqrMagnitude > 0.001f) worldCanvas.transform.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
+
+        if (direction.sqrMagnitude > 0.001f)
+        {
+            worldCanvas.transform.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
+        }
+    }
+
+    #endregion
+
+    #region Search Helpers
+
+    private Button FindButtonByKeywords(Transform root, params string[] keywords)
+    {
+        Transform found = FindChildTransformContainsAll(root, keywords);
+        if (found == null)
+        {
+            return null;
+        }
+
+        Button directButton = found.GetComponent<Button>();
+        if (directButton != null)
+        {
+            return directButton;
+        }
+
+        Button childButton = found.GetComponentInChildren<Button>(true);
+        return childButton != null ? childButton : found.GetComponentInParent<Button>(true);
+    }
+
+    private Transform FindBestPageTransform(Transform root, string pageKeyword)
+    {
+        if (root == null || string.IsNullOrWhiteSpace(pageKeyword))
+        {
+            return null;
+        }
+
+        string normalizedKeyword = pageKeyword.ToLowerInvariant();
+        Transform[] candidates = root.GetComponentsInChildren<Transform>(true);
+        Transform best = null;
+        int bestScore = int.MinValue;
+
+        foreach (Transform candidate in candidates)
+        {
+            if (candidate == null || candidate == bigNoteRoot?.transform)
+            {
+                continue;
+            }
+
+            string lowerName = candidate.name.ToLowerInvariant();
+            bool keywordMatches = normalizedKeyword == "mypage"
+                ? lowerName.Contains("mypage") || (lowerName.Contains("my") && lowerName.Contains("page"))
+                : lowerName.Contains(normalizedKeyword);
+
+            if (!keywordMatches || !lowerName.Contains("page"))
+            {
+                continue;
+            }
+
+            if (lowerName.Contains("button") ||
+                lowerName.Contains("tag") ||
+                lowerName.Contains("background") ||
+                lowerName.Contains("title"))
+            {
+                continue;
+            }
+
+            int score = 0;
+            if (lowerName.EndsWith("root")) score += 5;
+            if (lowerName == normalizedKeyword + "page") score += 10;
+            if (lowerName == normalizedKeyword + "pageroot") score += 12;
+            if (candidate.GetComponent<RectTransform>() != null) score += 1;
+
+            if (score > bestScore)
+            {
+                best = candidate;
+                bestScore = score;
+            }
+        }
+
+        return best;
+    }
+
+    private static GameObject GetGameObjectFromTransform(Transform target)
+    {
+        return target != null ? target.gameObject : null;
+    }
+
+    private Transform FindChildTransformExact(Transform root, string exactName)
+    {
+        if (root == null || string.IsNullOrWhiteSpace(exactName))
+        {
+            return null;
+        }
+
+        Transform[] children = root.GetComponentsInChildren<Transform>(true);
+        foreach (Transform child in children)
+        {
+            if (child != null && child.name == exactName)
+            {
+                return child;
+            }
+        }
+
+        return null;
+    }
+
+    private GameObject FindDirectChildExact(Transform root, string exactName)
+    {
+        if (root == null || string.IsNullOrWhiteSpace(exactName))
+        {
+            return null;
+        }
+
+        for (int index = 0; index < root.childCount; index++)
+        {
+            Transform child = root.GetChild(index);
+            if (child != null && child.name == exactName)
+            {
+                return child.gameObject;
+            }
+        }
+
+        return null;
     }
 
     private Transform FindChildTransformContains(Transform root, string keyword)
     {
-        if (root == null || string.IsNullOrEmpty(keyword)) return null;
+        if (root == null || string.IsNullOrWhiteSpace(keyword))
+        {
+            return null;
+        }
+
         string lowerKeyword = keyword.ToLowerInvariant();
         Transform[] children = root.GetComponentsInChildren<Transform>(true);
+
         foreach (Transform child in children)
         {
-            if (child != null && child.name.ToLowerInvariant().Contains(lowerKeyword)) return child;
+            if (child != null && child.name.ToLowerInvariant().Contains(lowerKeyword))
+            {
+                return child;
+            }
         }
+
         return null;
     }
 
     private Transform FindChildTransformContainsAll(Transform root, params string[] keywords)
     {
-        if (root == null || keywords == null || keywords.Length == 0) return null;
+        if (root == null || keywords == null || keywords.Length == 0)
+        {
+            return null;
+        }
+
         Transform[] children = root.GetComponentsInChildren<Transform>(true);
+
         foreach (Transform child in children)
         {
-            if (child == null) continue;
+            if (child == null)
+            {
+                continue;
+            }
+
             string lowerName = child.name.ToLowerInvariant();
             bool containsAll = true;
+
             foreach (string keyword in keywords)
             {
-                if (string.IsNullOrEmpty(keyword)) continue;
+                if (string.IsNullOrWhiteSpace(keyword))
+                {
+                    continue;
+                }
+
                 if (!lowerName.Contains(keyword.ToLowerInvariant()))
                 {
                     containsAll = false;
                     break;
                 }
             }
-            if (containsAll) return child;
+
+            if (containsAll)
+            {
+                return child;
+            }
         }
+
         return null;
     }
 
-    private void SetFloatIfHas(Material mat, string propertyName, float value)
+    private static void SetFloatIfHas(Material material, string propertyName, float value)
     {
-        if (mat != null && mat.HasProperty(propertyName)) mat.SetFloat(propertyName, value);
+        if (material != null && material.HasProperty(propertyName))
+        {
+            material.SetFloat(propertyName, value);
+        }
     }
 
-    private void SetColorIfHas(Material mat, string propertyName, Color value)
+    private static void SetColorIfHas(Material material, string propertyName, Color value)
     {
-        if (mat != null && mat.HasProperty(propertyName)) mat.SetColor(propertyName, value);
+        if (material != null && material.HasProperty(propertyName))
+        {
+            material.SetColor(propertyName, value);
+        }
     }
+
+    #endregion
 }
