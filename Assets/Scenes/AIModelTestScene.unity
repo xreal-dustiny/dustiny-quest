@@ -557,6 +557,56 @@ Transform:
   - {fileID: 353772183}
   m_Father: {fileID: 660401620}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &935874682
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 935874684}
+  - component: {fileID: 935874683}
+  m_Layer: 0
+  m_Name: AIInference
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &935874683
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 935874682}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94daab5965ec39540a9e447e2cb0c3de, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AIInferenceTest
+  modelAsset: {fileID: 5022602860645237092, guid: 7cb52d54ff03d0046ac37a24a182a7db, type: 3}
+  classesFile: {fileID: 4900000, guid: 32b2ab3c5dd2f1049ae8fe6df0d97435, type: 3}
+  confidenceThreshold: 0.4
+  iouThreshold: 0.45
+  topK: 5
+  detectionOverlay: {fileID: 0}
+--- !u!4 &935874684
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 935874682}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -1.78218, y: 0, z: -7.49378}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &941008976
 GameObject:
   m_ObjectHideFlags: 0
@@ -1138,3 +1188,4 @@ SceneRoots:
   - {fileID: 2032832761}
   - {fileID: 68583500}
   - {fileID: 1407327522}
+  - {fileID: 935874684}
