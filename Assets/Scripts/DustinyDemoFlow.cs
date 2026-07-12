@@ -114,25 +114,32 @@ public class DustinyDemoFlow : MonoBehaviour
     [TextArea(2, 4)] public string finalSpeechFormat = "앞으로 잘 부탁해!\n나는 {0}(이)야.";
 
     [Header("Unified Dialogue Placement")]
-    [Tooltip("켜면 말풍선과 디스크립션이 같은 앵커와 위치를 사용합니다. 위치는 Speech Bubble Anchored Position에서 조절합니다.")]
+    [Tooltip("켜면 말풍선과 디스크립션이 같은 앵커, 피벗, 화면 위치를 사용합니다.")]
     public bool synchronizeDialoguePosition = true;
 
-    [Header("Speech Bubble Placement")]
+    [Tooltip("말풍선과 디스크립션이 함께 사용하는 위치입니다. Y가 커질수록 화면 위쪽으로 올라갑니다.")]
+    public Vector2 sharedDialogueAnchoredPosition = new Vector2(0f, -420f);
+
+    [Tooltip("두 UI가 서로 다른 부모 아래 있어도 월드 좌표까지 같게 맞춥니다.")]
+    public bool forceSameDialogueWorldPosition = true;
+
+    [Header("Speech Bubble Placement - Used Only When Sync Is Off")]
     public RectTransform speechBubbleRect;
     public bool keepSpeechBubbleBelowView = false;
-    public Vector2 speechBubbleAnchoredPosition = new Vector2(0f, -620f);
+    public Vector2 speechBubbleAnchoredPosition = new Vector2(0f, -420f);
     public bool forceSpeechBubbleCenterAnchor = true;
 
-    [Header("Description Placement")]
+    [Header("Description Placement - Used Only When Sync Is Off")]
     public RectTransform descriptionRect;
     public bool keepDescriptionBelowView = true;
-    public Vector2 descriptionAnchoredPosition = new Vector2(0f, -620f);
+    public Vector2 descriptionAnchoredPosition = new Vector2(0f, -420f);
     public bool forceDescriptionCenterAnchor = true;
 
     [Header("Dialogue Safe Bounds")]
     public bool clampDialogueAboveWaistNav = true;
-    public float speechBubbleMinAnchoredY = -620f;
-    public float descriptionMinAnchoredY = -620f;
+    public float sharedDialogueMinAnchoredY = -520f;
+    public float speechBubbleMinAnchoredY = -520f;
+    public float descriptionMinAnchoredY = -520f;
 
     [Header("Navigation Bar - ISDK")]
     [Tooltip("WaistNavCanvas 아래 NavigationBar를 연결하세요. 위치는 DustinyWaistNavFollow가 담당합니다.")]
@@ -235,6 +242,43 @@ public class DustinyDemoFlow : MonoBehaviour
     public bool rightMiddlePinchStartsMission = true;
     public bool rightRingPinchCompletesMission = true;
 
+    [Header("Durry Expression Animation")]
+    [Tooltip("더리 캐릭터에 붙은 Animator입니다. 비워두면 Durry Object 아래에서 자동 탐색합니다.")]
+    public Animator durryAnimator;
+    public bool autoFindDurryAnimator = true;
+
+    [Tooltip("Animator에 같은 이름의 Trigger가 있으면 Trigger를 먼저 사용하고, 없으면 상태를 직접 재생합니다.")]
+    public bool preferAnimatorTriggers = true;
+
+    [Min(0f)] public float expressionCrossFadeDuration = 0.12f;
+    public bool logMissingExpressionWarnings = true;
+
+    [Tooltip("Opening Speech Steps와 같은 순서로 표정 상태 이름을 넣습니다.")]
+    public string[] openingExpressionStates =
+    {
+        "Surprised",
+        "Confused",
+        "Look",
+        "Sad",
+        "Confused",
+        "Surprised",
+        "Joyful",
+        "Look",
+        "Woried",
+        "Focused"
+    };
+
+    [Tooltip("디스크립션으로 미션을 안내할 때 사용할 표정입니다.")]
+    public string missionDescriptionExpressionState = "Focused";
+    [Tooltip("디스크립션 확인 후 실제 미션을 수행하는 동안 사용할 표정입니다.")]
+    public string missionInProgressExpressionState = "Look";
+    public string missionCompleteExpressionState = "Joyful";
+    public string missionIncompleteExpressionState = "Woried";
+    public string nameQuestionExpressionState = "Joyful";
+    public string nameConfirmedExpressionState = "Joyful";
+    public string finalGreetingExpressionState = "Greet_Short";
+    public string idleExpressionState = "DurryIdleAni";
+
     [Header("Durry Fixed World Start")]
     public bool useCurrentSceneDurryPositionOnStart = false;
     public Vector3 durryStartWorldPosition = new Vector3(0f, -0.35f, 1.2f);
@@ -300,6 +344,13 @@ public class DustinyDemoFlow : MonoBehaviour
     {
         // Index pinch is shared with UI selection, so summoning stays disabled by default.
         rightIndexPinchSummonsDurry = false;
+
+        if (synchronizeDialoguePosition)
+        {
+            // 인스펙터에서도 두 레거시 위치가 서로 달라 보이지 않도록 공통 위치로 맞춥니다.
+            speechBubbleAnchoredPosition = sharedDialogueAnchoredPosition;
+            descriptionAnchoredPosition = sharedDialogueAnchoredPosition;
+        }
     }
 
     private void Start()
@@ -1046,6 +1097,7 @@ public class DustinyDemoFlow : MonoBehaviour
 
         openingSpeechIndex = Mathf.Clamp(openingSpeechIndex, 0, openingSpeechSteps.Length - 1);
         ShowSpeech(openingSpeechSteps[openingSpeechIndex]);
+        PlayOpeningExpression(openingSpeechIndex);
     }
 
     private bool TryAdvanceOpeningSpeech()
@@ -1110,18 +1162,21 @@ public class DustinyDemoFlow : MonoBehaviour
     {
         onboardingState = OnboardingState.MissionDescription;
         StartMissionRound(firstMissionDescription);
+        PlayDurryExpression(missionDescriptionExpressionState);
     }
 
     private void ConfirmFirstMissionDescription()
     {
         onboardingState = OnboardingState.MissionInProgress;
         HideDialoguePanels();
+        PlayDurryExpression(missionInProgressExpressionState);
     }
 
     private void ShowNameQuestionSpeech()
     {
         onboardingState = OnboardingState.NameQuestionSpeech;
         ShowSpeech(nameQuestionSpeech);
+        PlayDurryExpression(nameQuestionExpressionState);
 
         if (!showNameInputWithNameQuestion)
         {
@@ -1180,12 +1235,14 @@ public class DustinyDemoFlow : MonoBehaviour
         SetNameInputVisible(false);
         onboardingState = OnboardingState.NamedDescription;
         ShowDescription(string.Format(namedDescriptionFormat, durryName));
+        PlayDurryExpression(nameConfirmedExpressionState);
     }
 
     private void ShowFinalSpeech()
     {
         onboardingState = OnboardingState.FinalSpeech;
         ShowSpeech(string.Format(finalSpeechFormat, durryName));
+        PlayDurryExpression(finalGreetingExpressionState);
     }
 
     private void FinishOnboardingFlow()
@@ -1194,6 +1251,7 @@ public class DustinyDemoFlow : MonoBehaviour
         onboardingState = OnboardingState.Finished;
         SetNameInputVisible(false);
         ShowDescription("하단바에서 NOTE / SHOP / MY PAGE / MENU를 선택할 수 있어.");
+        PlayDurryExpression(idleExpressionState);
     }
 
     public void ShowDescriptionMessage(string message)
@@ -1433,6 +1491,7 @@ public class DustinyDemoFlow : MonoBehaviour
         if (QuestProgressManager.Instance != null && QuestProgressManager.Instance.IsTodayMissionCompleted)
         {
             ShowDescription(BuildCleanlinessMessage("오늘의 미션은 이미 완료했어!"));
+            PlayDurryExpression(missionCompleteExpressionState);
             return;
         }
 
@@ -1457,6 +1516,11 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         ShowDescription(message);
+
+        if (!onboardingActive || onboardingState != OnboardingState.MissionDescription)
+        {
+            PlayDurryExpression(missionDescriptionExpressionState);
+        }
     }
 
     private void OnPressTrigger()
@@ -1502,6 +1566,7 @@ public class DustinyDemoFlow : MonoBehaviour
         if (!completed)
         {
             ShowDescription("아직 완료할 미션이 남아 있어.");
+            PlayDurryExpression(missionIncompleteExpressionState);
             return;
         }
 
@@ -1532,6 +1597,7 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         ShowDescription(BuildCleanlinessMessage("미션 완료!"));
+        PlayDurryExpression(missionCompleteExpressionState);
     }
 
     private string BuildCleanlinessMessage(string prefix)
@@ -1683,6 +1749,7 @@ public class DustinyDemoFlow : MonoBehaviour
                           durryObject.transform.Find("DurryVisual");
         }
 
+        ResolveDurryAnimator();
         ApplyDurryScale();
 
         durryRenderers = durryObject.GetComponentsInChildren<Renderer>(true);
@@ -1710,6 +1777,100 @@ public class DustinyDemoFlow : MonoBehaviour
 
             durryRuntimeMaterials[index] = runtimeMaterial;
         }
+    }
+
+    private void ResolveDurryAnimator()
+    {
+        if (durryAnimator != null || !autoFindDurryAnimator || durryObject == null)
+        {
+            return;
+        }
+
+        durryAnimator = durryObject.GetComponentInChildren<Animator>(true);
+    }
+
+    private void PlayOpeningExpression(int index)
+    {
+        if (openingExpressionStates == null ||
+            index < 0 ||
+            index >= openingExpressionStates.Length)
+        {
+            return;
+        }
+
+        PlayDurryExpression(openingExpressionStates[index]);
+    }
+
+    public void PlayDurryExpression(string expressionName)
+    {
+        if (string.IsNullOrWhiteSpace(expressionName))
+        {
+            return;
+        }
+
+        ResolveDurryAnimator();
+        if (durryAnimator == null || durryAnimator.runtimeAnimatorController == null)
+        {
+            if (logMissingExpressionWarnings)
+            {
+                Debug.LogWarning("[더리 표정] Animator가 연결되지 않았습니다.");
+            }
+            return;
+        }
+
+        int parameterHash = FindAnimatorTriggerHash(expressionName);
+        if (preferAnimatorTriggers && parameterHash != 0)
+        {
+            durryAnimator.SetTrigger(parameterHash);
+            return;
+        }
+
+        int shortStateHash = Animator.StringToHash(expressionName);
+        int fullStateHash = Animator.StringToHash("Base Layer." + expressionName);
+
+        if (durryAnimator.HasState(0, fullStateHash))
+        {
+            durryAnimator.CrossFadeInFixedTime(fullStateHash, expressionCrossFadeDuration, 0);
+            return;
+        }
+
+        if (durryAnimator.HasState(0, shortStateHash))
+        {
+            durryAnimator.CrossFadeInFixedTime(shortStateHash, expressionCrossFadeDuration, 0);
+            return;
+        }
+
+        // Trigger 사용을 선호하지 않도록 설정했지만 같은 이름의 Trigger는 존재하는 경우의 마지막 폴백입니다.
+        if (parameterHash != 0)
+        {
+            durryAnimator.SetTrigger(parameterHash);
+            return;
+        }
+
+        if (logMissingExpressionWarnings)
+        {
+            Debug.LogWarning($"[더리 표정] Animator에서 '{expressionName}' 상태 또는 Trigger를 찾지 못했습니다.");
+        }
+    }
+
+    private int FindAnimatorTriggerHash(string parameterName)
+    {
+        if (durryAnimator == null || string.IsNullOrWhiteSpace(parameterName))
+        {
+            return 0;
+        }
+
+        AnimatorControllerParameter[] parameters = durryAnimator.parameters;
+        foreach (AnimatorControllerParameter parameter in parameters)
+        {
+            if (parameter.type == AnimatorControllerParameterType.Trigger &&
+                string.Equals(parameter.name, parameterName, System.StringComparison.OrdinalIgnoreCase))
+            {
+                return parameter.nameHash;
+            }
+        }
+
+        return 0;
     }
 
     private void ApplyDurryScale()
@@ -2014,10 +2175,10 @@ public class DustinyDemoFlow : MonoBehaviour
         RectTransform bubble = ResolveSpeechBubbleRect();
         RectTransform description = ResolveDescriptionRect();
 
-        Vector2 targetPosition = speechBubbleAnchoredPosition;
+        Vector2 targetPosition = sharedDialogueAnchoredPosition;
         if (clampDialogueAboveWaistNav)
         {
-            targetPosition.y = Mathf.Max(targetPosition.y, speechBubbleMinAnchoredY);
+            targetPosition.y = Mathf.Max(targetPosition.y, sharedDialogueMinAnchoredY);
         }
 
         ApplyDialogueRectPlacement(
@@ -2029,13 +2190,17 @@ public class DustinyDemoFlow : MonoBehaviour
         ApplyDialogueRectPlacement(
             description,
             targetPosition,
-            forceSpeechBubbleCenterAnchor
+            forceDescriptionCenterAnchor
         );
 
-        // 서로 다른 부모 아래에 있어도 실제 화면상의 중심 위치가 정확히 같도록 맞춥니다.
-        if (bubble != null && description != null && bubble.parent != description.parent)
+        // 서로 다른 부모 아래에 있어도 실제 화면상의 피벗 위치가 정확히 같도록 맞춥니다.
+        if (forceSameDialogueWorldPosition &&
+            bubble != null &&
+            description != null &&
+            bubble.parent != description.parent)
         {
             description.position = bubble.position;
+            description.rotation = bubble.rotation;
         }
     }
 
