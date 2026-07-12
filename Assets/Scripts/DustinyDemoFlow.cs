@@ -34,6 +34,7 @@ public class DustinyDemoFlow : MonoBehaviour
     {
         IntroSpeech,
         MissionDescription,
+        MissionInProgress,
         NameQuestionSpeech,
         NamedDescription,
         FinalSpeech,
@@ -67,6 +68,15 @@ public class DustinyDemoFlow : MonoBehaviour
     public GameObject descriptionObject;
     public TMP_Text descriptionText;
 
+    [Header("Description Screen Dim")]
+    [Tooltip("디스크립션이 표시될 때 화면을 어둡게 덮는 검정 오버레이입니다. 비워두면 자동 생성합니다.")]
+    public GameObject descriptionDimOverlayObject;
+    public Image descriptionDimOverlayImage;
+    public bool autoCreateDescriptionDimOverlay = true;
+    [Range(0f, 1f)] public float descriptionDimOpacity = 0.30f;
+    [Tooltip("보통 false로 둡니다. true이면 검정 오버레이가 뒤쪽 UI 입력도 막습니다.")]
+    public bool descriptionDimBlocksRaycasts = false;
+
     [Header("Name Input")]
     public TMP_InputField durryNameInputField;
     public GameObject durryNameInputObject;
@@ -75,11 +85,37 @@ public class DustinyDemoFlow : MonoBehaviour
     public bool showNameInputWithNameQuestion = false;
 
     [Header("Onboarding Script")]
-    [TextArea(2, 4)] public string introSpeech = "난 누구지...\n여긴 어디?";
-    [TextArea(2, 5)] public string firstMissionDescription = "미션\n더리 주변의 어질러진 물건 3개를 정리해줘.\n정리가 끝나면 오른손 약지 핀치로 완료해줘.";
+    [Tooltip("검지 핀치 또는 트리거를 누를 때마다 다음 말풍선 대사로 넘어갑니다.")]
+    [TextArea(2, 5)]
+    public string[] openingSpeechSteps =
+    {
+        "으앙... 엣취!\n여긴 어디야...?",
+        "나는 누구지...?\n나...? 나는 분명...",
+        "이 공간을 깨끗하게 지키는\n청결요정이었던 것 같아!",
+        "으으... 몸이 너무 무거워.\n내 몸에 붙은 먼지 때문인가 봐...",
+        "어? 이상하다... 뭔가를 얻으면\n힘이 날 것 같은 기분이 들어.",
+        "생각났어! 보송력!",
+        "보송력이 있으면 내 힘을\n조금씩 되찾을 수 있을 것 같아!",
+        "잠깐! 저쪽에서 아주 약하게\n보송력의 기운이 느껴져!",
+        "하지만 아직 정확히 어디에\n숨어 있는지는 모르겠어.",
+        "네 도움이 필요해!"
+    };
+
+    [TextArea(2, 5)]
+    public string firstMissionDescription =
+        "보송력이 숨어 있을 것 같은 공간을 바라보고\n[확인]을 해줘!";
+
+    [Tooltip("기존 이름 짓기 온보딩을 이어서 사용할 때만 켭니다.")]
+    public bool continueToLegacyNameFlowAfterFirstMission = false;
+
+    [Header("Legacy Name Flow (Optional)")]
     [TextArea(2, 5)] public string nameQuestionSpeech = "그래! 난 더리랜드에서 온 청소 요정이었어!\n나에게 이름을 지어줄래?";
     [TextArea(2, 4)] public string namedDescriptionFormat = "{0}(이)라는 이름을 지어줬다!";
     [TextArea(2, 4)] public string finalSpeechFormat = "앞으로 잘 부탁해!\n나는 {0}(이)야.";
+
+    [Header("Unified Dialogue Placement")]
+    [Tooltip("켜면 말풍선과 디스크립션이 같은 앵커와 위치를 사용합니다. 위치는 Speech Bubble Anchored Position에서 조절합니다.")]
+    public bool synchronizeDialoguePosition = true;
 
     [Header("Speech Bubble Placement")]
     public RectTransform speechBubbleRect;
@@ -233,6 +269,7 @@ public class DustinyDemoFlow : MonoBehaviour
     [SerializeField, Min(0)] private int fallbackCreditWhenManagersMissing = 1;
 
     private OnboardingState onboardingState = OnboardingState.IntroSpeech;
+    private int openingSpeechIndex;
     private bool onboardingActive;
     private bool missionRoundActive;
     private float lastDialogueAdvanceTime = -999f;
@@ -275,6 +312,7 @@ public class DustinyDemoFlow : MonoBehaviour
         SetupScanZone();
 
         ResolveDialogueReferences();
+        SetupDescriptionDimOverlay();
         ResolveNavigationReferences();
         ResolveNavigationButtons();
         ConnectNavigationButtonEvents();
@@ -305,8 +343,7 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         UpdateViewLockedUI();
-        UpdateSpeechBubblePlacement();
-        UpdateDescriptionPlacement();
+        UpdateDialoguePlacement();
         UpdatePageRootPlacement();
 
         if (startOnboardingFlowOnStart)
@@ -330,8 +367,7 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         UpdateViewLockedUI();
-        UpdateSpeechBubblePlacement();
-        UpdateDescriptionPlacement();
+        UpdateDialoguePlacement();
         UpdatePageRootPlacement();
 
         if (useHandTrackingGestures)
@@ -988,6 +1024,7 @@ public class DustinyDemoFlow : MonoBehaviour
     {
         onboardingActive = true;
         onboardingState = OnboardingState.IntroSpeech;
+        openingSpeechIndex = 0;
         missionRoundActive = false;
         durryName = string.IsNullOrWhiteSpace(durryName) ? defaultDurryName : durryName;
 
@@ -996,7 +1033,37 @@ public class DustinyDemoFlow : MonoBehaviour
             scanZoneObject.SetActive(false);
         }
 
-        ShowSpeech(introSpeech);
+        ShowCurrentOpeningSpeech();
+    }
+
+    private void ShowCurrentOpeningSpeech()
+    {
+        if (openingSpeechSteps == null || openingSpeechSteps.Length == 0)
+        {
+            StartFirstMissionDescription();
+            return;
+        }
+
+        openingSpeechIndex = Mathf.Clamp(openingSpeechIndex, 0, openingSpeechSteps.Length - 1);
+        ShowSpeech(openingSpeechSteps[openingSpeechIndex]);
+    }
+
+    private bool TryAdvanceOpeningSpeech()
+    {
+        if (openingSpeechSteps == null || openingSpeechSteps.Length == 0)
+        {
+            return false;
+        }
+
+        int nextIndex = openingSpeechIndex + 1;
+        if (nextIndex >= openingSpeechSteps.Length)
+        {
+            return false;
+        }
+
+        openingSpeechIndex = nextIndex;
+        ShowCurrentOpeningSpeech();
+        return true;
     }
 
     private void AdvanceOnboardingFlow()
@@ -1011,11 +1078,18 @@ public class DustinyDemoFlow : MonoBehaviour
         switch (onboardingState)
         {
             case OnboardingState.IntroSpeech:
-                StartFirstMissionDescription();
+                if (!TryAdvanceOpeningSpeech())
+                {
+                    StartFirstMissionDescription();
+                }
                 break;
 
             case OnboardingState.MissionDescription:
-                // The user must finish the physical mission before this state advances.
+                ConfirmFirstMissionDescription();
+                break;
+
+            case OnboardingState.MissionInProgress:
+                // 미션 완료는 오른손 약지 핀치 또는 연결된 완료 입력에서 처리합니다.
                 break;
 
             case OnboardingState.NameQuestionSpeech:
@@ -1036,6 +1110,12 @@ public class DustinyDemoFlow : MonoBehaviour
     {
         onboardingState = OnboardingState.MissionDescription;
         StartMissionRound(firstMissionDescription);
+    }
+
+    private void ConfirmFirstMissionDescription()
+    {
+        onboardingState = OnboardingState.MissionInProgress;
+        HideDialoguePanels();
     }
 
     private void ShowNameQuestionSpeech()
@@ -1143,7 +1223,7 @@ public class DustinyDemoFlow : MonoBehaviour
             speechAutoSize.ResizeBubble();
         }
 
-        UpdateSpeechBubblePlacement();
+        UpdateDialoguePlacement();
     }
 
     private void ShowDescription(string message)
@@ -1164,7 +1244,7 @@ public class DustinyDemoFlow : MonoBehaviour
             descriptionAutoSize.ResizeBubble();
         }
 
-        UpdateDescriptionPlacement();
+        UpdateDialoguePlacement();
     }
 
     private void HideDialoguePanels()
@@ -1195,6 +1275,134 @@ public class DustinyDemoFlow : MonoBehaviour
         else if (descriptionText != null)
         {
             descriptionText.gameObject.SetActive(visible);
+        }
+
+        SetDescriptionDimVisible(visible);
+    }
+
+    private void SetupDescriptionDimOverlay()
+    {
+        if (descriptionDimOverlayObject == null && descriptionDimOverlayImage != null)
+        {
+            descriptionDimOverlayObject = descriptionDimOverlayImage.gameObject;
+        }
+
+        if (descriptionDimOverlayImage == null && descriptionDimOverlayObject != null)
+        {
+            descriptionDimOverlayImage = descriptionDimOverlayObject.GetComponent<Image>();
+        }
+
+        if (descriptionDimOverlayObject == null && autoCreateDescriptionDimOverlay)
+        {
+            Transform overlayParent = null;
+
+            if (descriptionObject != null && descriptionObject.transform.parent != null)
+            {
+                overlayParent = descriptionObject.transform.parent;
+            }
+            else if (worldCanvas != null)
+            {
+                overlayParent = worldCanvas.transform;
+            }
+
+            if (overlayParent != null)
+            {
+                descriptionDimOverlayObject = new GameObject(
+                    "DescriptionDimOverlay",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image)
+                );
+
+                descriptionDimOverlayObject.transform.SetParent(overlayParent, false);
+                descriptionDimOverlayImage = descriptionDimOverlayObject.GetComponent<Image>();
+            }
+        }
+
+        if (descriptionDimOverlayObject == null)
+        {
+            return;
+        }
+
+        RectTransform overlayRect = descriptionDimOverlayObject.GetComponent<RectTransform>();
+        if (overlayRect != null)
+        {
+            overlayRect.anchorMin = Vector2.zero;
+            overlayRect.anchorMax = Vector2.one;
+            overlayRect.pivot = new Vector2(0.5f, 0.5f);
+            overlayRect.offsetMin = Vector2.zero;
+            overlayRect.offsetMax = Vector2.zero;
+            overlayRect.localScale = Vector3.one;
+        }
+
+        if (descriptionDimOverlayImage == null)
+        {
+            descriptionDimOverlayImage = descriptionDimOverlayObject.AddComponent<Image>();
+        }
+
+        Color dimColor = Color.black;
+        dimColor.a = Mathf.Clamp01(descriptionDimOpacity);
+        descriptionDimOverlayImage.color = dimColor;
+        descriptionDimOverlayImage.raycastTarget = descriptionDimBlocksRaycasts;
+
+        descriptionDimOverlayObject.SetActive(false);
+    }
+
+    private void SetDescriptionDimVisible(bool visible)
+    {
+        if (descriptionDimOverlayObject == null)
+        {
+            SetupDescriptionDimOverlay();
+        }
+
+        if (descriptionDimOverlayObject == null)
+        {
+            return;
+        }
+
+        if (descriptionDimOverlayImage != null)
+        {
+            Color dimColor = descriptionDimOverlayImage.color;
+            dimColor.r = 0f;
+            dimColor.g = 0f;
+            dimColor.b = 0f;
+            dimColor.a = Mathf.Clamp01(descriptionDimOpacity);
+            descriptionDimOverlayImage.color = dimColor;
+            descriptionDimOverlayImage.raycastTarget = descriptionDimBlocksRaycasts;
+        }
+
+        descriptionDimOverlayObject.SetActive(visible);
+
+        if (visible)
+        {
+            BringDescriptionAboveDimOverlay();
+        }
+    }
+
+    private void BringDescriptionAboveDimOverlay()
+    {
+        if (descriptionDimOverlayObject == null || descriptionObject == null)
+        {
+            return;
+        }
+
+        Transform overlayParent = descriptionDimOverlayObject.transform.parent;
+        if (overlayParent == null)
+        {
+            return;
+        }
+
+        Transform descriptionLayerRoot = descriptionObject.transform;
+        while (descriptionLayerRoot.parent != null && descriptionLayerRoot.parent != overlayParent)
+        {
+            descriptionLayerRoot = descriptionLayerRoot.parent;
+        }
+
+        descriptionDimOverlayObject.transform.SetAsLastSibling();
+
+        if (descriptionLayerRoot.parent == overlayParent)
+        {
+            descriptionLayerRoot.SetAsLastSibling();
         }
     }
 
@@ -1309,10 +1517,18 @@ public class DustinyDemoFlow : MonoBehaviour
             RecoverDurryByCleanliness();
         }
 
-        if (onboardingActive && onboardingState == OnboardingState.MissionDescription)
+        if (onboardingActive &&
+            (onboardingState == OnboardingState.MissionDescription ||
+             onboardingState == OnboardingState.MissionInProgress))
         {
-            ShowNameQuestionSpeech();
-            return;
+            if (continueToLegacyNameFlowAfterFirstMission)
+            {
+                ShowNameQuestionSpeech();
+                return;
+            }
+
+            onboardingActive = false;
+            onboardingState = OnboardingState.Finished;
         }
 
         ShowDescription(BuildCleanlinessMessage("미션 완료!"));
@@ -1784,6 +2000,64 @@ public class DustinyDemoFlow : MonoBehaviour
         {
             MakeDialogueBlackDimTransparent();
         }
+    }
+
+    private void UpdateDialoguePlacement()
+    {
+        if (!synchronizeDialoguePosition)
+        {
+            UpdateSpeechBubblePlacement();
+            UpdateDescriptionPlacement();
+            return;
+        }
+
+        RectTransform bubble = ResolveSpeechBubbleRect();
+        RectTransform description = ResolveDescriptionRect();
+
+        Vector2 targetPosition = speechBubbleAnchoredPosition;
+        if (clampDialogueAboveWaistNav)
+        {
+            targetPosition.y = Mathf.Max(targetPosition.y, speechBubbleMinAnchoredY);
+        }
+
+        ApplyDialogueRectPlacement(
+            bubble,
+            targetPosition,
+            forceSpeechBubbleCenterAnchor
+        );
+
+        ApplyDialogueRectPlacement(
+            description,
+            targetPosition,
+            forceSpeechBubbleCenterAnchor
+        );
+
+        // 서로 다른 부모 아래에 있어도 실제 화면상의 중심 위치가 정확히 같도록 맞춥니다.
+        if (bubble != null && description != null && bubble.parent != description.parent)
+        {
+            description.position = bubble.position;
+        }
+    }
+
+    private static void ApplyDialogueRectPlacement(
+        RectTransform rect,
+        Vector2 anchoredPosition,
+        bool forceCenterAnchor
+    )
+    {
+        if (rect == null)
+        {
+            return;
+        }
+
+        if (forceCenterAnchor)
+        {
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+        }
+
+        rect.anchoredPosition = anchoredPosition;
     }
 
     private void UpdateSpeechBubblePlacement()
