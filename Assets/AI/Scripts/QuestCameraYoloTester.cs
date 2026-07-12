@@ -437,6 +437,7 @@ public class QuestCameraYoloTester : MonoBehaviour
         }
     }
 
+ 
     // 첫 번째 스캔은 정리 전, 두 번째 스캔은 정리 후로 처리
     private void HandleTidinessScoreComparison()
     {
@@ -524,7 +525,8 @@ public class QuestCameraYoloTester : MonoBehaviour
     // 확정된 물체 목록을 간단한 문자열로 만들기
     private string BuildObjectSummary()
     {
-        if (ConfirmedObjects.Count == 0)
+        if (ConfirmedObjects == null ||
+            ConfirmedObjects.Count == 0)
         {
             return "Total objects: 0";
         }
@@ -552,247 +554,40 @@ public class QuestCameraYoloTester : MonoBehaviour
             );
     }
 
-    // 물체 수, 겹침, 분산, 면적, 쓰레기 여부로 점수를 계산
+    // 반복 탐지로 확정된 정리 대상 물체 개수만으로 점수를 계산
     private int CalculateTidinessScore(
         List<ConfirmedObjectInfo> objects
     )
     {
-        if (objects == null ||
-            objects.Count == 0)
-        {
-            return 100;
-        }
+        int objectCount =
+            objects?.Count ?? 0;
 
-        float objectCountPenalty =
-            Mathf.Min(
-                objects.Count * 7f,
-                35f
-            );
+        const float penaltyPerObject = 12.5f;
 
-        float overlapPenalty =
-            CalculateOverlapPenalty(
-                objects
-            );
-
-        float dispersionPenalty =
-            CalculateDispersionPenalty(
-                objects
-            );
-
-        float areaPenalty =
-            CalculateAreaPenalty(
-                objects
-            );
-
-        float trashPenalty =
-            objects.Any(item =>
-                item.className == "trash"
-            )
-                ? 15f
-                : 0f;
-
-        float rawScore =
-            100f
-            - objectCountPenalty
-            - overlapPenalty
-            - dispersionPenalty
-            - areaPenalty
-            - trashPenalty;
+        float score =
+            100f -
+            objectCount * penaltyPerObject;
 
         int finalScore =
-            Mathf.Clamp(
-                Mathf.RoundToInt(rawScore),
-                0,
-                100
+            Mathf.RoundToInt(
+                Mathf.Clamp(
+                    score,
+                    0f,
+                    100f
+                )
             );
 
         if (printScanLog)
         {
             Debug.Log(
                 $"[Tidiness Score]\n" +
-                $"물체 수 감점: {objectCountPenalty:F1}\n" +
-                $"겹침 감점: {overlapPenalty:F1}\n" +
-                $"분산 감점: {dispersionPenalty:F1}\n" +
-                $"면적 감점: {areaPenalty:F1}\n" +
-                $"쓰레기 감점: {trashPenalty:F1}\n" +
-                $"최종 점수: {finalScore}"
+                $"확정 물체 수: {objectCount}개\n" +
+                $"물체당 감점: {penaltyPerObject:F1}점\n" +
+                $"최종 점수: {finalScore}점"
             );
         }
 
         return finalScore;
-    }
-
-    // 물체끼리 많이 겹칠수록 감점
-    private float CalculateOverlapPenalty(
-        List<ConfirmedObjectInfo> objects
-    )
-    {
-        float totalIou = 0f;
-        int overlapPairCount = 0;
-
-        for (int i = 0; i < objects.Count; i++)
-        {
-            for (
-                int j = i + 1;
-                j < objects.Count;
-                j++
-            )
-            {
-                float iou =
-                    CalculateIoU(
-                        objects[i].lastRect,
-                        objects[j].lastRect
-                    );
-
-                // 아주 작은 겹침은 무시
-                if (iou <= 0.03f)
-                {
-                    continue;
-                }
-
-                totalIou += iou;
-                overlapPairCount++;
-            }
-        }
-
-        float pairPenalty =
-            overlapPairCount * 4f;
-
-        float iouPenalty =
-            totalIou * 40f;
-
-        return Mathf.Min(
-            pairPenalty + iouPenalty,
-            25f
-        );
-    }
-
-    // 물체가 화면 전체에 넓게 퍼질수록 감점
-    private float CalculateDispersionPenalty(
-        List<ConfirmedObjectInfo> objects
-    )
-    {
-        if (objects.Count <= 1)
-        {
-            return 0f;
-        }
-
-        List<Vector2> centers =
-            objects
-                .Select(item =>
-                    item.lastRect.center
-                )
-                .ToList();
-
-        Vector2 meanCenter =
-            new Vector2(
-                centers.Average(center =>
-                    center.x
-                ),
-                centers.Average(center =>
-                    center.y
-                )
-            );
-
-        float variance = 0f;
-
-        foreach (Vector2 center in centers)
-        {
-            float dx =
-                (center.x - meanCenter.x) /
-                ModelInputSize;
-
-            float dy =
-                (center.y - meanCenter.y) /
-                ModelInputSize;
-
-            variance +=
-                dx * dx +
-                dy * dy;
-        }
-
-        variance /=
-            centers.Count;
-
-        // 화면 4분할 중 몇 개 구역에 물체가 있는지 확인
-        bool[] occupiedQuadrants =
-            new bool[4];
-
-        foreach (Vector2 center in centers)
-        {
-            int column =
-                center.x < ModelInputSize / 2f
-                    ? 0
-                    : 1;
-
-            int row =
-                center.y < ModelInputSize / 2f
-                    ? 0
-                    : 2;
-
-            occupiedQuadrants[row + column] =
-                true;
-        }
-
-        int occupiedCount =
-            occupiedQuadrants.Count(
-                occupied => occupied
-            );
-
-        float variancePenalty =
-            Mathf.Min(
-                variance * 100f,
-                15f
-            );
-
-        float quadrantPenalty =
-            Mathf.Max(
-                0,
-                occupiedCount - 1
-            ) * 4f;
-
-        return Mathf.Min(
-            variancePenalty +
-            quadrantPenalty,
-            25f
-        );
-    }
-
-    // 물체가 화면에서 차지하는 면적이 클수록 감점
-    private float CalculateAreaPenalty(
-        List<ConfirmedObjectInfo> objects
-    )
-    {
-        float imageArea =
-            ModelInputSize *
-            ModelInputSize;
-
-        float totalAreaRatio = 0f;
-
-        foreach (
-            ConfirmedObjectInfo item
-            in objects
-        )
-        {
-            float objectArea =
-                Mathf.Max(
-                    0f,
-                    item.lastRect.width
-                ) *
-                Mathf.Max(
-                    0f,
-                    item.lastRect.height
-                );
-
-            totalAreaRatio +=
-                objectArea /
-                imageArea;
-        }
-
-        return Mathf.Min(
-            totalAreaRatio * 50f,
-            15f
-        );
     }
 
     // 점수 비교를 사용하지 않을 때 일반 스캔 결과를 출력
