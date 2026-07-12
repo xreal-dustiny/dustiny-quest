@@ -16,8 +16,6 @@ public class QuestCameraYoloTester : MonoBehaviour
     private const string HeadsetCameraPermission =
         "horizonos.permission.HEADSET_CAMERA";
 
-    private const float ModelInputSize = 640f;
-
     [Header("[ 필수 연결 ]")]
     public PassthroughCameraAccess passthroughCameraAccess;
     public AIInferenceTest aiInferenceTest;
@@ -29,6 +27,18 @@ public class QuestCameraYoloTester : MonoBehaviour
     [Header("[ 화면 표시 - 선택사항 ]")]
     public RawImage cameraPreview;
     public TMP_Text scanStatusText;
+
+    [Header("[ 스캔 UI ]")]
+    [SerializeField]
+    private GameObject scanDimOverlay;
+
+    [SerializeField]
+    private GameObject scanBox;
+
+    [TextArea(2, 4)]
+    [SerializeField]
+    private string scanningMessage =
+        "스캔 중...";
 
     [Header("[ 스캔 설정 ]")]
     [Min(0.5f)]
@@ -78,6 +88,14 @@ public class QuestCameraYoloTester : MonoBehaviour
         private set;
     }
 
+    // 외부에서 현재 스캔 중인지 확인할 수 있도록 공개
+    public bool IsScanning =>
+        isScanning;
+
+    // 스캔 완료 시 확정 물체 목록을 전달하는 이벤트
+    public event System.Action<List<ConfirmedObjectInfo>>
+        OnScanCompleted;
+
     // 스캔 중 임시로 추적하는 물체
     private readonly List<TrackedObject> trackedObjects =
         new List<TrackedObject>();
@@ -112,6 +130,7 @@ public class QuestCameraYoloTester : MonoBehaviour
 
     private void Start()
     {
+        SetScanningUI(false);
         SetStatusText("");
         RequestCameraPermission();
     }
@@ -136,7 +155,6 @@ public class QuestCameraYoloTester : MonoBehaviour
         }
     }
 
-
     /// 새로운 객체 스캔을 시작한다.
     /// 나중에 손 인식 담당 코드에서 이 함수를 호출하면 된다.
     public void StartScan()
@@ -148,8 +166,8 @@ public class QuestCameraYoloTester : MonoBehaviour
 
         if (!HasCameraPermission())
         {
-            SetStatusText(
-                "Camera permission required"
+            Debug.LogWarning(
+                "[Quest Camera] 카메라 권한이 필요합니다."
             );
 
             RequestCameraPermission();
@@ -169,6 +187,9 @@ public class QuestCameraYoloTester : MonoBehaviour
         inferenceCount = 0;
         isScanning = true;
 
+        SetStatusText(scanningMessage);
+        SetScanningUI(true);
+
         aiInferenceTest.ResetCurrentScanResult();
 
         StartCoroutine(
@@ -179,11 +200,6 @@ public class QuestCameraYoloTester : MonoBehaviour
     // 설정된 시간 동안 일정 간격으로 추론
     private IEnumerator ScanRoutine()
     {
-        SetStatusText(
-            "Scanning...\n" +
-            "Please keep your head still"
-        );
-
         if (printScanLog)
         {
             Debug.Log(
@@ -238,11 +254,6 @@ public class QuestCameraYoloTester : MonoBehaviour
 
         TrackDetections(
             aiInferenceTest.LastDetections
-        );
-
-        SetStatusText(
-            $"Scanning... {inferenceCount}\n" +
-            "Please keep your head still"
         );
     }
 
@@ -350,6 +361,7 @@ public class QuestCameraYoloTester : MonoBehaviour
             new TrackedObject
             {
                 id = nextTrackId++,
+                classId = detection.classId,
                 className = detection.className,
                 lastRect = detection.rect,
                 detectionCount = 1,
@@ -387,6 +399,9 @@ public class QuestCameraYoloTester : MonoBehaviour
     {
         isScanning = false;
 
+        SetScanningUI(false);
+        SetStatusText("");
+
         ConfirmedObjects =
             trackedObjects
                 .Where(track =>
@@ -405,6 +420,7 @@ public class QuestCameraYoloTester : MonoBehaviour
                     new ConfirmedObjectInfo
                     {
                         objectId = track.id,
+                        classId = track.classId,
                         className = track.className,
                         detectionCount =
                             track.detectionCount,
@@ -431,13 +447,18 @@ public class QuestCameraYoloTester : MonoBehaviour
             ShowFinalResult();
         }
 
+        OnScanCompleted?.Invoke(
+            new List<ConfirmedObjectInfo>(
+                ConfirmedObjects
+            )
+        );
+
         if (printScanLog)
         {
             PrintDetailedResult();
         }
     }
 
- 
     // 첫 번째 스캔은 정리 전, 두 번째 스캔은 정리 후로 처리
     private void HandleTidinessScoreComparison()
     {
@@ -457,11 +478,10 @@ public class QuestCameraYoloTester : MonoBehaviour
 
             hasBeforeScan = true;
 
-            SetStatusText(
-                $"Before scan saved!\n" +
-                $"Score: {BeforeTidinessScore}\n" +
-                $"{objectSummary}\n" +
-                $"Clean up, then scan again"
+            Debug.Log(
+                $"[AI Scan Result] 탐지 물체: {ConfirmedObjects.Count}개, " +
+                $"정돈도 점수: {currentScore}점\n" +
+                $"탐지 결과:\n{objectSummary}"
             );
 
             Debug.Log(
@@ -485,19 +505,13 @@ public class QuestCameraYoloTester : MonoBehaviour
                 ? $"+{scoreDifference}"
                 : scoreDifference.ToString();
 
-        SetStatusText(
-            $"After scan complete!\n" +
-            $"Before: {BeforeTidinessScore}\n" +
-            $"After: {AfterTidinessScore}\n" +
-            $"Score change: {differenceText}\n" +
-            objectSummary
-        );
-
+        // 사용자 화면에는 표시하지 않고 Console에만 출력
         Debug.Log(
             $"[Tidiness Score] 비교 완료\n" +
             $"정리 전: {BeforeTidinessScore}\n" +
             $"정리 후: {AfterTidinessScore}\n" +
-            $"점수 변화: {differenceText}"
+            $"점수 변화: {differenceText}\n" +
+            $"탐지 결과:\n{objectSummary}"
         );
 
         // 다음 스캔부터 새로운 전후 비교 시작
@@ -515,6 +529,7 @@ public class QuestCameraYoloTester : MonoBehaviour
         BeforeTidinessScore = 0;
         AfterTidinessScore = 0;
 
+        SetScanningUI(false);
         SetStatusText("");
 
         Debug.Log(
@@ -590,15 +605,21 @@ public class QuestCameraYoloTester : MonoBehaviour
         return finalScore;
     }
 
-    // 점수 비교를 사용하지 않을 때 일반 스캔 결과를 출력
+    // 점수 비교를 사용하지 않을 때 일반 스캔 결과를 Console에 출력
     private void ShowFinalResult()
     {
-        SetStatusText(
-            $"Scan complete!\n" +
+        if (!printScanLog)
+        {
+            return;
+        }
+
+        Debug.Log(
+            $"[Quest Camera] 일반 스캔 완료\n" +
             BuildObjectSummary()
         );
     }
 
+    // 확정된 각 물체의 세부 탐지 결과를 Console에 출력
     private void PrintDetailedResult()
     {
         IEnumerable<string> detailLines =
@@ -666,7 +687,6 @@ public class QuestCameraYoloTester : MonoBehaviour
 
 #endif
     }
-
 
     /// Quest 헤드셋 카메라 권한을 요청
     public void RequestCameraPermission()
@@ -748,6 +768,23 @@ public class QuestCameraYoloTester : MonoBehaviour
             : 0f;
     }
 
+    // 스캔 중 UI의 표시 여부만 관리
+    private void SetScanningUI(
+        bool visible
+    )
+    {
+        if (scanDimOverlay != null)
+        {
+            scanDimOverlay.SetActive(visible);
+        }
+
+        if (scanBox != null)
+        {
+            scanBox.SetActive(visible);
+        }
+    }
+
+    // 스캔 문구의 내용만 변경
     private void SetStatusText(
         string message
     )
@@ -757,12 +794,7 @@ public class QuestCameraYoloTester : MonoBehaviour
             return;
         }
 
-        scanStatusText.text =
-            message;
-
-        scanStatusText.gameObject.SetActive(
-            !string.IsNullOrEmpty(message)
-        );
+        scanStatusText.text = message;
     }
 }
 
@@ -770,6 +802,7 @@ public class QuestCameraYoloTester : MonoBehaviour
 internal class TrackedObject
 {
     public int id;
+    public int classId;
     public string className;
     public Rect lastRect;
     public int detectionCount;
@@ -787,6 +820,7 @@ internal class TrackedObject
 public class ConfirmedObjectInfo
 {
     public int objectId;
+    public int classId;
     public string className;
     public int detectionCount;
     public float averageConfidence;
