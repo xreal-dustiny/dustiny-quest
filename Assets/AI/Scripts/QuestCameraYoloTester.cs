@@ -9,33 +9,22 @@ using UnityEngine.Android;
 using UnityEngine.UI;
 
 
-/// <summary>
-/// Meta Quest의 패스스루 카메라 영상을 가져와 YOLO 추론을 실행하고,
-/// 짧은 시간 동안 반복 탐지된 개별 물체를 추적·확정하는 스크립트.
-///
-/// 담당 기능:
-/// 1. 헤드셋 카메라 권한 요청
-/// 2. A 버튼 입력 감지
-/// 3. 패스스루 카메라 Texture 가져오기
-/// 4. 일정 시간 동안 반복 YOLO 추론
-/// 5. IoU를 이용해 같은 물체 추적
-/// 6. 실제 물체 개수 확정
-/// 7. 스캔 결과를 UI와 Console에 출력
-/// </summary>
-
-
-
-
-/// Quest 카메라를 반복 추론하고,
-/// 같은 물체를 추적해 최종 물체 목록을 생성
+/// Quest 카메라를 반복 추론하고 개별 물체를 추적
+/// 첫 번째 스캔과 두 번째 스캔의 정돈도 점수를 비교
 public class QuestCameraYoloTester : MonoBehaviour
 {
     private const string HeadsetCameraPermission =
         "horizonos.permission.HEADSET_CAMERA";
 
+    private const float ModelInputSize = 640f;
+
     [Header("[ 필수 연결 ]")]
     public PassthroughCameraAccess passthroughCameraAccess;
     public AIInferenceTest aiInferenceTest;
+
+    [Header("[ 테스트 입력 ]")]
+    [Tooltip("테스트 중에는 체크합니다. 손 인식 연동 후에는 해제합니다.")]
+    public bool useDebugAButton = true;
 
     [Header("[ 화면 표시 - 선택사항 ]")]
     public RawImage cameraPreview;
@@ -61,6 +50,12 @@ public class QuestCameraYoloTester : MonoBehaviour
     [Min(1)]
     public int maximumTrackingGap = 2;
 
+    [Header("[ 물체 표시 ]")]
+    public DetectionMarkerManager detectionMarkerManager;
+
+    [Header("[ 정돈도 점수 비교 ]")]
+    public bool compareTidinessScore = true;
+
     [Header("[ 디버그 ]")]
     public bool printScanLog = true;
 
@@ -68,9 +63,26 @@ public class QuestCameraYoloTester : MonoBehaviour
     private int inferenceCount;
     private int nextTrackId = 1;
 
+    // 첫 번째 스캔 점수가 저장되었는지
+    private bool hasBeforeScan;
+
+    public int BeforeTidinessScore
+    {
+        get;
+        private set;
+    }
+
+    public int AfterTidinessScore
+    {
+        get;
+        private set;
+    }
+
+    // 스캔 중 임시로 추적하는 물체
     private readonly List<TrackedObject> trackedObjects =
         new List<TrackedObject>();
 
+    // 스캔 종료 후 확정된 실제 물체
     public List<ConfirmedObjectInfo> ConfirmedObjects
     {
         get;
@@ -90,6 +102,12 @@ public class QuestCameraYoloTester : MonoBehaviour
             aiInferenceTest =
                 FindFirstObjectByType<AIInferenceTest>();
         }
+
+        if (detectionMarkerManager == null)
+        {
+            detectionMarkerManager =
+                FindFirstObjectByType<DetectionMarkerManager>();
+        }
     }
 
     private void Start()
@@ -100,24 +118,40 @@ public class QuestCameraYoloTester : MonoBehaviour
 
     private void Update()
     {
+        // 현재는 테스트용 A 버튼으로 스캔 시작
+        if (!useDebugAButton || isScanning)
+        {
+            return;
+        }
+
         bool pressedA =
             OVRInput.GetDown(
                 OVRInput.Button.One,
                 OVRInput.Controller.RTouch
             );
 
-        if (pressedA && !isScanning)
+        if (pressedA)
         {
             StartScan();
         }
     }
 
+
     /// 새로운 객체 스캔을 시작한다.
+    /// 나중에 손 인식 담당 코드에서 이 함수를 호출하면 된다.
     public void StartScan()
     {
+        if (isScanning)
+        {
+            return;
+        }
+
         if (!HasCameraPermission())
         {
-            SetStatusText("Camera permission required");
+            SetStatusText(
+                "Camera permission required"
+            );
+
             RequestCameraPermission();
             return;
         }
@@ -127,6 +161,7 @@ public class QuestCameraYoloTester : MonoBehaviour
             return;
         }
 
+        // 이전 스캔의 물체 추적 결과 초기화
         trackedObjects.Clear();
         ConfirmedObjects.Clear();
 
@@ -136,19 +171,24 @@ public class QuestCameraYoloTester : MonoBehaviour
 
         aiInferenceTest.ResetCurrentScanResult();
 
-        StartCoroutine(ScanRoutine());
+        StartCoroutine(
+            ScanRoutine()
+        );
     }
 
     // 설정된 시간 동안 일정 간격으로 추론
     private IEnumerator ScanRoutine()
     {
         SetStatusText(
-            "Scanning...\nPlease keep your head still"
+            "Scanning...\n" +
+            "Please keep your head still"
         );
 
         if (printScanLog)
         {
-            Debug.Log("[Quest Camera] 스캔 시작");
+            Debug.Log(
+                "[Quest Camera] 반복 스캔 시작"
+            );
         }
 
         float endTime =
@@ -166,7 +206,7 @@ public class QuestCameraYoloTester : MonoBehaviour
         FinishScan();
     }
 
-    // 패스스루 카메라 프레임 한 장을 추론
+    // 현재 카메라 프레임 한 장을 YOLO로 추론한다.
     private void RunSingleInference()
     {
         Texture cameraTexture =
@@ -217,6 +257,7 @@ public class QuestCameraYoloTester : MonoBehaviour
             return;
         }
 
+        // 한 추론에서 기존 Track 하나가 중복 연결되는 것을 방지
         HashSet<int> matchedTrackIds =
             new HashSet<int>();
 
@@ -254,7 +295,7 @@ public class QuestCameraYoloTester : MonoBehaviour
         }
     }
 
-    // 현재 Detection과 가장 잘 겹치는 기존 물체를 찾기
+    // 현재 Detection과 가장 잘 겹치는 기존 Track을 찾음
     private TrackedObject FindBestTrack(
         Detection detection,
         HashSet<int> matchedTrackIds
@@ -300,7 +341,7 @@ public class QuestCameraYoloTester : MonoBehaviour
         return bestTrack;
     }
 
-    // 새로운 물체 추적 정보를 생성
+    // 기존 Track이 없으면 새 물체로 등록
     private TrackedObject CreateTrack(
         Detection detection
     )
@@ -316,7 +357,9 @@ public class QuestCameraYoloTester : MonoBehaviour
                 lastSeenInference = inferenceCount
             };
 
-        trackedObjects.Add(track);
+        trackedObjects.Add(
+            track
+        );
 
         return track;
     }
@@ -339,7 +382,7 @@ public class QuestCameraYoloTester : MonoBehaviour
             inferenceCount;
     }
 
-    // 반복적으로 탐지된 안정적인 물체만 최종 확정
+    // 확정 조건을 통과한 물체만 최종 결과로 저장
     private void FinishScan()
     {
         isScanning = false;
@@ -372,7 +415,21 @@ public class QuestCameraYoloTester : MonoBehaviour
                 )
                 .ToList();
 
-        ShowFinalResult();
+        if (detectionMarkerManager != null)
+        {
+            detectionMarkerManager.ShowMarkers(
+                ConfirmedObjects
+            );
+        }
+
+        if (compareTidinessScore)
+        {
+            HandleTidinessScoreComparison();
+        }
+        else
+        {
+            ShowFinalResult();
+        }
 
         if (printScanLog)
         {
@@ -380,15 +437,96 @@ public class QuestCameraYoloTester : MonoBehaviour
         }
     }
 
-    private void ShowFinalResult()
+    // 첫 번째 스캔은 정리 전, 두 번째 스캔은 정리 후로 처리
+    private void HandleTidinessScoreComparison()
     {
-        if (ConfirmedObjects.Count == 0)
+        int currentScore =
+            CalculateTidinessScore(
+                ConfirmedObjects
+            );
+
+        string objectSummary =
+            BuildObjectSummary();
+
+        // 첫 번째 스캔: 정리 전 점수 저장
+        if (!hasBeforeScan)
         {
+            BeforeTidinessScore =
+                currentScore;
+
+            hasBeforeScan = true;
+
             SetStatusText(
-                "Scan complete!\nNo objects detected"
+                $"Before scan saved!\n" +
+                $"Score: {BeforeTidinessScore}\n" +
+                $"{objectSummary}\n" +
+                $"Clean up, then scan again"
+            );
+
+            Debug.Log(
+                $"[Tidiness Score] 정리 전 점수: " +
+                $"{BeforeTidinessScore}"
             );
 
             return;
+        }
+
+        // 두 번째 스캔: 정리 후 점수 계산
+        AfterTidinessScore =
+            currentScore;
+
+        int scoreDifference =
+            AfterTidinessScore -
+            BeforeTidinessScore;
+
+        string differenceText =
+            scoreDifference > 0
+                ? $"+{scoreDifference}"
+                : scoreDifference.ToString();
+
+        SetStatusText(
+            $"After scan complete!\n" +
+            $"Before: {BeforeTidinessScore}\n" +
+            $"After: {AfterTidinessScore}\n" +
+            $"Score change: {differenceText}\n" +
+            objectSummary
+        );
+
+        Debug.Log(
+            $"[Tidiness Score] 비교 완료\n" +
+            $"정리 전: {BeforeTidinessScore}\n" +
+            $"정리 후: {AfterTidinessScore}\n" +
+            $"점수 변화: {differenceText}"
+        );
+
+        // 다음 스캔부터 새로운 전후 비교 시작
+        hasBeforeScan = false;
+    }
+
+    /// <summary>
+    /// 진행 중인 정리 전·후 점수 비교를 초기화한다.
+    /// 미션 취소 또는 새 구역 선택 시 호출할 수 있다.
+    /// </summary>
+    public void ResetScoreComparison()
+    {
+        hasBeforeScan = false;
+
+        BeforeTidinessScore = 0;
+        AfterTidinessScore = 0;
+
+        SetStatusText("");
+
+        Debug.Log(
+            "[Tidiness Score] 점수 비교 초기화"
+        );
+    }
+
+    // 확정된 물체 목록을 간단한 문자열로 만들기
+    private string BuildObjectSummary()
+    {
+        if (ConfirmedObjects.Count == 0)
+        {
+            return "Total objects: 0";
         }
 
         IEnumerable<string> classLines =
@@ -399,14 +537,270 @@ public class QuestCameraYoloTester : MonoBehaviour
                 .OrderByDescending(group =>
                     group.Count()
                 )
+                .ThenBy(group =>
+                    group.Key
+                )
                 .Select(group =>
                     $"{group.Key} x{group.Count()}"
                 );
 
+        return
+            $"Total objects: {ConfirmedObjects.Count}\n" +
+            string.Join(
+                "\n",
+                classLines
+            );
+    }
+
+    // 물체 수, 겹침, 분산, 면적, 쓰레기 여부로 점수를 계산
+    private int CalculateTidinessScore(
+        List<ConfirmedObjectInfo> objects
+    )
+    {
+        if (objects == null ||
+            objects.Count == 0)
+        {
+            return 100;
+        }
+
+        float objectCountPenalty =
+            Mathf.Min(
+                objects.Count * 7f,
+                35f
+            );
+
+        float overlapPenalty =
+            CalculateOverlapPenalty(
+                objects
+            );
+
+        float dispersionPenalty =
+            CalculateDispersionPenalty(
+                objects
+            );
+
+        float areaPenalty =
+            CalculateAreaPenalty(
+                objects
+            );
+
+        float trashPenalty =
+            objects.Any(item =>
+                item.className == "trash"
+            )
+                ? 15f
+                : 0f;
+
+        float rawScore =
+            100f
+            - objectCountPenalty
+            - overlapPenalty
+            - dispersionPenalty
+            - areaPenalty
+            - trashPenalty;
+
+        int finalScore =
+            Mathf.Clamp(
+                Mathf.RoundToInt(rawScore),
+                0,
+                100
+            );
+
+        if (printScanLog)
+        {
+            Debug.Log(
+                $"[Tidiness Score]\n" +
+                $"물체 수 감점: {objectCountPenalty:F1}\n" +
+                $"겹침 감점: {overlapPenalty:F1}\n" +
+                $"분산 감점: {dispersionPenalty:F1}\n" +
+                $"면적 감점: {areaPenalty:F1}\n" +
+                $"쓰레기 감점: {trashPenalty:F1}\n" +
+                $"최종 점수: {finalScore}"
+            );
+        }
+
+        return finalScore;
+    }
+
+    // 물체끼리 많이 겹칠수록 감점
+    private float CalculateOverlapPenalty(
+        List<ConfirmedObjectInfo> objects
+    )
+    {
+        float totalIou = 0f;
+        int overlapPairCount = 0;
+
+        for (int i = 0; i < objects.Count; i++)
+        {
+            for (
+                int j = i + 1;
+                j < objects.Count;
+                j++
+            )
+            {
+                float iou =
+                    CalculateIoU(
+                        objects[i].lastRect,
+                        objects[j].lastRect
+                    );
+
+                // 아주 작은 겹침은 무시
+                if (iou <= 0.03f)
+                {
+                    continue;
+                }
+
+                totalIou += iou;
+                overlapPairCount++;
+            }
+        }
+
+        float pairPenalty =
+            overlapPairCount * 4f;
+
+        float iouPenalty =
+            totalIou * 40f;
+
+        return Mathf.Min(
+            pairPenalty + iouPenalty,
+            25f
+        );
+    }
+
+    // 물체가 화면 전체에 넓게 퍼질수록 감점
+    private float CalculateDispersionPenalty(
+        List<ConfirmedObjectInfo> objects
+    )
+    {
+        if (objects.Count <= 1)
+        {
+            return 0f;
+        }
+
+        List<Vector2> centers =
+            objects
+                .Select(item =>
+                    item.lastRect.center
+                )
+                .ToList();
+
+        Vector2 meanCenter =
+            new Vector2(
+                centers.Average(center =>
+                    center.x
+                ),
+                centers.Average(center =>
+                    center.y
+                )
+            );
+
+        float variance = 0f;
+
+        foreach (Vector2 center in centers)
+        {
+            float dx =
+                (center.x - meanCenter.x) /
+                ModelInputSize;
+
+            float dy =
+                (center.y - meanCenter.y) /
+                ModelInputSize;
+
+            variance +=
+                dx * dx +
+                dy * dy;
+        }
+
+        variance /=
+            centers.Count;
+
+        // 화면 4분할 중 몇 개 구역에 물체가 있는지 확인
+        bool[] occupiedQuadrants =
+            new bool[4];
+
+        foreach (Vector2 center in centers)
+        {
+            int column =
+                center.x < ModelInputSize / 2f
+                    ? 0
+                    : 1;
+
+            int row =
+                center.y < ModelInputSize / 2f
+                    ? 0
+                    : 2;
+
+            occupiedQuadrants[row + column] =
+                true;
+        }
+
+        int occupiedCount =
+            occupiedQuadrants.Count(
+                occupied => occupied
+            );
+
+        float variancePenalty =
+            Mathf.Min(
+                variance * 100f,
+                15f
+            );
+
+        float quadrantPenalty =
+            Mathf.Max(
+                0,
+                occupiedCount - 1
+            ) * 4f;
+
+        return Mathf.Min(
+            variancePenalty +
+            quadrantPenalty,
+            25f
+        );
+    }
+
+    // 물체가 화면에서 차지하는 면적이 클수록 감점
+    private float CalculateAreaPenalty(
+        List<ConfirmedObjectInfo> objects
+    )
+    {
+        float imageArea =
+            ModelInputSize *
+            ModelInputSize;
+
+        float totalAreaRatio = 0f;
+
+        foreach (
+            ConfirmedObjectInfo item
+            in objects
+        )
+        {
+            float objectArea =
+                Mathf.Max(
+                    0f,
+                    item.lastRect.width
+                ) *
+                Mathf.Max(
+                    0f,
+                    item.lastRect.height
+                );
+
+            totalAreaRatio +=
+                objectArea /
+                imageArea;
+        }
+
+        return Mathf.Min(
+            totalAreaRatio * 50f,
+            15f
+        );
+    }
+
+    // 점수 비교를 사용하지 않을 때 일반 스캔 결과를 출력
+    private void ShowFinalResult()
+    {
         SetStatusText(
             $"Scan complete!\n" +
-            $"Total objects: {ConfirmedObjects.Count}\n" +
-            string.Join("\n", classLines)
+            BuildObjectSummary()
         );
     }
 
@@ -424,7 +818,10 @@ public class QuestCameraYoloTester : MonoBehaviour
             $"[Quest Camera] 스캔 완료\n" +
             $"총 추론: {inferenceCount}회\n" +
             $"확정 물체: {ConfirmedObjects.Count}개\n" +
-            string.Join("\n", detailLines)
+            string.Join(
+                "\n",
+                detailLines
+            )
         );
     }
 
@@ -499,27 +896,52 @@ public class QuestCameraYoloTester : MonoBehaviour
         float overlapWidth =
             Mathf.Max(
                 0f,
-                Mathf.Min(first.xMax, second.xMax) -
-                Mathf.Max(first.xMin, second.xMin)
+                Mathf.Min(
+                    first.xMax,
+                    second.xMax
+                ) -
+                Mathf.Max(
+                    first.xMin,
+                    second.xMin
+                )
             );
 
         float overlapHeight =
             Mathf.Max(
                 0f,
-                Mathf.Min(first.yMax, second.yMax) -
-                Mathf.Max(first.yMin, second.yMin)
+                Mathf.Min(
+                    first.yMax,
+                    second.yMax
+                ) -
+                Mathf.Max(
+                    first.yMin,
+                    second.yMin
+                )
             );
 
         float intersectionArea =
-            overlapWidth * overlapHeight;
+            overlapWidth *
+            overlapHeight;
 
         float firstArea =
-            Mathf.Max(0f, first.width) *
-            Mathf.Max(0f, first.height);
+            Mathf.Max(
+                0f,
+                first.width
+            ) *
+            Mathf.Max(
+                0f,
+                first.height
+            );
 
         float secondArea =
-            Mathf.Max(0f, second.width) *
-            Mathf.Max(0f, second.height);
+            Mathf.Max(
+                0f,
+                second.width
+            ) *
+            Mathf.Max(
+                0f,
+                second.height
+            );
 
         float unionArea =
             firstArea +
@@ -540,7 +962,8 @@ public class QuestCameraYoloTester : MonoBehaviour
             return;
         }
 
-        scanStatusText.text = message;
+        scanStatusText.text =
+            message;
 
         scanStatusText.gameObject.SetActive(
             !string.IsNullOrEmpty(message)
@@ -548,7 +971,7 @@ public class QuestCameraYoloTester : MonoBehaviour
     }
 }
 
-// 스캔 도중 사용하는 임시 물체 추적 정보
+// 스캔 중 사용하는 임시 물체 정보
 internal class TrackedObject
 {
     public int id;
@@ -564,8 +987,7 @@ internal class TrackedObject
             : 0f;
 }
 
-
-/// 스캔이 끝난 뒤 확정된 개별 물체 정보.
+/// 스캔 종료 후 확정된 개별 물체 정보.
 [System.Serializable]
 public class ConfirmedObjectInfo
 {

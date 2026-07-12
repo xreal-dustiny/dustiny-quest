@@ -16,12 +16,6 @@ public class AIInferenceTest : MonoBehaviour
     [Range(0f, 1f)]
     public float iouThreshold = 0.45f;
 
-    [Tooltip("화면에 표시할 최대 탐지 개수")]
-    public int topK = 5;
-
-    [Header("[ 탐지 결과 화면 표시 ]")]
-    public DetectionOverlay detectionOverlay;
-
     private Model runtimeModel;
     private Worker worker;
     private string[] classNames;
@@ -63,22 +57,6 @@ public class AIInferenceTest : MonoBehaviour
     {
         LoadClassNames();
         LoadModel();
-
-        // 인스펙터에 연결되지 않은 경우 씬에서 자동 탐색
-        if (detectionOverlay == null)
-        {
-            detectionOverlay =
-                FindFirstObjectByType<DetectionOverlay>();
-
-            if (detectionOverlay == null)
-            {
-                Debug.LogWarning(
-                    "[AI Warning] DetectionOverlay를 찾지 못했습니다. " +
-                    "추론은 실행되지만 바운딩박스는 표시되지 않습니다."
-                );
-            }
-        }
-
         ResetCurrentScanResult();
     }
 
@@ -207,13 +185,6 @@ public class AIInferenceTest : MonoBehaviour
                 Debug.LogWarning(
                     "[AI Warning] 모델 출력 Tensor가 없습니다."
                 );
-
-
-                if (detectionOverlay != null)
-                {
-                    detectionOverlay.HideAll();
-                }
-
                 return;
             }
 
@@ -267,33 +238,7 @@ public class AIInferenceTest : MonoBehaviour
                 }
             }
 
-            // topK 개수만큼 화면에 표시
-            int visibleCount =
-                Mathf.Min(
-                    Mathf.Max(topK, 0),
-                    finalDetections.Count
-                );
 
-            // 바운딩박스와 라벨 화면 표시
-            if (detectionOverlay != null)
-            {
-                detectionOverlay.ShowDetections(
-                    finalDetections,
-                    visibleCount
-                );
-            }
-            /*
-            // 미션 생성용 클래스 이름 목록 생성
-            List<string> detectedClassNames =
-                new List<string>();
-
-            for (int i = 0; i < visibleCount; i++)
-            {
-                detectedClassNames.Add(
-                    finalDetections[i].className
-                );
-            }
-            */
 
             //퀘스트 기능 연동 전까지 임시 비활성화
             /*
@@ -324,11 +269,6 @@ public class AIInferenceTest : MonoBehaviour
             Debug.LogError(
                 $"[AI 추론 오류]\n{exception}"
             );
-
-            if (detectionOverlay != null)
-            {
-                detectionOverlay.HideAll();
-            }
         }
         finally
         {
@@ -678,12 +618,6 @@ public class AIInferenceTest : MonoBehaviour
                 roomCleanlinessScore = 100f,
                 detectedObjects = new List<string>()
             };
-
-        // 화면에 남아 있는 바운딩박스 제거
-        if (detectionOverlay != null)
-        {
-            detectionOverlay.HideAll();
-        }
 
         // 퀘스트 기능 연동 전까지 임시 비활성화
         /*
