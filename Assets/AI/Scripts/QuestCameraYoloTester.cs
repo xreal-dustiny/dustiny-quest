@@ -8,6 +8,11 @@ using UnityEngine;
 using UnityEngine.Android;
 using UnityEngine.UI;
 
+public enum ScanPhase
+{
+    BeforeCleaning,
+    AfterCleaning
+}
 
 /// Quest 카메라를 반복 추론하고 개별 물체를 추적
 /// 첫 번째 스캔과 두 번째 스캔의 정돈도 점수를 비교
@@ -62,6 +67,8 @@ public class QuestCameraYoloTester : MonoBehaviour
 
     [Header("[ 물체 표시 ]")]
     public DetectionMarkerManager detectionMarkerManager;
+    [SerializeField]
+    private bool autoShowMarkersForDebug = true;
 
     [Header("[ 정돈도 점수 비교 ]")]
     public bool compareTidinessScore = true;
@@ -92,9 +99,25 @@ public class QuestCameraYoloTester : MonoBehaviour
     public bool IsScanning =>
         isScanning;
 
-    // 스캔 완료 시 확정 물체 목록을 전달하는 이벤트
+    // 현재 스캔이 정리 전인지 정리 후인지 저장
+    public ScanPhase CurrentScanPhase
+    {
+        get;
+        private set;
+    } = ScanPhase.BeforeCleaning;
+
+    // 기존 스캔 완료 이벤트
     public event System.Action<List<ConfirmedObjectInfo>>
         OnScanCompleted;
+
+    // 미션 연동용 스캔 결과 이벤트
+    // 스캔 단계, 확정 물체 목록, 정돈도 점수를 전달
+    public event System.Action<
+        ScanPhase,
+        List<ConfirmedObjectInfo>,
+        int
+    > OnScanResultReady;
+
 
     // 스캔 중 임시로 추적하는 물체
     private readonly List<TrackedObject> trackedObjects =
@@ -151,8 +174,45 @@ public class QuestCameraYoloTester : MonoBehaviour
 
         if (pressedA)
         {
-            StartScan();
+            if (hasBeforeScan)
+            {
+                StartAfterScan();
+            }
+            else
+            {
+                StartBeforeScan();
+            }
         }
+    }
+
+    /// 정리 전 스캔을 시작한다.
+    public void StartBeforeScan()
+    {
+        CurrentScanPhase =
+            ScanPhase.BeforeCleaning;
+
+        if (autoShowMarkersForDebug &&
+            detectionMarkerManager != null)
+        {
+            detectionMarkerManager.ClearMarkers();
+        }
+
+        StartScan();
+    }
+
+    /// 정리 후 스캔을 시작한다.
+    public void StartAfterScan()
+    {
+        CurrentScanPhase =
+            ScanPhase.AfterCleaning;
+
+        if (autoShowMarkersForDebug &&
+            detectionMarkerManager != null)
+        {
+            detectionMarkerManager.ClearMarkers();
+        }
+
+        StartScan();
     }
 
     /// 새로운 객체 스캔을 시작한다.
