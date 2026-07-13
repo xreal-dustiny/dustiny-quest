@@ -11,9 +11,12 @@ public class QuestData
     public bool isRewardGiven;
 
     [Header("< 퀘스트 완료 보상 >")]
-    [Min(0)] public int rewardCredit = 1;
+    [Min(0)] public int rewardCredit = 10;
 
-    [Header("< AI 추가 연동 정보 >")]
+    [Header("< AI 탐지 원본 정보 >")]
+    public int sourceObjectId;
+    public int sourceClassId;
+    public Rect sourceRect;
     [Range(0f, 1f)] public float confidence;
     public string suggestedAction;
     public bool userConfirmRequired;

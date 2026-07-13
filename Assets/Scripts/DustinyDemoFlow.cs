@@ -60,7 +60,6 @@ public class DustinyDemoFlow : MonoBehaviour
 
     [Header("Dialogue / Description")]
     public bool startOnboardingFlowOnStart = true;
-    public bool pinchAdvancesDialogue = true;
     public float dialogueAdvanceCooldown = 0.25f;
 
     public GameObject speechBubbleObject;
@@ -85,7 +84,7 @@ public class DustinyDemoFlow : MonoBehaviour
     public bool showNameInputWithNameQuestion = false;
 
     [Header("Onboarding Script")]
-    [Tooltip("검지 핀치 또는 트리거를 누를 때마다 다음 말풍선 대사로 넘어갑니다.")]
+    [Tooltip("Interaction SDK의 [확인] 버튼을 누를 때마다 다음 대사로 넘어갑니다.")]
     [TextArea(2, 5)]
     public string[] openingSpeechSteps =
     {
@@ -222,25 +221,25 @@ public class DustinyDemoFlow : MonoBehaviour
     public float activeTagOffsetX = 14f;
     public float inactiveTagOffsetX = 0f;
 
+    [Header("Real AI Mission Integration")]
+    [Tooltip("AI 스캔과 더리 노트를 연결하는 DustinyMissionController입니다.")]
+    public DustinyMissionController missionController;
+
     [Header("Start / Summon")]
     public bool summonDurryOnStart = true;
     public bool summonDurryOnMissionStart = true;
-    public bool recenterOnTrigger = true;
     public bool detachDurryAndScanZoneFromParent = false;
 
     [Header("Input")]
-    public bool allowControllerFallback = true;
-    public bool bButtonCompletesMission = true;
-    public bool triggerAlsoCompletesMission = false;
+    [Tooltip("에디터 테스트용입니다. 실제 Quest 빌드에서는 UI 버튼과 Interaction SDK 핀치를 사용합니다.")]
+    public bool allowControllerFallback = false;
 
-    [Header("Hand Tracking Gestures")]
-    [Tooltip("하단바 UI 입력은 Interaction SDK가 담당합니다. 이 옵션은 더리 대사/미션 제스처용입니다.")]
-    public bool useHandTrackingGestures = true;
+    [Header("Hand Tracking Confirm")]
+    [Tooltip("오른손 검지 핀치를 공용 확인 입력으로 사용합니다. 중지 핀치는 사용하지 않습니다.")]
+    public bool rightIndexPinchConfirms = true;
     public OVRHand rightHand;
     public bool autoFindRightOVRHandIfMissing = true;
-    public bool rightIndexPinchSummonsDurry = false;
-    public bool rightMiddlePinchStartsMission = true;
-    public bool rightRingPinchCompletesMission = true;
+    [Min(0f)] public float confirmInputCooldown = 0.20f;
 
     [Header("Durry Expression Animation")]
     [Tooltip("더리 캐릭터에 붙은 Animator입니다. 비워두면 Durry Object 아래에서 자동 탐색합니다.")]
@@ -310,21 +309,19 @@ public class DustinyDemoFlow : MonoBehaviour
 
     [Header("Mission Completion Visual")]
     public bool changeDurryColorOnMissionComplete = false;
-    [SerializeField, Min(0)] private int fallbackCreditWhenManagersMissing = 1;
 
     private OnboardingState onboardingState = OnboardingState.IntroSpeech;
     private int openingSpeechIndex;
     private bool onboardingActive;
     private bool missionRoundActive;
     private float lastDialogueAdvanceTime = -999f;
+    private float lastConfirmInputTime = -999f;
 
     private SpeechBubbleAutoSize speechAutoSize;
     private SpeechBubbleAutoSize descriptionAutoSize;
 
     private bool wasTriggerPressed;
     private bool wasRightIndexPinching;
-    private bool wasRightMiddlePinching;
-    private bool wasRightRingPinching;
 
     private DustinyPage currentPage = DustinyPage.None;
     private bool pageRootOpen;
@@ -342,9 +339,6 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private void OnValidate()
     {
-        // Index pinch is shared with UI selection, so summoning stays disabled by default.
-        rightIndexPinchSummonsDurry = false;
-
         if (synchronizeDialoguePosition)
         {
             // 인스펙터에서도 두 레거시 위치가 서로 달라 보이지 않도록 공통 위치로 맞춥니다.
@@ -356,6 +350,11 @@ public class DustinyDemoFlow : MonoBehaviour
     private void Start()
     {
         Debug.Log("DustinyDemoFlow Start - modular manager integration");
+
+        if (missionController == null)
+        {
+            missionController = FindFirstObjectByType<DustinyMissionController>();
+        }
 
         ResolveRightHandIfNeeded();
         ResolveUIRoot();
@@ -404,8 +403,8 @@ public class DustinyDemoFlow : MonoBehaviour
         else
         {
             ShowDescription(
-                "하단바에서 NOTE / SHOP / MY PAGE / MENU를 선택할 수 있어.\n" +
-                "오른손 중지 핀치: 미션 시작\n오른손 약지 핀치: 미션 완료"
+                "미션 시작 버튼을 누르면 책상 스캔을 시작해.\n" +
+                "스캔이 끝나면 더리 노트가 활성화돼!"
             );
         }
     }
@@ -421,9 +420,9 @@ public class DustinyDemoFlow : MonoBehaviour
         UpdateDialoguePlacement();
         UpdatePageRootPlacement();
 
-        if (useHandTrackingGestures)
+        if (rightIndexPinchConfirms)
         {
-            UpdateHandGestureInput();
+            UpdateRightIndexPinchInput();
         }
 
         if (allowControllerFallback)
@@ -433,21 +432,9 @@ public class DustinyDemoFlow : MonoBehaviour
                 OnPressA();
             }
 
-            if (bButtonCompletesMission && OVRInput.GetDown(OVRInput.Button.Two, OVRInput.Controller.RTouch))
-            {
-                CompleteMission();
-            }
-
             if (GetRightTriggerDown())
             {
-                if (onboardingActive && pinchAdvancesDialogue)
-                {
-                    AdvanceOnboardingFlow();
-                }
-                else
-                {
-                    OnPressTrigger();
-                }
+                OnConfirmButtonPressed();
             }
         }
 
@@ -759,6 +746,12 @@ public class DustinyDemoFlow : MonoBehaviour
         if (page == DustinyPage.None)
         {
             CloseBigNote();
+            return;
+        }
+
+        if (page == DustinyPage.Note && missionController != null && !missionController.CanOpenNote)
+        {
+            Debug.Log("[더리 노트 잠금] 활성 미션이 없어서 노트를 열지 않습니다.");
             return;
         }
 
@@ -1141,7 +1134,7 @@ public class DustinyDemoFlow : MonoBehaviour
                 break;
 
             case OnboardingState.MissionInProgress:
-                // 미션 완료는 오른손 약지 핀치 또는 연결된 완료 입력에서 처리합니다.
+                missionController?.HandleMissionConfirmPressed();
                 break;
 
             case OnboardingState.NameQuestionSpeech:
@@ -1170,6 +1163,21 @@ public class DustinyDemoFlow : MonoBehaviour
         onboardingState = OnboardingState.MissionInProgress;
         HideDialoguePanels();
         PlayDurryExpression(missionInProgressExpressionState);
+
+        if (missionController == null)
+        {
+            missionController = FindFirstObjectByType<DustinyMissionController>();
+        }
+
+        if (missionController != null)
+        {
+            missionController.BeginMissionScan();
+        }
+        else
+        {
+            ShowDescription("AI 미션 컨트롤러가 연결되지 않았어!");
+            Debug.LogError("[DustinyDemoFlow] DustinyMissionController가 연결되지 않았습니다.");
+        }
     }
 
     private void ShowNameQuestionSpeech()
@@ -1488,17 +1496,12 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        if (QuestProgressManager.Instance != null && QuestProgressManager.Instance.IsTodayMissionCompleted)
+        if (missionController == null)
         {
-            ShowDescription(BuildCleanlinessMessage("오늘의 미션은 이미 완료했어!"));
-            PlayDurryExpression(missionCompleteExpressionState);
-            return;
+            missionController = FindFirstObjectByType<DustinyMissionController>();
         }
 
-        StartMissionRound(
-            "미션 시작!\n더리 주변의 어질러진 물건 3개를 정리해줘.\n" +
-            "정리가 끝나면 오른손 약지 핀치로 완료해줘."
-        );
+        missionController?.BeginMissionScan();
     }
 
     private void StartMissionRound(string message)
@@ -1523,53 +1526,40 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
-    private void OnPressTrigger()
+    /// <summary>
+    /// Interaction SDK의 공용 [확인] 버튼 OnClick에 연결합니다.
+    /// 오른손 검지 핀치도 이 메서드를 호출하므로 두 입력의 역할이 같습니다.
+    /// </summary>
+    public void OnConfirmButtonPressed()
     {
-        if (recenterOnTrigger)
+        // 검지 핀치와 UI [확인] 버튼이 같은 프레임에 함께 들어와도 한 번만 처리합니다.
+        if (Time.unscaledTime - lastConfirmInputTime < confirmInputCooldown)
         {
-            SummonDurryToUser();
+            return;
         }
 
-        if (triggerAlsoCompletesMission)
+        lastConfirmInputTime = Time.unscaledTime;
+
+        if (onboardingActive)
         {
-            CompleteMission();
+            AdvanceOnboardingFlow();
+            return;
         }
+
+        missionController?.HandleMissionConfirmPressed();
     }
 
+    /// <summary>
+    /// 예전 UnityEvent 연결을 깨지 않기 위한 호환 메서드입니다.
+    /// 자동 완료는 제거되었으며 체크박스 또는 재스캔만 사용합니다.
+    /// </summary>
     public void CompleteMission()
     {
-        if (!missionRoundActive)
-        {
-            Debug.Log("[미션 완료 무시] 현재 진행 중인 미션이 없습니다.");
-            return;
-        }
+        Debug.LogWarning("[DustinyDemoFlow] 자동 미션 완료는 제거되었습니다. 체크박스 또는 재스캔을 사용하세요.");
+    }
 
-        bool completed = false;
-
-        if (QuestProgressManager.Instance != null)
-        {
-            completed = QuestProgressManager.Instance.CompleteCurrentCleaningRound();
-        }
-        else
-        {
-            Debug.LogWarning("[미션 완료] QuestProgressManager가 없어 임시 보상 방식으로 처리합니다.");
-            CleanlinessManager.Instance?.OnCleanSuccess();
-
-            if (fallbackCreditWhenManagersMissing > 0)
-            {
-                CreditManager.Instance?.AddCredit(fallbackCreditWhenManagersMissing);
-            }
-
-            completed = true;
-        }
-
-        if (!completed)
-        {
-            ShowDescription("아직 완료할 미션이 남아 있어.");
-            PlayDurryExpression(missionIncompleteExpressionState);
-            return;
-        }
-
+    public void NotifyMissionCompleted()
+    {
         missionRoundActive = false;
 
         if (scanZoneObject != null)
@@ -1586,18 +1576,9 @@ public class DustinyDemoFlow : MonoBehaviour
             (onboardingState == OnboardingState.MissionDescription ||
              onboardingState == OnboardingState.MissionInProgress))
         {
-            if (continueToLegacyNameFlowAfterFirstMission)
-            {
-                ShowNameQuestionSpeech();
-                return;
-            }
-
             onboardingActive = false;
             onboardingState = OnboardingState.Finished;
         }
-
-        ShowDescription(BuildCleanlinessMessage("미션 완료!"));
-        PlayDurryExpression(missionCompleteExpressionState);
     }
 
     private string BuildCleanlinessMessage(string prefix)
@@ -1614,7 +1595,7 @@ public class DustinyDemoFlow : MonoBehaviour
 
     #endregion
 
-    #region Hand And Controller Input
+    #region Index Pinch And Controller Test Input
 
     private void ResolveRightHandIfNeeded()
     {
@@ -1648,67 +1629,21 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
-    private void UpdateHandGestureInput()
+    private void UpdateRightIndexPinchInput()
     {
         ResolveRightHandIfNeeded();
 
-        if (!IsHandTracked(rightHand))
+        bool isTracked = rightHand != null && rightHand.IsTracked && rightHand.IsDataValid;
+        bool isPinching = isTracked &&
+                          rightHand.GetFingerIsPinching(OVRHand.HandFinger.Index);
+
+        bool pinchDown = isPinching && !wasRightIndexPinching;
+        wasRightIndexPinching = isPinching;
+
+        if (pinchDown)
         {
-            return;
+            OnConfirmButtonPressed();
         }
-
-        bool indexPinchDown = GetHandPinchDown(
-            rightHand,
-            OVRHand.HandFinger.Index,
-            ref wasRightIndexPinching
-        );
-
-        bool middlePinchDown = GetHandPinchDown(
-            rightHand,
-            OVRHand.HandFinger.Middle,
-            ref wasRightMiddlePinching
-        );
-
-        bool ringPinchDown = GetHandPinchDown(
-            rightHand,
-            OVRHand.HandFinger.Ring,
-            ref wasRightRingPinching
-        );
-
-        if (indexPinchDown)
-        {
-            if (pinchAdvancesDialogue && onboardingActive)
-            {
-                AdvanceOnboardingFlow();
-            }
-            else if (rightIndexPinchSummonsDurry)
-            {
-                OnPressTrigger();
-            }
-        }
-
-        if (rightMiddlePinchStartsMission && middlePinchDown)
-        {
-            OnPressA();
-        }
-
-        if (rightRingPinchCompletesMission && ringPinchDown)
-        {
-            CompleteMission();
-        }
-    }
-
-    private static bool GetHandPinchDown(OVRHand hand, OVRHand.HandFinger finger, ref bool wasPinching)
-    {
-        bool isPinching = IsHandTracked(hand) && hand.GetFingerIsPinching(finger);
-        bool pinchDown = isPinching && !wasPinching;
-        wasPinching = isPinching;
-        return pinchDown;
-    }
-
-    private static bool IsHandTracked(OVRHand hand)
-    {
-        return hand != null && hand.IsTracked && hand.IsDataValid;
     }
 
     private bool GetRightTriggerDown()

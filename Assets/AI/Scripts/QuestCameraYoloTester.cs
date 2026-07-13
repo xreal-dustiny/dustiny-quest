@@ -27,7 +27,7 @@ public class QuestCameraYoloTester : MonoBehaviour
 
     [Header("[ 테스트 입력 ]")]
     [Tooltip("테스트 중에는 체크합니다. 손 인식 연동 후에는 해제합니다.")]
-    public bool useDebugAButton = true;
+    public bool useDebugAButton = false;
 
     [Header("[ 화면 표시 - 선택사항 ]")]
     public RawImage cameraPreview;
@@ -68,7 +68,7 @@ public class QuestCameraYoloTester : MonoBehaviour
     [Header("[ 물체 표시 ]")]
     public DetectionMarkerManager detectionMarkerManager;
     [SerializeField]
-    private bool autoShowMarkersForDebug = true;
+    private bool autoShowMarkersForDebug = false;
 
     [Header("[ 정돈도 점수 비교 ]")]
     public bool compareTidinessScore = true;
@@ -98,6 +98,9 @@ public class QuestCameraYoloTester : MonoBehaviour
     // 외부에서 현재 스캔 중인지 확인할 수 있도록 공개
     public bool IsScanning =>
         isScanning;
+
+    public bool HasBeforeScan =>
+        hasBeforeScan;
 
     // 현재 스캔이 정리 전인지 정리 후인지 저장
     public ScanPhase CurrentScanPhase
@@ -185,61 +188,73 @@ public class QuestCameraYoloTester : MonoBehaviour
         }
     }
 
-    /// 정리 전 스캔을 시작한다.
+    /// 정리 전 스캔을 시작한다. UnityEvent 호환용 void API.
     public void StartBeforeScan()
     {
-        CurrentScanPhase =
-            ScanPhase.BeforeCleaning;
+        TryStartBeforeScan();
+    }
 
-        if (autoShowMarkersForDebug &&
-            detectionMarkerManager != null)
+    public bool TryStartBeforeScan()
+    {
+        CurrentScanPhase = ScanPhase.BeforeCleaning;
+
+        if (autoShowMarkersForDebug && detectionMarkerManager != null)
         {
             detectionMarkerManager.ClearMarkers();
         }
 
-        StartScan();
+        return TryStartScan();
     }
 
-    /// 정리 후 스캔을 시작한다.
+    /// 정리 후 스캔을 시작한다. UnityEvent 호환용 void API.
     public void StartAfterScan()
     {
-        CurrentScanPhase =
-            ScanPhase.AfterCleaning;
+        TryStartAfterScan();
+    }
 
-        if (autoShowMarkersForDebug &&
-            detectionMarkerManager != null)
+    public bool TryStartAfterScan()
+    {
+        if (!hasBeforeScan)
+        {
+            Debug.LogWarning("[Quest Camera] 정리 전 스캔이 없어 정리 후 스캔을 시작할 수 없습니다.");
+            return false;
+        }
+
+        CurrentScanPhase = ScanPhase.AfterCleaning;
+
+        if (autoShowMarkersForDebug && detectionMarkerManager != null)
         {
             detectionMarkerManager.ClearMarkers();
         }
 
-        StartScan();
+        return TryStartScan();
     }
 
-    /// 새로운 객체 스캔을 시작한다.
-    /// 나중에 손 인식 담당 코드에서 이 함수를 호출하면 된다.
+    /// 일반 스캔을 시작한다. UnityEvent 호환용 void API.
     public void StartScan()
+    {
+        TryStartScan();
+    }
+
+    public bool TryStartScan()
     {
         if (isScanning)
         {
-            return;
+            return false;
         }
 
         if (!HasCameraPermission())
         {
-            Debug.LogWarning(
-                "[Quest Camera] 카메라 권한이 필요합니다."
-            );
-
+            Debug.LogWarning("[Quest Camera] 카메라 권한이 필요합니다.");
             RequestCameraPermission();
-            return;
+            return false;
         }
 
         if (!ValidateComponents())
         {
-            return;
+            return false;
         }
 
-        // 이전 스캔의 물체 추적 결과 초기화
         trackedObjects.Clear();
         ConfirmedObjects.Clear();
 
@@ -251,10 +266,8 @@ public class QuestCameraYoloTester : MonoBehaviour
         SetScanningUI(true);
 
         aiInferenceTest.ResetCurrentScanResult();
-
-        StartCoroutine(
-            ScanRoutine()
-        );
+        StartCoroutine(ScanRoutine());
+        return true;
     }
 
     // 설정된 시간 동안 일정 간격으로 추론
@@ -491,27 +504,27 @@ public class QuestCameraYoloTester : MonoBehaviour
                 )
                 .ToList();
 
-        if (detectionMarkerManager != null)
+        if (autoShowMarkersForDebug && detectionMarkerManager != null)
         {
-            detectionMarkerManager.ShowMarkers(
-                ConfirmedObjects
-            );
+            detectionMarkerManager.ShowMarkers(ConfirmedObjects);
         }
+
+        int currentScore = CalculateTidinessScore(ConfirmedObjects);
 
         if (compareTidinessScore)
         {
-            HandleTidinessScoreComparison();
+            HandleTidinessScoreComparison(currentScore);
         }
         else
         {
             ShowFinalResult();
         }
 
-        OnScanCompleted?.Invoke(
-            new List<ConfirmedObjectInfo>(
-                ConfirmedObjects
-            )
-        );
+        List<ConfirmedObjectInfo> resultCopy =
+            new List<ConfirmedObjectInfo>(ConfirmedObjects);
+
+        OnScanCompleted?.Invoke(resultCopy);
+        OnScanResultReady?.Invoke(CurrentScanPhase, resultCopy, currentScore);
 
         if (printScanLog)
         {
@@ -520,18 +533,13 @@ public class QuestCameraYoloTester : MonoBehaviour
     }
 
     // 첫 번째 스캔은 정리 전, 두 번째 스캔은 정리 후로 처리
-    private void HandleTidinessScoreComparison()
+    private void HandleTidinessScoreComparison(int currentScore)
     {
-        int currentScore =
-            CalculateTidinessScore(
-                ConfirmedObjects
-            );
-
         string objectSummary =
             BuildObjectSummary();
 
-        // 첫 번째 스캔: 정리 전 점수 저장
-        if (!hasBeforeScan)
+        // 정리 전 스캔 점수 저장
+        if (CurrentScanPhase == ScanPhase.BeforeCleaning)
         {
             BeforeTidinessScore =
                 currentScore;
@@ -552,7 +560,14 @@ public class QuestCameraYoloTester : MonoBehaviour
             return;
         }
 
-        // 두 번째 스캔: 정리 후 점수 계산
+        // 정리 후 스캔: 정리 전 점수와 비교
+        if (!hasBeforeScan)
+        {
+            Debug.LogWarning("[Tidiness Score] 정리 전 점수가 없어 비교하지 못했습니다.");
+            AfterTidinessScore = currentScore;
+            return;
+        }
+
         AfterTidinessScore =
             currentScore;
 
@@ -574,8 +589,20 @@ public class QuestCameraYoloTester : MonoBehaviour
             $"탐지 결과:\n{objectSummary}"
         );
 
-        // 다음 스캔부터 새로운 전후 비교 시작
-        hasBeforeScan = false;
+        // 퀘스트 진행 중에는 같은 정리 전 기준으로 여러 번 재스캔할 수 있도록
+        // hasBeforeScan을 유지합니다. 퀘스트 완료/취소 시 ResetScoreComparison()을 호출합니다.
+    }
+
+    private void OnDisable()
+    {
+        if (isScanning)
+        {
+            StopAllCoroutines();
+            isScanning = false;
+        }
+
+        SetScanningUI(false);
+        SetStatusText("");
     }
 
     /// <summary>
