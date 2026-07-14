@@ -3,21 +3,34 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Owns the current three-object quest, per-object rewards, daily completion,
-/// cleanliness reward, and cleaning streak.
+/// Owns the current AI-object cleaning round and the daily reward limit.
+///
+/// Structure:
+/// - One cleaning round: clear up to three detected objects.
+/// - The player may start unlimited cleaning rounds.
+/// - Only the first three completed rounds each day grant credit/cleanliness rewards.
+/// - Object checkboxes themselves do not pay credit.
 /// </summary>
 public class QuestProgressManager : MonoBehaviour
 {
     public static QuestProgressManager Instance { get; private set; }
 
+    /// <summary>
+    /// Arguments: completed rounds today, required rounds today, cleanliness,
+    /// credit, streak days, tidiness score.
+    /// </summary>
     public static event Action<int, int, int, int, int, int> OnQuestUpdated;
     public static event Action OnQuestListChanged;
     public static event Action<QuestData> OnQuestCleared;
     public static event Action OnCleaningRoundCompleted;
 
-    private const string LastLoginDateKey = "Dustiny_LastLoginDate_V3";
-    private const string CompletedTodayKey = "Dustiny_CompletedQuestsToday_V3";
-    private const string TodayCompletedKey = "Dustiny_IsTodayMissionCompleted_V3";
+    // V4 intentionally separates daily rounds from the old V3 object-count progress.
+    // This prevents a previous one-round completion flag from immediately completing the new 3-round system.
+    private const string LastMissionDateKey = "Dustiny_LastMissionDate_V4";
+    private const string CompletedRoundsTodayKey = "Dustiny_CompletedRoundsToday_V4";
+    private const string TodayCompletedKey = "Dustiny_IsTodayMissionCompleted_V4";
+
+    // Keep the existing streak keys so users do not lose streak data.
     private const string LastCleanDateKey = "Dustiny_LastCleanDate_V3";
     private const string ContinuousDaysKey = "Dustiny_ContinuousCleanDays_V3";
 
@@ -28,23 +41,51 @@ public class QuestProgressManager : MonoBehaviour
     [SerializeField] private int currentTidinessScore;
     [SerializeField] private bool needsCleaning;
 
-    [Header("[ 퀘스트 완료 조건 ]")]
-    [SerializeField, Min(1)] private int requiredQuestsForToday = 3;
-    [SerializeField, Min(0)] private int completedQuestsToday;
+    [Header("[ 오늘의 보상 한도 - 청소 라운드 3회 ]")]
+    [SerializeField, Min(1)] private int requiredCleaningRoundsPerDay = 3;
+    [SerializeField, Min(0)] private int completedCleaningRoundsToday;
     [SerializeField] private bool isTodayMissionCompleted;
+
+    [Header("[ 현재 청소 라운드 - 물건 최대 3개 ]")]
+    [SerializeField, Min(1)] private int currentRoundRequiredObjectCount = 3;
+    [SerializeField, Min(0)] private int currentRoundClearedObjectCount;
+    [SerializeField] private bool isCurrentRoundCompleted;
+
+    [Header("[ 라운드 완료 보상 ]")]
+    [Tooltip("청소 라운드 1회 완료 시 고정으로 지급되는 코인입니다.")]
+    private const int RoundRewardCreditValue = 10;
 
     [Header("[ 연속 청소 데이터 ]")]
     [SerializeField, Min(0)] private int continuousCleanDays;
 
+    [Header("[ 최근 라운드 결과 - 런타임 확인 ]")]
+    [SerializeField] private bool lastCompletedRoundGrantedReward;
+
     private readonly Dictionary<string, int> todayClearedCounts = new Dictionary<string, int>();
 
-    public int CompletedQuestsToday => completedQuestsToday;
-    public int RequiredQuestsForToday => requiredQuestsForToday;
+    public int CompletedRoundsToday => completedCleaningRoundsToday;
+    public int RequiredCleaningRoundsPerDay => requiredCleaningRoundsPerDay;
+    public int CurrentRoundRequiredObjectCount => currentRoundRequiredObjectCount;
+    public int CurrentRoundClearedObjectCount => currentRoundClearedObjectCount;
+    public int RoundRewardCredit => RoundRewardCreditValue;
+    public bool LastCompletedRoundGrantedReward => lastCompletedRoundGrantedReward;
+    public int LastCompletedRoundRewardCredit =>
+        lastCompletedRoundGrantedReward ? RoundRewardCreditValue : 0;
+
+    // Legacy property names are preserved so older UI scripts still compile.
+    public int CompletedQuestsToday => completedCleaningRoundsToday;
+    public int RequiredQuestsForToday => requiredCleaningRoundsPerDay;
+
     public int ContinuousCleanDays => continuousCleanDays;
     public int CurrentTidinessScore => currentTidinessScore;
     public bool NeedsCleaning => needsCleaning;
+    // Legacy name: this now means that today's three reward-bearing rounds are complete.
+    // It does NOT block additional cleaning rounds.
     public bool IsTodayMissionCompleted => isTodayMissionCompleted;
-    public bool HasActiveQuest => !isTodayMissionCompleted && currentQuests.Count > 0;
+    public bool HasReachedDailyRewardLimit => isTodayMissionCompleted;
+    public bool IsCurrentRoundCompleted => isCurrentRoundCompleted;
+    public bool HasActiveQuest => !isCurrentRoundCompleted && currentQuests.Count > 0;
+    public bool CanStartNewRound => currentQuests.Count == 0 || isCurrentRoundCompleted;
 
     private void Awake()
     {
@@ -69,23 +110,39 @@ public class QuestProgressManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Called after the first AI scan. This begins a fresh three-object quest.
+    /// The round target is min(detected object count, configured maximum of three).
+    /// This method changes only the current round target. It never changes the daily 3-round target.
+    /// </summary>
+    public void ConfigureRequiredQuestCountForCurrentRound(int requiredCount)
+    {
+        EnsureDailyState();
+
+        currentRoundRequiredObjectCount = Mathf.Max(1, requiredCount);
+        currentRoundClearedObjectCount = Mathf.Clamp(
+            currentRoundClearedObjectCount,
+            0,
+            currentRoundRequiredObjectCount
+        );
+
+        SaveDailyProgress();
+        InvokeUIUpdate();
+
+        Debug.Log(
+            $"[QuestProgress] 이번 청소 라운드 목표: 물건 {currentRoundRequiredObjectCount}개"
+        );
+    }
+
+    /// <summary>
+    /// Called after the first AI scan of a new cleaning round.
+    /// Daily completed-round progress is preserved.
     /// </summary>
     public void SetupRoomAndQuests(YOLOScanData scanData, List<QuestData> newQuests)
     {
         EnsureDailyState();
 
-        if (isTodayMissionCompleted)
-        {
-            currentQuests.Clear();
-            OnQuestListChanged?.Invoke();
-            InvokeUIUpdate();
-            Debug.Log("[QuestProgress] 오늘의 퀘스트가 이미 완료되어 새 목록을 만들지 않습니다.");
-            return;
-        }
-
         currentQuests = newQuests ?? new List<QuestData>();
-        completedQuestsToday = 0;
+        currentRoundClearedObjectCount = 0;
+        isCurrentRoundCompleted = false;
         todayClearedCounts.Clear();
 
         foreach (QuestData quest in currentQuests)
@@ -116,14 +173,15 @@ public class QuestProgressManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Clears one mission. Each mission grants its own reward exactly once.
-    /// The third cleared mission grants +1 cleanliness exactly once.
+    /// Marks one detected object as cleared. No credit is paid here.
+    /// Credit is paid exactly once when the whole round reaches its target.
     /// </summary>
     public bool ClearQuest(string questId)
     {
         EnsureDailyState();
 
-        if (isTodayMissionCompleted || string.IsNullOrWhiteSpace(questId))
+        if (isCurrentRoundCompleted ||
+            string.IsNullOrWhiteSpace(questId))
         {
             return false;
         }
@@ -135,21 +193,15 @@ public class QuestProgressManager : MonoBehaviour
         }
 
         quest.isCleared = true;
-        completedQuestsToday = Mathf.Min(completedQuestsToday + 1, requiredQuestsForToday);
+        quest.isRewardGiven = false;
+        currentRoundClearedObjectCount = Mathf.Min(
+            currentRoundClearedObjectCount + 1,
+            currentRoundRequiredObjectCount
+        );
         UpdateTodayStatistics(quest.questType);
 
-        if (!quest.isRewardGiven)
-        {
-            quest.isRewardGiven = true;
-            int rewardCredit = Mathf.Max(0, quest.rewardCredit);
-            if (rewardCredit > 0)
-            {
-                CreditManager.Instance?.AddCredit(rewardCredit);
-            }
-        }
-
         OnQuestCleared?.Invoke(quest);
-        TryCompleteDailyMission();
+        TryCompleteCurrentRound();
         SaveDailyProgress();
         OnQuestListChanged?.Invoke();
         InvokeUIUpdate();
@@ -172,20 +224,17 @@ public class QuestProgressManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Clears temporary quest data before a new first scan. It does not reset a quest
-    /// that has already been completed today.
+    /// Clears only the temporary current-round data before a new first scan.
+    /// The number of cleaning rounds already completed today is preserved.
     /// </summary>
     public void ResetCurrentQuestSession()
     {
         EnsureDailyState();
 
-        if (isTodayMissionCompleted)
-        {
-            return;
-        }
-
         currentQuests.Clear();
-        completedQuestsToday = 0;
+        currentRoundClearedObjectCount = 0;
+        currentRoundRequiredObjectCount = 3;
+        isCurrentRoundCompleted = false;
         currentTidinessScore = 0;
         needsCleaning = false;
         todayClearedCounts.Clear();
@@ -195,52 +244,96 @@ public class QuestProgressManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Legacy compatibility only. Completion is no longer triggered by a finger gesture.
+    /// Legacy compatibility only. Individual objects are completed by either
+    /// the mission-card checkbox or the after-cleaning scan.
     /// </summary>
     public bool CompleteCurrentCleaningRound()
     {
-        Debug.LogWarning("[QuestProgress] CompleteCurrentCleaningRound은 더 이상 자동 완료에 사용되지 않습니다. 체크박스 또는 재스캔을 사용하세요.");
-        return isTodayMissionCompleted;
+        Debug.LogWarning(
+            "[QuestProgress] 라운드 전체 자동 완료는 사용하지 않습니다. 물건별 체크박스 또는 재스캔 판정을 사용하세요."
+        );
+        return isCurrentRoundCompleted;
     }
 
-    private void TryCompleteDailyMission()
+    private void TryCompleteCurrentRound()
     {
-        if (isTodayMissionCompleted || completedQuestsToday < requiredQuestsForToday)
+        if (isCurrentRoundCompleted ||
+            currentRoundClearedObjectCount < currentRoundRequiredObjectCount)
         {
             return;
         }
 
-        isTodayMissionCompleted = true;
-        completedQuestsToday = requiredQuestsForToday;
+        isCurrentRoundCompleted = true;
+        currentRoundClearedObjectCount = currentRoundRequiredObjectCount;
 
-        // Object rewards were already granted per checkbox: cleared count × 10 CR.
-        // No additional credit is granted here.
-        CleanlinessManager.Instance?.OnCleanSuccess();
-        ProcessContinuousCleanCheck();
+        bool rewardAvailable =
+            completedCleaningRoundsToday < requiredCleaningRoundsPerDay;
+        lastCompletedRoundGrantedReward = rewardAvailable;
+
+        if (rewardAvailable)
+        {
+            completedCleaningRoundsToday = Mathf.Min(
+                completedCleaningRoundsToday + 1,
+                requiredCleaningRoundsPerDay
+            );
+
+            if (RoundRewardCreditValue > 0)
+            {
+                CreditManager.Instance?.AddCredit(RoundRewardCreditValue);
+            }
+
+            // Bosong power is part of the daily round reward, so it is also capped at three.
+            CleanlinessManager.Instance?.OnCleanSuccess();
+
+            bool reachedRewardLimitThisRound =
+                !isTodayMissionCompleted &&
+                completedCleaningRoundsToday >= requiredCleaningRoundsPerDay;
+
+            if (reachedRewardLimitThisRound)
+            {
+                completedCleaningRoundsToday = requiredCleaningRoundsPerDay;
+                isTodayMissionCompleted = true;
+                ProcessContinuousCleanCheck();
+            }
+        }
+
         SaveDailyProgress();
 
-        Debug.Log("[오늘의 퀘스트 완료] 물건 3개 완료, 보송력 +1");
+        Debug.Log(
+            rewardAvailable
+                ? $"[청소 라운드 완료] 물건 {currentRoundRequiredObjectCount}개 정리 확인, " +
+                  $"코인 +{RoundRewardCreditValue}, 오늘 보상 {completedCleaningRoundsToday}/{requiredCleaningRoundsPerDay}회"
+                : $"[추가 청소 완료] 물건 {currentRoundRequiredObjectCount}개 정리 확인, " +
+                  "오늘의 3회 보상은 이미 모두 지급되어 추가 보상은 없습니다."
+        );
+
         OnCleaningRoundCompleted?.Invoke();
     }
 
     private void EnsureDailyState()
     {
         string today = DateTime.Today.ToString("yyyy-MM-dd");
-        string lastLoginDate = PlayerPrefs.GetString(LastLoginDateKey, string.Empty);
+        string savedMissionDate = PlayerPrefs.GetString(LastMissionDateKey, string.Empty);
 
-        if (lastLoginDate == today)
+        if (savedMissionDate == today)
         {
             return;
         }
 
-        completedQuestsToday = 0;
+        completedCleaningRoundsToday = 0;
         isTodayMissionCompleted = false;
+        lastCompletedRoundGrantedReward = false;
         currentQuests.Clear();
+        currentRoundClearedObjectCount = 0;
+        currentRoundRequiredObjectCount = 3;
+        isCurrentRoundCompleted = false;
+        currentTidinessScore = 0;
+        needsCleaning = false;
         todayClearedCounts.Clear();
 
-        PlayerPrefs.SetString(LastLoginDateKey, today);
+        PlayerPrefs.SetString(LastMissionDateKey, today);
         SaveDailyProgress();
-        Debug.Log("[일일 초기화] 새로운 날의 퀘스트를 시작합니다.");
+        Debug.Log("[일일 초기화] 오늘의 청소 미션 3회를 새로 시작합니다.");
     }
 
     private void ProcessContinuousCleanCheck()
@@ -322,8 +415,8 @@ public class QuestProgressManager : MonoBehaviour
             : 0;
 
         OnQuestUpdated?.Invoke(
-            completedQuestsToday,
-            requiredQuestsForToday,
+            completedCleaningRoundsToday,
+            requiredCleaningRoundsPerDay,
             cleanliness,
             credit,
             continuousCleanDays,
@@ -333,34 +426,86 @@ public class QuestProgressManager : MonoBehaviour
 
     private void LoadPersistentData()
     {
-        isTodayMissionCompleted = PlayerPrefs.GetInt(TodayCompletedKey, 0) == 1;
-        completedQuestsToday = isTodayMissionCompleted
-            ? requiredQuestsForToday
-            : 0;
+        completedCleaningRoundsToday = Mathf.Clamp(
+            PlayerPrefs.GetInt(CompletedRoundsTodayKey, 0),
+            0,
+            requiredCleaningRoundsPerDay
+        );
+
+        isTodayMissionCompleted =
+            PlayerPrefs.GetInt(TodayCompletedKey, 0) == 1 ||
+            completedCleaningRoundsToday >= requiredCleaningRoundsPerDay;
+
+        if (isTodayMissionCompleted)
+        {
+            completedCleaningRoundsToday = requiredCleaningRoundsPerDay;
+        }
+
         continuousCleanDays = Mathf.Max(0, PlayerPrefs.GetInt(ContinuousDaysKey, 0));
+
+        lastCompletedRoundGrantedReward = false;
+
+        // A half-finished camera round is intentionally not restored after relaunch.
+        currentQuests.Clear();
+        currentRoundClearedObjectCount = 0;
+        currentRoundRequiredObjectCount = 3;
+        isCurrentRoundCompleted = false;
     }
 
     private void SaveDailyProgress()
     {
-        PlayerPrefs.SetInt(CompletedTodayKey, completedQuestsToday);
+        PlayerPrefs.SetInt(CompletedRoundsTodayKey, completedCleaningRoundsToday);
         PlayerPrefs.SetInt(TodayCompletedKey, isTodayMissionCompleted ? 1 : 0);
         PlayerPrefs.SetInt(ContinuousDaysKey, continuousCleanDays);
         PlayerPrefs.Save();
     }
 
-    [ContextMenu("Debug/Reset Today's Quest")]
+    /// <summary>
+    /// 왼손 약지 디버그 초기화용입니다.
+    /// 오늘의 라운드 진행도와 현재 미션뿐 아니라 연속 청소 일수까지 초기값으로 되돌립니다.
+    /// </summary>
+    [ContextMenu("Debug/Reset All Mission Progress")]
+    public void ResetAllMissionProgressForDebug()
+    {
+        completedCleaningRoundsToday = 0;
+        isTodayMissionCompleted = false;
+        lastCompletedRoundGrantedReward = false;
+        currentQuests.Clear();
+        currentRoundClearedObjectCount = 0;
+        currentRoundRequiredObjectCount = 3;
+        isCurrentRoundCompleted = false;
+        currentTidinessScore = 0;
+        needsCleaning = false;
+        continuousCleanDays = 0;
+        todayClearedCounts.Clear();
+
+        PlayerPrefs.SetString(LastMissionDateKey, DateTime.Today.ToString("yyyy-MM-dd"));
+        PlayerPrefs.DeleteKey(LastCleanDateKey);
+        PlayerPrefs.SetInt(ContinuousDaysKey, 0);
+        SaveDailyProgress();
+
+        OnQuestListChanged?.Invoke();
+        InvokeUIUpdate();
+        Debug.Log("[Debug] 미션 진행도와 연속 청소 기록을 모두 초기화했습니다.");
+    }
+
+    [ContextMenu("Debug/Reset Today's Three Rounds")]
     public void ResetTodayForDebug()
     {
+        completedCleaningRoundsToday = 0;
         isTodayMissionCompleted = false;
-        completedQuestsToday = 0;
+        lastCompletedRoundGrantedReward = false;
         currentQuests.Clear();
+        currentRoundClearedObjectCount = 0;
+        currentRoundRequiredObjectCount = 3;
+        isCurrentRoundCompleted = false;
         currentTidinessScore = 0;
         needsCleaning = false;
         todayClearedCounts.Clear();
-        PlayerPrefs.SetString(LastLoginDateKey, DateTime.Today.ToString("yyyy-MM-dd"));
+        PlayerPrefs.SetString(LastMissionDateKey, DateTime.Today.ToString("yyyy-MM-dd"));
         SaveDailyProgress();
         OnQuestListChanged?.Invoke();
         InvokeUIUpdate();
-        Debug.Log("[Debug] 오늘의 퀘스트 상태를 초기화했습니다.");
+        Debug.Log("[Debug] 오늘의 청소 미션 3회 상태를 초기화했습니다.");
     }
 }

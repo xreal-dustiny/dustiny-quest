@@ -37,7 +37,7 @@ public class QuestStatusUI : MonoBehaviour
     [SerializeField] private GameObject emptyStateObject;
 
     [SerializeField] private TextMeshProUGUI emptyStateText;
-    [SerializeField] private string emptyMissionMessage = "책상 스캔 후 미션이 표시돼요.";
+    [SerializeField] private string emptyMissionMessage = "오늘의 미션을 시작하면 정리할 물건이 표시돼요.";
 
     [Header("< 한 화면에 큰 카드 3개 표시 >")]
     [SerializeField, Min(1)] private int visibleCardCount = 3;
@@ -64,9 +64,11 @@ public class QuestStatusUI : MonoBehaviour
     private bool missionInteractionEnabled = true;
     private string lastQuestListSignature = string.Empty;
     private Coroutine resetScrollCoroutine;
+    private bool missingScrollReferencesLogged;
 
     private void Awake()
     {
+        SanitizeSummaryTextReferences();
         ResolveScrollReferences();
         ConfigureScrollLayout();
 
@@ -100,6 +102,7 @@ public class QuestStatusUI : MonoBehaviour
 
     private void OnValidate()
     {
+        SanitizeSummaryTextReferences();
         visibleCardCount = Mathf.Max(1, visibleCardCount);
         missionCardHeight = Mathf.Max(1f, missionCardHeight);
         cardSpacing = Mathf.Max(0f, cardSpacing);
@@ -111,6 +114,52 @@ public class QuestStatusUI : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Prevents the common Inspector mistake where every status field is connected
+    /// to WorldCanvas/Description/DescriptionText. That would overwrite scan messages.
+    /// </summary>
+    private void SanitizeSummaryTextReferences()
+    {
+        missionProgressText = RejectDialogueText(missionProgressText, nameof(missionProgressText));
+        myPageCleanlinessText = RejectDialogueText(
+            myPageCleanlinessText,
+            nameof(myPageCleanlinessText)
+        );
+        creditText = RejectDialogueText(creditText, nameof(creditText));
+        continuousCleanDaysText = RejectDialogueText(
+            continuousCleanDaysText,
+            nameof(continuousCleanDaysText)
+        );
+        tidinessScoreText = RejectDialogueText(tidinessScoreText, nameof(tidinessScoreText));
+    }
+
+    private static TextMeshProUGUI RejectDialogueText(
+        TextMeshProUGUI candidate,
+        string fieldName)
+    {
+        if (candidate == null)
+        {
+            return null;
+        }
+
+        string path = GetHierarchyPath(candidate.transform).ToLowerInvariant();
+        bool isDialogueText =
+            candidate.name.ToLowerInvariant().Contains("description") ||
+            path.Contains("/description/") ||
+            path.Contains("speechbubble");
+
+        if (!isDialogueText)
+        {
+            return candidate;
+        }
+
+        Debug.LogWarning(
+            $"[QuestStatusUI] {fieldName}에 '{candidate.name}'이 연결되어 있어 해제했습니다. " +
+            "DescriptionText를 상태 UI에 연결하면 '책상 스캔 중' 문구가 덮어써집니다."
+        );
+        return null;
+    }
+
     public void SetMissionInteractionEnabled(bool enabled)
     {
         missionInteractionEnabled = enabled;
@@ -120,11 +169,11 @@ public class QuestStatusUI : MonoBehaviour
     public void RefreshAllUI()
     {
         int cleared = QuestProgressManager.Instance != null
-            ? QuestProgressManager.Instance.CompletedQuestsToday
+            ? QuestProgressManager.Instance.CompletedRoundsToday
             : 0;
 
         int total = QuestProgressManager.Instance != null
-            ? QuestProgressManager.Instance.RequiredQuestsForToday
+            ? QuestProgressManager.Instance.RequiredCleaningRoundsPerDay
             : 3;
 
         int cleanliness = CleanlinessManager.Instance != null
@@ -155,8 +204,21 @@ public class QuestStatusUI : MonoBehaviour
                 ? QuestProgressManager.Instance.currentQuests.Count
                 : 0;
 
+            int roundCleared = QuestProgressManager.Instance != null
+                ? QuestProgressManager.Instance.CurrentRoundClearedObjectCount
+                : 0;
+            int roundRequired = QuestProgressManager.Instance != null
+                ? QuestProgressManager.Instance.CurrentRoundRequiredObjectCount
+                : 3;
+
+            string currentRoundLine = detectedCount > 0
+                ? $"이번 미션: {roundCleared} / {roundRequired}개"
+                : "이번 미션: 스캔 전";
+
             missionProgressText.text =
-                $"퀘스트 진행도: {cleared} / {total}\n인식된 정리 대상: {detectedCount}개";
+                $"오늘의 미션: {cleared} / {total}회\n" +
+                currentRoundLine + "\n" +
+                $"인식된 정리 대상: {detectedCount}개";
         }
 
         if (myPageCleanlinessText != null)
@@ -210,11 +272,27 @@ public class QuestStatusUI : MonoBehaviour
         ResolveScrollReferences();
         ConfigureScrollLayout();
 
+        if (missionScrollRect != null)
+        {
+            missionScrollRect.gameObject.SetActive(true);
+        }
+
+        if (missionScrollRect != null && missionScrollRect.viewport != null)
+        {
+            missionScrollRect.viewport.gameObject.SetActive(true);
+        }
+
+        if (missionContent != null)
+        {
+            missionContent.gameObject.SetActive(true);
+        }
+
         List<QuestData> quests = GetCurrentQuests();
         currentQuestCount = quests.Count;
 
+        // 오늘의 보상 3회를 모두 받았더라도 추가 미션 카드는 계속 체크할 수 있어야 합니다.
         bool roundCompleted = QuestProgressManager.Instance != null &&
-                              QuestProgressManager.Instance.IsTodayMissionCompleted;
+                              QuestProgressManager.Instance.IsCurrentRoundCompleted;
 
         EnsureCardPoolSize(quests.Count);
 
@@ -238,7 +316,8 @@ public class QuestStatusUI : MonoBehaviour
             card.Bind(
                 quest,
                 BuildMissionLabel(quest, index + 1),
-                missionInteractionEnabled && !roundCompleted,
+                missionInteractionEnabled &&
+                !roundCompleted,
                 HandleMissionCheckRequested
             );
         }
@@ -251,7 +330,12 @@ public class QuestStatusUI : MonoBehaviour
 
         if (emptyStateText != null)
         {
-            emptyStateText.text = emptyMissionMessage;
+            bool rewardLimitReached = QuestProgressManager.Instance != null &&
+                                      QuestProgressManager.Instance.HasReachedDailyRewardLimit;
+
+            emptyStateText.text = rewardLimitReached
+                ? "오늘의 3회 보상은 모두 완료했어요.\nNOTE를 눌러 보상 없는 추가 미션을 시작할 수 있어요."
+                : emptyMissionMessage;
         }
 
         RebuildScrollLayout();
@@ -264,19 +348,31 @@ public class QuestStatusUI : MonoBehaviour
 
     private void EnsureCardPoolSize(int requiredCount)
     {
+        ResolveScrollReferences();
+
         if (missionCardTemplate == null || missionContent == null)
         {
-            if (requiredCount > 0)
+            if (requiredCount > 0 && !missingScrollReferencesLogged)
             {
-                Debug.LogError("[QuestStatusUI] MissionCardTemplate 또는 MissionContent가 연결되지 않았습니다.");
+                missingScrollReferencesLogged = true;
+                Debug.LogError(
+                    "[QuestStatusUI] AI 미션 데이터는 생성되었지만 Scroll View 연결이 없습니다. " +
+                    "Mission Scroll Rect, Mission Content, Mission Card Template을 연결하세요."
+                );
             }
             return;
         }
 
+        missingScrollReferencesLogged = false;
+
         while (spawnedCards.Count < requiredCount)
         {
-            MissionCardView card = Instantiate(missionCardTemplate, missionContent);
+            MissionCardView card = Instantiate(missionCardTemplate, missionContent, false);
             card.name = $"MissionCard_{spawnedCards.Count + 1:00}";
+            card.transform.localPosition = Vector3.zero;
+            card.transform.localRotation = Quaternion.identity;
+            card.transform.localScale = Vector3.one;
+            card.transform.SetAsLastSibling();
             card.SetPreferredHeight(missionCardHeight);
             card.gameObject.SetActive(true);
             spawnedCards.Add(card);
@@ -308,6 +404,156 @@ public class QuestStatusUI : MonoBehaviour
         {
             missionScrollRect = missionContent.GetComponentInParent<ScrollRect>(true);
         }
+
+        if (missionScrollRect == null)
+        {
+            ScrollRect[] scrollRects = FindObjectsByType<ScrollRect>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None
+            );
+
+            int bestScore = int.MinValue;
+            foreach (ScrollRect candidate in scrollRects)
+            {
+                if (candidate == null)
+                {
+                    continue;
+                }
+
+                string fullPath = GetHierarchyPath(candidate.transform).ToLowerInvariant();
+                int score = 0;
+
+                if (candidate.name.Equals("MissionScrollView", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    score += 100;
+                }
+
+                if (fullPath.Contains("notepage")) score += 30;
+                if (fullPath.Contains("mission")) score += 25;
+                if (fullPath.Contains("quest")) score += 15;
+                if (fullPath.Contains("scroll")) score += 5;
+
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    missionScrollRect = candidate;
+                }
+            }
+        }
+
+        if (missionContent == null && missionScrollRect != null)
+        {
+            missionContent = missionScrollRect.content;
+
+            if (missionContent == null)
+            {
+                Transform contentTransform = FindChildExact(
+                    missionScrollRect.transform,
+                    "Content"
+                );
+                if (contentTransform != null)
+                {
+                    missionContent = contentTransform as RectTransform;
+                    missionScrollRect.content = missionContent;
+                }
+            }
+        }
+
+        if (missionScrollRect != null && missionScrollRect.viewport == null)
+        {
+            Transform viewportTransform = FindChildExact(
+                missionScrollRect.transform,
+                "Viewport"
+            );
+            if (viewportTransform != null)
+            {
+                missionScrollRect.viewport = viewportTransform as RectTransform;
+            }
+        }
+
+        if (missionCardTemplate == null && missionContent != null)
+        {
+            Transform exactTemplate = FindChildExact(
+                missionContent,
+                "MissionCardTemplate"
+            );
+
+            missionCardTemplate = exactTemplate != null
+                ? exactTemplate.GetComponent<MissionCardView>()
+                : missionContent.GetComponentInChildren<MissionCardView>(true);
+
+            if (missionCardTemplate == null && Application.isPlaying)
+            {
+                for (int index = 0; index < missionContent.childCount; index++)
+                {
+                    Transform child = missionContent.GetChild(index);
+                    if (child == null)
+                    {
+                        continue;
+                    }
+
+                    string childName = child.name.ToLowerInvariant();
+                    bool looksLikeMissionCard =
+                        childName.Contains("mission") || childName.Contains("quest");
+
+                    if (!looksLikeMissionCard ||
+                        child.GetComponentInChildren<Button>(true) == null ||
+                        child.GetComponentInChildren<TextMeshProUGUI>(true) == null)
+                    {
+                        continue;
+                    }
+
+                    missionCardTemplate = child.gameObject.AddComponent<MissionCardView>();
+                    Debug.Log(
+                        $"[QuestStatusUI] '{child.name}'을 MissionCardTemplate로 자동 연결했습니다."
+                    );
+                    break;
+                }
+            }
+        }
+    }
+
+    private static Transform FindChildExact(Transform root, string exactName)
+    {
+        if (root == null || string.IsNullOrWhiteSpace(exactName))
+        {
+            return null;
+        }
+
+        Transform[] children = root.GetComponentsInChildren<Transform>(true);
+        foreach (Transform child in children)
+        {
+            if (child != null &&
+                string.Equals(
+                    child.name,
+                    exactName,
+                    System.StringComparison.OrdinalIgnoreCase
+                ))
+            {
+                return child;
+            }
+        }
+
+        return null;
+    }
+
+    private static string GetHierarchyPath(Transform target)
+    {
+        if (target == null)
+        {
+            return string.Empty;
+        }
+
+        System.Text.StringBuilder builder = new System.Text.StringBuilder(target.name);
+        Transform parent = target.parent;
+
+        while (parent != null)
+        {
+            builder.Insert(0, parent.name + "/");
+            parent = parent.parent;
+        }
+
+        return builder.ToString();
     }
 
     private void ConfigureScrollLayout()
@@ -317,6 +563,22 @@ public class QuestStatusUI : MonoBehaviour
             missionScrollRect.horizontal = false;
             missionScrollRect.vertical = true;
             missionScrollRect.movementType = ScrollRect.MovementType.Clamped;
+
+            if (missionContent != null)
+            {
+                missionScrollRect.content = missionContent;
+            }
+        }
+
+        if (missionContent != null)
+        {
+            missionContent.anchorMin = new Vector2(0f, 1f);
+            missionContent.anchorMax = new Vector2(1f, 1f);
+            missionContent.pivot = new Vector2(0.5f, 1f);
+
+            Vector2 anchoredPosition = missionContent.anchoredPosition;
+            anchoredPosition.y = 0f;
+            missionContent.anchoredPosition = anchoredPosition;
         }
 
         if (missionContent != null && autoConfigureContentLayout)

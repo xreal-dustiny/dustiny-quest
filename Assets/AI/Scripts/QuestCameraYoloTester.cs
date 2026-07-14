@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-
 using Meta.XR;
 using TMPro;
 using UnityEngine;
@@ -14,19 +13,30 @@ public enum ScanPhase
     AfterCleaning
 }
 
-/// Quest 카메라를 반복 추론하고 개별 물체를 추적
-/// 첫 번째 스캔과 두 번째 스캔의 정돈도 점수를 비교
+/// <summary>
+/// Repeatedly reads Quest passthrough camera frames, runs YOLO, tracks objects,
+/// and publishes one confirmed scan result.
+///
+/// Integration fixes:
+/// - Waits for a real camera texture before starting the scan timer.
+/// - Counts only successful inference calls.
+/// - Uses a lower raw YOLO threshold during mission scans. The old code only
+///   lowered the later tracking threshold, so detections filtered out by
+///   AIInferenceTest could never return.
+/// - Can use the best tracked candidates when strict confirmation yields zero.
+/// - Logs exactly whether failure came from camera readiness, AI initialization,
+///   raw detections, tracking, or confirmation filtering.
+/// </summary>
 public class QuestCameraYoloTester : MonoBehaviour
 {
-    private const string HeadsetCameraPermission =
-        "horizonos.permission.HEADSET_CAMERA";
+    private const string HeadsetCameraPermission = "horizonos.permission.HEADSET_CAMERA";
 
     [Header("[ 필수 연결 ]")]
     public PassthroughCameraAccess passthroughCameraAccess;
     public AIInferenceTest aiInferenceTest;
 
     [Header("[ 테스트 입력 ]")]
-    [Tooltip("테스트 중에는 체크합니다. 손 인식 연동 후에는 해제합니다.")]
+    [Tooltip("실제 게임에서는 해제합니다.")]
     public bool useDebugAButton = false;
 
     [Header("[ 화면 표시 - 선택사항 ]")]
@@ -34,148 +44,103 @@ public class QuestCameraYoloTester : MonoBehaviour
     public TMP_Text scanStatusText;
 
     [Header("[ 스캔 UI ]")]
-    [SerializeField]
-    private GameObject scanDimOverlay;
+    [SerializeField] private GameObject scanDimOverlay;
+    [SerializeField] private GameObject scanBox;
+    [TextArea(2, 4)] [SerializeField] private string scanningMessage = "스캔 중...";
+    [TextArea(2, 4)] [SerializeField] private string waitingForCameraMessage = "카메라 준비 중...";
 
-    [SerializeField]
-    private GameObject scanBox;
-
-    [TextArea(2, 4)]
-    [SerializeField]
-    private string scanningMessage =
-        "스캔 중...";
+    [Header("[ 카메라 준비 ]")]
+    [Tooltip("카메라 Texture가 생기기 전에 스캔 시간이 끝나는 문제를 막습니다.")]
+    [SerializeField] private bool waitForValidCameraTexture = true;
+    [SerializeField, Min(0.5f)] private float cameraReadyTimeout = 6f;
+    [SerializeField, Min(16)] private int minimumValidTextureSize = 64;
 
     [Header("[ 스캔 설정 ]")]
-    [Min(0.5f)]
-    public float scanDuration = 1.5f;
+    [Min(0.5f)] public float scanDuration = 2.4f;
+    [Min(0.05f)] public float inferenceInterval = 0.3f;
 
-    [Min(0.1f)]
-    public float inferenceInterval = 0.3f;
+    [Tooltip("스캔 시간 동안 이 횟수보다 적게 성공하면 제한 시간 안에서 추가 추론합니다.")]
+    [SerializeField, Min(1)] private int minimumSuccessfulInferences = 5;
+    [SerializeField, Min(1f)] private float maximumTotalScanTime = 9f;
 
-    [Min(1)]
-    public int minimumDetectionCount = 3;
+    [Min(1)] public int minimumDetectionCount = 3;
+    [Range(0f, 1f)] public float minimumAverageConfidence = 0.4f;
 
-    [Range(0f, 1f)]
-    public float minimumAverageConfidence = 0.4f;
+    [Header("[ 미션 스캔 완화 설정 ]")]
+    public bool useLenientMissionThresholds = true;
+
+    [Tooltip("AIInferenceTest의 프레임 단위 필터에 실제로 적용되는 값입니다.")]
+    [Range(0f, 1f)] public float missionInferenceConfidenceThreshold = 0.18f;
+
+    [Min(1)] public int missionMinimumDetectionCount = 1;
+    [Range(0f, 1f)] public float missionMinimumAverageConfidence = 0.20f;
+
+    [Tooltip("추적 후보는 있었지만 확정 결과가 0개일 때 가장 신뢰도 높은 후보를 사용합니다.")]
+    [SerializeField] private bool useTrackedCandidateFallback = true;
+    [SerializeField, Range(0f, 1f)] private float trackedCandidateFallbackConfidence = 0.12f;
+    [SerializeField, Min(1)] private int maximumFallbackObjectCount = 20;
 
     [Header("[ 물체 추적 설정 ]")]
-    [Range(0f, 1f)]
-    public float trackingIouThreshold = 0.3f;
-
-    [Min(1)]
-    public int maximumTrackingGap = 2;
+    [Range(0f, 1f)] public float trackingIouThreshold = 0.2f;
+    [Min(1)] public int maximumTrackingGap = 3;
 
     [Header("[ 물체 표시 ]")]
     public DetectionMarkerManager detectionMarkerManager;
-    [SerializeField]
-    private bool autoShowMarkersForDebug = false;
+    [SerializeField] private bool autoShowMarkersForDebug = false;
 
     [Header("[ 정돈도 점수 비교 ]")]
     public bool compareTidinessScore = true;
 
     [Header("[ 디버그 ]")]
     public bool printScanLog = true;
+    public bool printPerFrameDetectionLog = false;
+
+    [Header("[ 런타임 확인 ]")]
+    [SerializeField] private int successfulInferenceCount;
+    [SerializeField] private int totalFrameDetections;
+    [SerializeField] private string lastScanFailureReason;
 
     private bool isScanning;
     private int inferenceCount;
     private int nextTrackId = 1;
-
-    // 첫 번째 스캔 점수가 저장되었는지
     private bool hasBeforeScan;
 
-    public int BeforeTidinessScore
-    {
-        get;
-        private set;
-    }
+    public int BeforeTidinessScore { get; private set; }
+    public int AfterTidinessScore { get; private set; }
+    public bool IsScanning => isScanning;
+    public bool HasBeforeScan => hasBeforeScan;
+    public int SuccessfulInferenceCount => successfulInferenceCount;
+    public string LastScanFailureReason => lastScanFailureReason;
 
-    public int AfterTidinessScore
-    {
-        get;
-        private set;
-    }
+    public ScanPhase CurrentScanPhase { get; private set; } = ScanPhase.BeforeCleaning;
 
-    // 외부에서 현재 스캔 중인지 확인할 수 있도록 공개
-    public bool IsScanning =>
-        isScanning;
+    public event System.Action<List<ConfirmedObjectInfo>> OnScanCompleted;
+    public event System.Action<ScanPhase, List<ConfirmedObjectInfo>, int> OnScanResultReady;
 
-    public bool HasBeforeScan =>
-        hasBeforeScan;
-
-    // 현재 스캔이 정리 전인지 정리 후인지 저장
-    public ScanPhase CurrentScanPhase
-    {
-        get;
-        private set;
-    } = ScanPhase.BeforeCleaning;
-
-    // 기존 스캔 완료 이벤트
-    public event System.Action<List<ConfirmedObjectInfo>>
-        OnScanCompleted;
-
-    // 미션 연동용 스캔 결과 이벤트
-    // 스캔 단계, 확정 물체 목록, 정돈도 점수를 전달
-    public event System.Action<
-        ScanPhase,
-        List<ConfirmedObjectInfo>,
-        int
-    > OnScanResultReady;
-
-
-    // 스캔 중 임시로 추적하는 물체
-    private readonly List<TrackedObject> trackedObjects =
-        new List<TrackedObject>();
-
-    // 스캔 종료 후 확정된 실제 물체
-    public List<ConfirmedObjectInfo> ConfirmedObjects
-    {
-        get;
-        private set;
-    } = new List<ConfirmedObjectInfo>();
+    private readonly List<TrackedObject> trackedObjects = new List<TrackedObject>();
+    public List<ConfirmedObjectInfo> ConfirmedObjects { get; private set; } = new List<ConfirmedObjectInfo>();
 
     private void Awake()
     {
-        if (passthroughCameraAccess == null)
-        {
-            passthroughCameraAccess =
-                FindFirstObjectByType<PassthroughCameraAccess>();
-        }
-
-        if (aiInferenceTest == null)
-        {
-            aiInferenceTest =
-                FindFirstObjectByType<AIInferenceTest>();
-        }
-
-        if (detectionMarkerManager == null)
-        {
-            detectionMarkerManager =
-                FindFirstObjectByType<DetectionMarkerManager>();
-        }
+        ResolveReferences();
     }
 
     private void Start()
     {
         SetScanningUI(false);
-        SetStatusText("");
+        SetStatusText(string.Empty);
         RequestCameraPermission();
+        aiInferenceTest?.EnsureInitialized();
     }
 
     private void Update()
     {
-        // 현재는 테스트용 A 버튼으로 스캔 시작
         if (!useDebugAButton || isScanning)
         {
             return;
         }
 
-        bool pressedA =
-            OVRInput.GetDown(
-                OVRInput.Button.One,
-                OVRInput.Controller.RTouch
-            );
-
-        if (pressedA)
+        if (OVRInput.GetDown(OVRInput.Button.One, OVRInput.Controller.RTouch))
         {
             if (hasBeforeScan)
             {
@@ -188,7 +153,24 @@ public class QuestCameraYoloTester : MonoBehaviour
         }
     }
 
-    /// 정리 전 스캔을 시작한다. UnityEvent 호환용 void API.
+    private void ResolveReferences()
+    {
+        if (passthroughCameraAccess == null)
+        {
+            passthroughCameraAccess = FindFirstObjectByType<PassthroughCameraAccess>();
+        }
+
+        if (aiInferenceTest == null)
+        {
+            aiInferenceTest = FindFirstObjectByType<AIInferenceTest>();
+        }
+
+        if (detectionMarkerManager == null)
+        {
+            detectionMarkerManager = FindFirstObjectByType<DetectionMarkerManager>();
+        }
+    }
+
     public void StartBeforeScan()
     {
         TryStartBeforeScan();
@@ -197,16 +179,13 @@ public class QuestCameraYoloTester : MonoBehaviour
     public bool TryStartBeforeScan()
     {
         CurrentScanPhase = ScanPhase.BeforeCleaning;
-
-        if (autoShowMarkersForDebug && detectionMarkerManager != null)
+        if (autoShowMarkersForDebug)
         {
-            detectionMarkerManager.ClearMarkers();
+            detectionMarkerManager?.ClearMarkers();
         }
-
         return TryStartScan();
     }
 
-    /// 정리 후 스캔을 시작한다. UnityEvent 호환용 void API.
     public void StartAfterScan()
     {
         TryStartAfterScan();
@@ -221,16 +200,13 @@ public class QuestCameraYoloTester : MonoBehaviour
         }
 
         CurrentScanPhase = ScanPhase.AfterCleaning;
-
-        if (autoShowMarkersForDebug && detectionMarkerManager != null)
+        if (autoShowMarkersForDebug)
         {
-            detectionMarkerManager.ClearMarkers();
+            detectionMarkerManager?.ClearMarkers();
         }
-
         return TryStartScan();
     }
 
-    /// 일반 스캔을 시작한다. UnityEvent 호환용 void API.
     public void StartScan()
     {
         TryStartScan();
@@ -238,6 +214,8 @@ public class QuestCameraYoloTester : MonoBehaviour
 
     public bool TryStartScan()
     {
+        ResolveReferences();
+
         if (isScanning)
         {
             return false;
@@ -245,6 +223,7 @@ public class QuestCameraYoloTester : MonoBehaviour
 
         if (!HasCameraPermission())
         {
+            lastScanFailureReason = "카메라 권한 없음";
             Debug.LogWarning("[Quest Camera] 카메라 권한이 필요합니다.");
             RequestCameraPermission();
             return false;
@@ -257,164 +236,173 @@ public class QuestCameraYoloTester : MonoBehaviour
 
         trackedObjects.Clear();
         ConfirmedObjects.Clear();
-
         nextTrackId = 1;
         inferenceCount = 0;
+        successfulInferenceCount = 0;
+        totalFrameDetections = 0;
+        lastScanFailureReason = string.Empty;
         isScanning = true;
 
-        SetStatusText(scanningMessage);
+        SetStatusText(waitForValidCameraTexture ? waitingForCameraMessage : scanningMessage);
         SetScanningUI(true);
-
         aiInferenceTest.ResetCurrentScanResult();
         StartCoroutine(ScanRoutine());
         return true;
     }
 
-    // 설정된 시간 동안 일정 간격으로 추론
     private IEnumerator ScanRoutine()
     {
         if (printScanLog)
         {
-            Debug.Log(
-                "[Quest Camera] 반복 스캔 시작"
-            );
+            Debug.Log($"[Quest Camera] {CurrentScanPhase} 스캔 시작");
         }
 
-        float endTime =
-            Time.time + scanDuration;
+        float absoluteDeadline = Time.unscaledTime + Mathf.Max(maximumTotalScanTime, scanDuration + cameraReadyTimeout);
 
-        while (Time.time < endTime)
+        if (waitForValidCameraTexture)
+        {
+            float cameraDeadline = Time.unscaledTime + cameraReadyTimeout;
+            while (Time.unscaledTime < cameraDeadline && !HasValidCameraTexture())
+            {
+                yield return null;
+            }
+
+            if (!HasValidCameraTexture())
+            {
+                lastScanFailureReason = "카메라 Texture 준비 시간 초과";
+                Debug.LogError(
+                    "[Quest Camera] 패스스루 카메라 Texture가 준비되지 않았습니다. " +
+                    "PassthroughCameraAccess 연결·활성화·권한을 확인하세요."
+                );
+                FinishScan();
+                yield break;
+            }
+        }
+
+        SetStatusText(scanningMessage);
+        float normalScanEnd = Time.unscaledTime + scanDuration;
+
+        while (Time.unscaledTime < absoluteDeadline &&
+               (Time.unscaledTime < normalScanEnd || successfulInferenceCount < minimumSuccessfulInferences))
         {
             RunSingleInference();
-
-            yield return new WaitForSeconds(
-                inferenceInterval
-            );
+            yield return new WaitForSecondsRealtime(inferenceInterval);
         }
 
         FinishScan();
     }
 
-    // 현재 카메라 프레임 한 장을 YOLO로 추론한다.
-    private void RunSingleInference()
+    private bool HasValidCameraTexture()
     {
-        Texture cameraTexture =
-            passthroughCameraAccess.GetTexture();
-
-        if (cameraTexture == null)
+        if (passthroughCameraAccess == null || !passthroughCameraAccess.isActiveAndEnabled)
         {
-            if (printScanLog)
-            {
-                Debug.LogWarning(
-                    "[Quest Camera] 카메라 Texture가 없습니다."
-                );
-            }
+            return false;
+        }
 
-            return;
+        Texture texture = passthroughCameraAccess.GetTexture();
+        return texture != null &&
+               texture.width >= minimumValidTextureSize &&
+               texture.height >= minimumValidTextureSize;
+    }
+
+    private bool RunSingleInference()
+    {
+        Texture cameraTexture = passthroughCameraAccess != null
+            ? passthroughCameraAccess.GetTexture()
+            : null;
+
+        if (cameraTexture == null ||
+            cameraTexture.width < minimumValidTextureSize ||
+            cameraTexture.height < minimumValidTextureSize)
+        {
+            lastScanFailureReason = "유효한 카메라 Texture 없음";
+            return false;
         }
 
         if (cameraPreview != null)
         {
-            cameraPreview.texture =
-                cameraTexture;
+            cameraPreview.texture = cameraTexture;
+        }
+
+        float rawThreshold = useLenientMissionThresholds
+            ? Mathf.Min(aiInferenceTest.confidenceThreshold, missionInferenceConfidenceThreshold)
+            : aiInferenceTest.confidenceThreshold;
+
+        bool executed = aiInferenceTest.TryRunRealtimeInference(cameraTexture, rawThreshold);
+        if (!executed)
+        {
+            lastScanFailureReason = aiInferenceTest.LastFailureReason;
+            if (printScanLog && !string.IsNullOrWhiteSpace(lastScanFailureReason))
+            {
+                Debug.LogWarning($"[Quest Camera] 추론 건너뜀: {lastScanFailureReason}");
+            }
+            return false;
         }
 
         inferenceCount++;
+        successfulInferenceCount++;
 
-        aiInferenceTest.RunRealtimeInference(
-            cameraTexture
-        );
+        List<Detection> frameDetections = aiInferenceTest.LastDetections;
+        int frameCount = frameDetections != null ? frameDetections.Count : 0;
+        totalFrameDetections += frameCount;
+        TrackDetections(frameDetections);
 
-        TrackDetections(
-            aiInferenceTest.LastDetections
-        );
+        if (printPerFrameDetectionLog)
+        {
+            Debug.Log(
+                $"[Quest Camera Frame {successfulInferenceCount}] " +
+                $"탐지 {frameCount}개, 누적 Track {trackedObjects.Count}개, rawThreshold={rawThreshold:F2}"
+            );
+        }
+
+        return true;
     }
 
-    // 같은 클래스와 박스 위치를 기준으로 개별 물체를 추적
-    private void TrackDetections(
-        List<Detection> detections
-    )
+    private void TrackDetections(List<Detection> detections)
     {
-        if (detections == null ||
-            detections.Count == 0)
+        if (detections == null || detections.Count == 0)
         {
             return;
         }
 
-        // 한 추론에서 기존 Track 하나가 중복 연결되는 것을 방지
-        HashSet<int> matchedTrackIds =
-            new HashSet<int>();
+        HashSet<int> matchedTrackIds = new HashSet<int>();
+        IEnumerable<Detection> sorted = detections.OrderByDescending(item => item.confidence);
 
-        IEnumerable<Detection> sortedDetections =
-            detections.OrderByDescending(
-                detection =>
-                    detection.confidence
-            );
-
-        foreach (Detection detection in sortedDetections)
+        foreach (Detection detection in sorted)
         {
-            TrackedObject track =
-                FindBestTrack(
-                    detection,
-                    matchedTrackIds
-                );
-
+            TrackedObject track = FindBestTrack(detection, matchedTrackIds);
             if (track == null)
             {
-                track = CreateTrack(
-                    detection
-                );
+                track = CreateTrack(detection);
             }
             else
             {
-                UpdateTrack(
-                    track,
-                    detection
-                );
+                UpdateTrack(track, detection);
             }
 
-            matchedTrackIds.Add(
-                track.id
-            );
+            matchedTrackIds.Add(track.id);
         }
     }
 
-    // 현재 Detection과 가장 잘 겹치는 기존 Track을 찾음
-    private TrackedObject FindBestTrack(
-        Detection detection,
-        HashSet<int> matchedTrackIds
-    )
+    private TrackedObject FindBestTrack(Detection detection, HashSet<int> matchedTrackIds)
     {
         TrackedObject bestTrack = null;
         float bestIou = trackingIouThreshold;
 
         foreach (TrackedObject track in trackedObjects)
         {
-            if (matchedTrackIds.Contains(track.id))
+            if (matchedTrackIds.Contains(track.id) || track.className != detection.className)
             {
                 continue;
             }
 
-            if (track.className != detection.className)
+            int gap = inferenceCount - track.lastSeenInference;
+            if (gap > maximumTrackingGap)
             {
                 continue;
             }
 
-            int trackingGap =
-                inferenceCount -
-                track.lastSeenInference;
-
-            if (trackingGap > maximumTrackingGap)
-            {
-                continue;
-            }
-
-            float iou =
-                CalculateIoU(
-                    track.lastRect,
-                    detection.rect
-                );
-
+            float iou = CalculateIoU(track.lastRect, detection.rect);
             if (iou >= bestIou)
             {
                 bestIou = iou;
@@ -425,84 +413,62 @@ public class QuestCameraYoloTester : MonoBehaviour
         return bestTrack;
     }
 
-    // 기존 Track이 없으면 새 물체로 등록
-    private TrackedObject CreateTrack(
-        Detection detection
-    )
+    private TrackedObject CreateTrack(Detection detection)
     {
-        TrackedObject track =
-            new TrackedObject
-            {
-                id = nextTrackId++,
-                classId = detection.classId,
-                className = detection.className,
-                lastRect = detection.rect,
-                detectionCount = 1,
-                confidenceSum = detection.confidence,
-                lastSeenInference = inferenceCount
-            };
-
-        trackedObjects.Add(
-            track
-        );
-
+        TrackedObject track = new TrackedObject
+        {
+            id = nextTrackId++,
+            classId = detection.classId,
+            className = detection.className,
+            lastRect = detection.rect,
+            detectionCount = 1,
+            confidenceSum = detection.confidence,
+            lastSeenInference = inferenceCount
+        };
+        trackedObjects.Add(track);
         return track;
     }
 
-    // 기존 물체의 최신 탐지 정보를 갱신
-    private void UpdateTrack(
-        TrackedObject track,
-        Detection detection
-    )
+    private void UpdateTrack(TrackedObject track, Detection detection)
     {
-        track.lastRect =
-            detection.rect;
-
+        track.lastRect = detection.rect;
         track.detectionCount++;
-
-        track.confidenceSum +=
-            detection.confidence;
-
-        track.lastSeenInference =
-            inferenceCount;
+        track.confidenceSum += detection.confidence;
+        track.lastSeenInference = inferenceCount;
     }
 
-    // 확정 조건을 통과한 물체만 최종 결과로 저장
     private void FinishScan()
     {
         isScanning = false;
-
         SetScanningUI(false);
-        SetStatusText("");
+        SetStatusText(string.Empty);
 
-        ConfirmedObjects =
-            trackedObjects
-                .Where(track =>
-                    track.detectionCount >=
-                        minimumDetectionCount &&
-                    track.AverageConfidence >=
-                        minimumAverageConfidence
-                )
-                .OrderByDescending(track =>
-                    track.detectionCount
-                )
-                .ThenByDescending(track =>
-                    track.AverageConfidence
-                )
-                .Select(track =>
-                    new ConfirmedObjectInfo
-                    {
-                        objectId = track.id,
-                        classId = track.classId,
-                        className = track.className,
-                        detectionCount =
-                            track.detectionCount,
-                        averageConfidence =
-                            track.AverageConfidence,
-                        lastRect = track.lastRect
-                    }
-                )
-                .ToList();
+        int effectiveMinimumDetectionCount = useLenientMissionThresholds
+            ? Mathf.Max(1, missionMinimumDetectionCount)
+            : Mathf.Max(1, minimumDetectionCount);
+
+        float effectiveMinimumAverageConfidence = useLenientMissionThresholds
+            ? Mathf.Clamp01(missionMinimumAverageConfidence)
+            : Mathf.Clamp01(minimumAverageConfidence);
+
+        ConfirmedObjects = ConvertTracksToConfirmed(
+            trackedObjects.Where(track =>
+                track.detectionCount >= effectiveMinimumDetectionCount &&
+                track.AverageConfidence >= effectiveMinimumAverageConfidence)
+        );
+
+        bool usedFallback = false;
+        if (ConfirmedObjects.Count == 0 && useTrackedCandidateFallback && trackedObjects.Count > 0)
+        {
+            ConfirmedObjects = ConvertTracksToConfirmed(
+                trackedObjects
+                    .Where(track => track.AverageConfidence >= trackedCandidateFallbackConfidence)
+                    .OrderByDescending(track => track.detectionCount)
+                    .ThenByDescending(track => track.AverageConfidence)
+                    .Take(maximumFallbackObjectCount)
+            );
+            usedFallback = ConfirmedObjects.Count > 0;
+        }
 
         if (autoShowMarkersForDebug && detectionMarkerManager != null)
         {
@@ -510,221 +476,172 @@ public class QuestCameraYoloTester : MonoBehaviour
         }
 
         int currentScore = CalculateTidinessScore(ConfirmedObjects);
-
         if (compareTidinessScore)
         {
             HandleTidinessScoreComparison(currentScore);
         }
-        else
+        else if (printScanLog)
         {
-            ShowFinalResult();
+            Debug.Log($"[Quest Camera] 일반 스캔 완료\n{BuildObjectSummary()}");
         }
 
-        List<ConfirmedObjectInfo> resultCopy =
-            new List<ConfirmedObjectInfo>(ConfirmedObjects);
+        if (successfulInferenceCount == 0)
+        {
+            lastScanFailureReason = string.IsNullOrWhiteSpace(lastScanFailureReason)
+                ? "성공한 추론이 0회"
+                : lastScanFailureReason;
+        }
+        else if (totalFrameDetections == 0)
+        {
+            lastScanFailureReason =
+                "카메라와 모델 추론은 실행됐지만 프레임 탐지가 0개입니다. " +
+                "AIInferenceTest의 Model Asset, Classes File, Output Layout, confidence를 확인하세요.";
+        }
+        else if (ConfirmedObjects.Count == 0)
+        {
+            lastScanFailureReason = "프레임 탐지는 있었지만 추적/확정 기준에서 모두 제외됨";
+        }
+        else
+        {
+            lastScanFailureReason = string.Empty;
+        }
 
+        // Set the diagnostic before publishing the event so the mission controller
+        // can show the actual failure reason immediately.
+        List<ConfirmedObjectInfo> resultCopy = new List<ConfirmedObjectInfo>(ConfirmedObjects);
         OnScanCompleted?.Invoke(resultCopy);
         OnScanResultReady?.Invoke(CurrentScanPhase, resultCopy, currentScore);
 
         if (printScanLog)
         {
+            Debug.Log(
+                $"[Quest Camera] 스캔 진단\n" +
+                $"- 성공 추론: {successfulInferenceCount}회\n" +
+                $"- 프레임 탐지 누계: {totalFrameDetections}개\n" +
+                $"- 누적 Track: {trackedObjects.Count}개\n" +
+                $"- 확정 물체: {ConfirmedObjects.Count}개\n" +
+                $"- 후보 fallback 사용: {usedFallback}\n" +
+                $"- AI output length: {(aiInferenceTest != null ? aiInferenceTest.LastOutputLength : 0)}\n" +
+                $"- 마지막 실패 사유: {(string.IsNullOrWhiteSpace(lastScanFailureReason) ? "없음" : lastScanFailureReason)}"
+            );
             PrintDetailedResult();
         }
     }
 
-    // 첫 번째 스캔은 정리 전, 두 번째 스캔은 정리 후로 처리
-    private void HandleTidinessScoreComparison(int currentScore)
+    private static List<ConfirmedObjectInfo> ConvertTracksToConfirmed(IEnumerable<TrackedObject> tracks)
     {
-        string objectSummary =
-            BuildObjectSummary();
-
-        // 정리 전 스캔 점수 저장
-        if (CurrentScanPhase == ScanPhase.BeforeCleaning)
-        {
-            BeforeTidinessScore =
-                currentScore;
-
-            hasBeforeScan = true;
-
-            Debug.Log(
-                $"[AI Scan Result] 탐지 물체: {ConfirmedObjects.Count}개, " +
-                $"정돈도 점수: {currentScore}점\n" +
-                $"탐지 결과:\n{objectSummary}"
-            );
-
-            Debug.Log(
-                $"[Tidiness Score] 정리 전 점수: " +
-                $"{BeforeTidinessScore}"
-            );
-
-            return;
-        }
-
-        // 정리 후 스캔: 정리 전 점수와 비교
-        if (!hasBeforeScan)
-        {
-            Debug.LogWarning("[Tidiness Score] 정리 전 점수가 없어 비교하지 못했습니다.");
-            AfterTidinessScore = currentScore;
-            return;
-        }
-
-        AfterTidinessScore =
-            currentScore;
-
-        int scoreDifference =
-            AfterTidinessScore -
-            BeforeTidinessScore;
-
-        string differenceText =
-            scoreDifference > 0
-                ? $"+{scoreDifference}"
-                : scoreDifference.ToString();
-
-        // 사용자 화면에는 표시하지 않고 Console에만 출력
-        Debug.Log(
-            $"[Tidiness Score] 비교 완료\n" +
-            $"정리 전: {BeforeTidinessScore}\n" +
-            $"정리 후: {AfterTidinessScore}\n" +
-            $"점수 변화: {differenceText}\n" +
-            $"탐지 결과:\n{objectSummary}"
-        );
-
-        // 퀘스트 진행 중에는 같은 정리 전 기준으로 여러 번 재스캔할 수 있도록
-        // hasBeforeScan을 유지합니다. 퀘스트 완료/취소 시 ResetScoreComparison()을 호출합니다.
+        return tracks
+            .OrderByDescending(track => track.detectionCount)
+            .ThenByDescending(track => track.AverageConfidence)
+            .Select(track => new ConfirmedObjectInfo
+            {
+                objectId = track.id,
+                classId = track.classId,
+                className = track.className,
+                detectionCount = track.detectionCount,
+                averageConfidence = track.AverageConfidence,
+                lastRect = track.lastRect
+            })
+            .ToList();
     }
 
-    private void OnDisable()
+    private void HandleTidinessScoreComparison(int currentScore)
     {
-        if (isScanning)
+        if (CurrentScanPhase == ScanPhase.BeforeCleaning)
         {
-            StopAllCoroutines();
-            isScanning = false;
+            BeforeTidinessScore = currentScore;
+            hasBeforeScan = true;
+            Debug.Log(
+                $"[AI Scan Result] 탐지 물체: {ConfirmedObjects.Count}개, 정돈도: {currentScore}점\n" +
+                BuildObjectSummary()
+            );
+            return;
         }
 
-        SetScanningUI(false);
-        SetStatusText("");
+        if (!hasBeforeScan)
+        {
+            AfterTidinessScore = currentScore;
+            Debug.LogWarning("[Tidiness Score] 정리 전 점수가 없어 비교하지 못했습니다.");
+            return;
+        }
+
+        AfterTidinessScore = currentScore;
+        int difference = AfterTidinessScore - BeforeTidinessScore;
+        Debug.Log(
+            $"[Tidiness Score] 비교 완료\n정리 전: {BeforeTidinessScore}\n" +
+            $"정리 후: {AfterTidinessScore}\n변화: {(difference > 0 ? "+" : string.Empty)}{difference}"
+        );
     }
 
     /// <summary>
-    /// 진행 중인 정리 전·후 점수 비교를 초기화한다.
-    /// 미션 취소 또는 새 구역 선택 시 호출할 수 있다.
+    /// 디버그 전체 초기화 중 진행 중인 스캔 결과가 뒤늦게 미션에 반영되지 않도록
+    /// 현재 스캔 코루틴과 임시 추적 데이터를 즉시 취소합니다.
     /// </summary>
+    public void CancelCurrentScanForReset()
+    {
+        StopAllCoroutines();
+        isScanning = false;
+        trackedObjects.Clear();
+        ConfirmedObjects.Clear();
+        inferenceCount = 0;
+        successfulInferenceCount = 0;
+        totalFrameDetections = 0;
+        lastScanFailureReason = string.Empty;
+        nextTrackId = 1;
+        SetScanningUI(false);
+        SetStatusText(string.Empty);
+        aiInferenceTest?.ResetCurrentScanResult();
+        Debug.Log("[Quest Camera] 전체 초기화를 위해 진행 중인 스캔을 취소했습니다.");
+    }
+
     public void ResetScoreComparison()
     {
         hasBeforeScan = false;
-
         BeforeTidinessScore = 0;
         AfterTidinessScore = 0;
-
         SetScanningUI(false);
-        SetStatusText("");
-
-        Debug.Log(
-            "[Tidiness Score] 점수 비교 초기화"
-        );
+        SetStatusText(string.Empty);
+        Debug.Log("[Tidiness Score] 점수 비교 초기화");
     }
 
-    // 확정된 물체 목록을 간단한 문자열로 만들기
     private string BuildObjectSummary()
     {
-        if (ConfirmedObjects == null ||
-            ConfirmedObjects.Count == 0)
+        if (ConfirmedObjects == null || ConfirmedObjects.Count == 0)
         {
             return "Total objects: 0";
         }
 
-        IEnumerable<string> classLines =
-            ConfirmedObjects
-                .GroupBy(item =>
-                    item.className
-                )
-                .OrderByDescending(group =>
-                    group.Count()
-                )
-                .ThenBy(group =>
-                    group.Key
-                )
-                .Select(group =>
-                    $"{group.Key} x{group.Count()}"
-                );
+        IEnumerable<string> lines = ConfirmedObjects
+            .GroupBy(item => item.className)
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => group.Key)
+            .Select(group => $"{group.Key} x{group.Count()}");
 
-        return
-            $"Total objects: {ConfirmedObjects.Count}\n" +
-            string.Join(
-                "\n",
-                classLines
-            );
+        return $"Total objects: {ConfirmedObjects.Count}\n" + string.Join("\n", lines);
     }
 
-    // 반복 탐지로 확정된 정리 대상 물체 개수만으로 점수를 계산
-    private int CalculateTidinessScore(
-        List<ConfirmedObjectInfo> objects
-    )
+    private int CalculateTidinessScore(List<ConfirmedObjectInfo> objects)
     {
-        int objectCount =
-            objects?.Count ?? 0;
-
-        const float penaltyPerObject = 12.5f;
-
-        float score =
-            100f -
-            objectCount * penaltyPerObject;
-
-        int finalScore =
-            Mathf.RoundToInt(
-                Mathf.Clamp(
-                    score,
-                    0f,
-                    100f
-                )
-            );
-
-        if (printScanLog)
-        {
-            Debug.Log(
-                $"[Tidiness Score]\n" +
-                $"확정 물체 수: {objectCount}개\n" +
-                $"물체당 감점: {penaltyPerObject:F1}점\n" +
-                $"최종 점수: {finalScore}점"
-            );
-        }
-
-        return finalScore;
+        int count = objects?.Count ?? 0;
+        return Mathf.RoundToInt(Mathf.Clamp(100f - count * 12.5f, 0f, 100f));
     }
 
-    // 점수 비교를 사용하지 않을 때 일반 스캔 결과를 Console에 출력
-    private void ShowFinalResult()
+    private void PrintDetailedResult()
     {
         if (!printScanLog)
         {
             return;
         }
 
-        Debug.Log(
-            $"[Quest Camera] 일반 스캔 완료\n" +
-            BuildObjectSummary()
+        IEnumerable<string> lines = ConfirmedObjects.Select(item =>
+            $"Object #{item.objectId} / {item.className} / " +
+            $"{item.detectionCount}/{Mathf.Max(1, inferenceCount)} scans / " +
+            $"{item.averageConfidence * 100f:0}%"
         );
-    }
-
-    // 확정된 각 물체의 세부 탐지 결과를 Console에 출력
-    private void PrintDetailedResult()
-    {
-        IEnumerable<string> detailLines =
-            ConfirmedObjects.Select(item =>
-                $"Object #{item.objectId} / " +
-                $"{item.className} / " +
-                $"{item.detectionCount}/{inferenceCount} scans / " +
-                $"{item.averageConfidence * 100f:0}%"
-            );
 
         Debug.Log(
-            $"[Quest Camera] 스캔 완료\n" +
-            $"총 추론: {inferenceCount}회\n" +
-            $"확정 물체: {ConfirmedObjects.Count}개\n" +
-            string.Join(
-                "\n",
-                detailLines
-            )
+            $"[Quest Camera] 세부 결과\n확정 물체: {ConfirmedObjects.Count}개\n" +
+            string.Join("\n", lines)
         );
     }
 
@@ -732,28 +649,29 @@ public class QuestCameraYoloTester : MonoBehaviour
     {
         if (passthroughCameraAccess == null)
         {
-            Debug.LogError(
-                "[Quest Camera] PassthroughCameraAccess가 없습니다."
-            );
-
-            return false;
-        }
-
-        if (aiInferenceTest == null)
-        {
-            Debug.LogError(
-                "[Quest Camera] AIInferenceTest가 없습니다."
-            );
-
+            lastScanFailureReason = "PassthroughCameraAccess 미연결";
+            Debug.LogError("[Quest Camera] PassthroughCameraAccess가 없습니다.");
             return false;
         }
 
         if (!passthroughCameraAccess.isActiveAndEnabled)
         {
-            Debug.LogError(
-                "[Quest Camera] 카메라 접근 컴포넌트가 비활성화되어 있습니다."
-            );
+            lastScanFailureReason = "PassthroughCameraAccess 비활성";
+            Debug.LogError("[Quest Camera] 카메라 접근 컴포넌트가 비활성화되어 있습니다.");
+            return false;
+        }
 
+        if (aiInferenceTest == null)
+        {
+            lastScanFailureReason = "AIInferenceTest 미연결";
+            Debug.LogError("[Quest Camera] AIInferenceTest가 없습니다.");
+            return false;
+        }
+
+        if (!aiInferenceTest.EnsureInitialized())
+        {
+            lastScanFailureReason = aiInferenceTest.LastFailureReason;
+            Debug.LogError($"[Quest Camera] AIInferenceTest 초기화 실패: {lastScanFailureReason}");
             return false;
         }
 
@@ -763,129 +681,65 @@ public class QuestCameraYoloTester : MonoBehaviour
     private bool HasCameraPermission()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
-
-        return Permission.HasUserAuthorizedPermission(
-            HeadsetCameraPermission
-        );
-
+        return Permission.HasUserAuthorizedPermission(HeadsetCameraPermission);
 #else
-
         return true;
-
 #endif
     }
 
-    /// Quest 헤드셋 카메라 권한을 요청
     public void RequestCameraPermission()
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
-
         if (!HasCameraPermission())
         {
-            Permission.RequestUserPermission(
-                HeadsetCameraPermission
-            );
+            Permission.RequestUserPermission(HeadsetCameraPermission);
         }
-
 #endif
     }
 
-    private float CalculateIoU(
-        Rect first,
-        Rect second
-    )
+    private static float CalculateIoU(Rect first, Rect second)
     {
-        float overlapWidth =
-            Mathf.Max(
-                0f,
-                Mathf.Min(
-                    first.xMax,
-                    second.xMax
-                ) -
-                Mathf.Max(
-                    first.xMin,
-                    second.xMin
-                )
-            );
-
-        float overlapHeight =
-            Mathf.Max(
-                0f,
-                Mathf.Min(
-                    first.yMax,
-                    second.yMax
-                ) -
-                Mathf.Max(
-                    first.yMin,
-                    second.yMin
-                )
-            );
-
-        float intersectionArea =
-            overlapWidth *
-            overlapHeight;
-
-        float firstArea =
-            Mathf.Max(
-                0f,
-                first.width
-            ) *
-            Mathf.Max(
-                0f,
-                first.height
-            );
-
-        float secondArea =
-            Mathf.Max(
-                0f,
-                second.width
-            ) *
-            Mathf.Max(
-                0f,
-                second.height
-            );
-
-        float unionArea =
-            firstArea +
-            secondArea -
-            intersectionArea;
-
-        return unionArea > 0f
-            ? intersectionArea / unionArea
-            : 0f;
+        float overlapWidth = Mathf.Max(0f, Mathf.Min(first.xMax, second.xMax) - Mathf.Max(first.xMin, second.xMin));
+        float overlapHeight = Mathf.Max(0f, Mathf.Min(first.yMax, second.yMax) - Mathf.Max(first.yMin, second.yMin));
+        float intersection = overlapWidth * overlapHeight;
+        float firstArea = Mathf.Max(0f, first.width) * Mathf.Max(0f, first.height);
+        float secondArea = Mathf.Max(0f, second.width) * Mathf.Max(0f, second.height);
+        float union = firstArea + secondArea - intersection;
+        return union > 0f ? intersection / union : 0f;
     }
 
-    // 스캔 중 UI의 표시 여부만 관리
-    private void SetScanningUI(
-        bool visible
-    )
+    private void SetScanningUI(bool visible)
     {
         if (scanDimOverlay != null)
         {
             scanDimOverlay.SetActive(visible);
         }
-
         if (scanBox != null)
         {
             scanBox.SetActive(visible);
         }
     }
 
-    // 스캔 문구의 내용만 변경
-    private void SetStatusText(
-        string message
-    )
+    private void SetStatusText(string message)
     {
-        if (scanStatusText == null)
+        if (scanStatusText != null)
         {
-            return;
+            scanStatusText.text = message;
         }
+    }
 
-        scanStatusText.text = message;
+    private void OnDisable()
+    {
+        if (isScanning)
+        {
+            StopAllCoroutines();
+            isScanning = false;
+        }
+        SetScanningUI(false);
+        SetStatusText(string.Empty);
     }
 }
 
-// 스캔 중 사용하는 임시 물체 정보
 internal class TrackedObject
 {
     public int id;
@@ -896,13 +750,9 @@ internal class TrackedObject
     public float confidenceSum;
     public int lastSeenInference;
 
-    public float AverageConfidence =>
-        detectionCount > 0
-            ? confidenceSum / detectionCount
-            : 0f;
+    public float AverageConfidence => detectionCount > 0 ? confidenceSum / detectionCount : 0f;
 }
 
-/// 스캔 종료 후 확정된 개별 물체 정보.
 [System.Serializable]
 public class ConfirmedObjectInfo
 {

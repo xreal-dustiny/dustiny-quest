@@ -14,7 +14,8 @@ public class QuestGenerator : MonoBehaviour
     public static event Action<YOLOScanData> OnObjectsDetected;
 
     [Header("[ 실제 게임 규칙 ]")]
-    [SerializeField, Min(0)] private int creditPerCompletedObject = 10;
+    [Tooltip("레거시 필드입니다. 현재는 물건별 보상을 지급하지 않습니다.")]
+    [SerializeField, Min(0)] private int creditPerCompletedObject = 0;
     [SerializeField] private string defaultSuggestedAction = "organize";
     [SerializeField] private bool sortByDetectionReliability = true;
 
@@ -31,7 +32,7 @@ public class QuestGenerator : MonoBehaviour
     private string lastProcessedScanId = string.Empty;
     private int runtimeScanSequence;
 
-    public int CreditPerCompletedObject => creditPerCompletedObject;
+    public int CreditPerCompletedObject => 0;
 
     private void Awake()
     {
@@ -87,7 +88,7 @@ public class QuestGenerator : MonoBehaviour
                 questType = normalizedType,
                 isCleared = false,
                 isRewardGiven = false,
-                rewardCredit = creditPerCompletedObject,
+                rewardCredit = 0,
                 sourceObjectId = detectedObject.objectId,
                 sourceClassId = detectedObject.classId,
                 sourceRect = rect,
@@ -206,7 +207,7 @@ public class QuestGenerator : MonoBehaviour
         foreach (YOLOObjectData rawObject in objects.Where(item => item != null))
         {
             string normalizedType = NormalizeQuestType(rawObject.class_name);
-            int reward = ResolveReward(normalizedType);
+            int reward = 0;
             Rect rect = ConvertRect(rawObject.bbox_2d);
 
             generatedQuests.Add(new QuestData
@@ -236,15 +237,9 @@ public class QuestGenerator : MonoBehaviour
 
     private int ResolveReward(string questType)
     {
-        foreach (QuestRewardPreset preset in rewardPresets)
-        {
-            if (NormalizeQuestType(preset.questType) == questType)
-            {
-                return Mathf.Max(0, preset.rewardCredit);
-            }
-        }
-
-        return creditPerCompletedObject;
+        // 물건별 보상은 사용하지 않습니다. 코인은 QuestProgressManager가
+        // 재스캔으로 한 청소 라운드가 완료된 순간 한 번만 지급합니다.
+        return 0;
     }
 
     private static Rect ConvertRect(BBox2D bbox)

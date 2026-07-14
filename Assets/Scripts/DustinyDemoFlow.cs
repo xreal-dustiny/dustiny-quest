@@ -34,10 +34,6 @@ public class DustinyDemoFlow : MonoBehaviour
     {
         IntroSpeech,
         MissionDescription,
-        MissionInProgress,
-        NameQuestionSpeech,
-        NamedDescription,
-        FinalSpeech,
         Finished
     }
 
@@ -76,13 +72,6 @@ public class DustinyDemoFlow : MonoBehaviour
     [Tooltip("보통 false로 둡니다. true이면 검정 오버레이가 뒤쪽 UI 입력도 막습니다.")]
     public bool descriptionDimBlocksRaycasts = false;
 
-    [Header("Name Input")]
-    public TMP_InputField durryNameInputField;
-    public GameObject durryNameInputObject;
-    public string defaultDurryName = "더리";
-    public string durryName = "더리";
-    public bool showNameInputWithNameQuestion = false;
-
     [Header("Onboarding Script")]
     [Tooltip("Interaction SDK의 [확인] 버튼을 누를 때마다 다음 대사로 넘어갑니다.")]
     [TextArea(2, 5)]
@@ -100,17 +89,10 @@ public class DustinyDemoFlow : MonoBehaviour
         "네 도움이 필요해!"
     };
 
+    [Header("Opening Complete -> Mission")]
     [TextArea(2, 5)]
-    public string firstMissionDescription =
-        "보송력이 숨어 있을 것 같은 공간을 바라보고\n[확인]을 해줘!";
-
-    [Tooltip("기존 이름 짓기 온보딩을 이어서 사용할 때만 켭니다.")]
-    public bool continueToLegacyNameFlowAfterFirstMission = false;
-
-    [Header("Legacy Name Flow (Optional)")]
-    [TextArea(2, 5)] public string nameQuestionSpeech = "그래! 난 더리랜드에서 온 청소 요정이었어!\n나에게 이름을 지어줄래?";
-    [TextArea(2, 4)] public string namedDescriptionFormat = "{0}(이)라는 이름을 지어줬다!";
-    [TextArea(2, 4)] public string finalSpeechFormat = "앞으로 잘 부탁해!\n나는 {0}(이)야.";
+    public string missionNoteUnlockedDescription =
+        "오늘의 미션 안내가 준비됐어!\n하단 NOTE를 눌러 확인해줘.";
 
     [Header("Unified Dialogue Placement")]
     [Tooltip("켜면 말풍선과 디스크립션이 같은 앵커, 피벗, 화면 위치를 사용합니다.")]
@@ -200,6 +182,13 @@ public class DustinyDemoFlow : MonoBehaviour
     [Tooltip("BigNoteRoot 자체에 Image가 붙어 있다면 해당 Graphic만 끕니다. 자식 페이지 배경은 건드리지 않습니다.")]
     public bool disableGraphicOnPageRoot = true;
 
+    [Header("Shop Coin UI")]
+    [Tooltip("ShopPage > ShopHeader > MyCoinDisplay > MyCoin의 TMP Text를 연결하세요. 비워두면 이름으로 자동 탐색합니다.")]
+    public TMP_Text shopCoinText;
+    [Tooltip("코인 아이콘이 따로 있으므로 기본값은 숫자만 표시합니다.")]
+    public string shopCoinTextFormat = "{0}";
+    public bool autoFindShopCoinText = true;
+
     [Header("Page Side Tag Buttons")]
     [Tooltip("SideTags 루트를 연결하면 자동 탐색이 다른 페이지 버튼을 잘못 잡는 일을 막을 수 있습니다.")]
     public Transform sideTagsRoot;
@@ -209,6 +198,9 @@ public class DustinyDemoFlow : MonoBehaviour
     public Button myPageTagButton;
     public Button menuTagButton;
     public bool autoConnectPageButtons = true;
+
+    [Tooltip("켜면 NOTE와 MENU 페이지에서는 닫기 버튼을 제외한 컬러 사이드 탭을 숨깁니다.")]
+    public bool hideSideTabsOnNoteAndMenu = true;
 
     [Header("Page Tag Pop Out")]
     public RectTransform closeTagRect;
@@ -227,7 +219,6 @@ public class DustinyDemoFlow : MonoBehaviour
 
     [Header("Start / Summon")]
     public bool summonDurryOnStart = true;
-    public bool summonDurryOnMissionStart = true;
     public bool detachDurryAndScanZoneFromParent = false;
 
     [Header("Input")]
@@ -235,11 +226,27 @@ public class DustinyDemoFlow : MonoBehaviour
     public bool allowControllerFallback = false;
 
     [Header("Hand Tracking Confirm")]
-    [Tooltip("오른손 검지 핀치를 공용 확인 입력으로 사용합니다. 중지 핀치는 사용하지 않습니다.")]
+    [Tooltip("오른손 검지 핀치를 공용 확인 입력으로 사용합니다.")]
     public bool rightIndexPinchConfirms = true;
+    [Tooltip("탐지 결과 확인 화면에서 오른손 중지 핀치로 미션 만들기 스캔을 다시 실행합니다.")]
+    public bool rightMiddlePinchRetriesMissionScan = true;
+    [Tooltip("오른손 약지 핀치로 활성 미션의 검사 재스캔을 시작합니다.")]
+    public bool rightRingPinchStartsOrRescans = true;
     public OVRHand rightHand;
     public bool autoFindRightOVRHandIfMissing = true;
+
+    [Header("Left Hand Debug Reset")]
+    [Tooltip("왼손 약지 핀치를 한 번 하면 오늘 미션 진행도, 보송력, 크레딧, 구매/장착 아이템을 모두 초기값으로 되돌립니다.")]
+    public bool leftRingPinchResetsMissionCleanlinessAndCredit = true;
+    public OVRHand leftHand;
+    public bool autoFindLeftOVRHandIfMissing = true;
+    [Min(0f)] public float resetInputCooldown = 1f;
+
     [Min(0f)] public float confirmInputCooldown = 0.20f;
+
+    // 페이지 버튼에 사용한 검지 핀치가 같은 프레임의 전역 미션 확인으로
+    // 중복 처리되지 않도록 하는 고정 차단 시간입니다. 인스펙터 설정은 필요 없습니다.
+    private const float PageButtonPinchSuppressionSeconds = 0.35f;
 
     [Header("Durry Expression Animation")]
     [Tooltip("더리 캐릭터에 붙은 Animator입니다. 비워두면 Durry Object 아래에서 자동 탐색합니다.")]
@@ -263,19 +270,12 @@ public class DustinyDemoFlow : MonoBehaviour
         "Surprised",
         "Joyful",
         "Look",
-        "Woried",
+        "Worried",
         "Focused"
     };
 
-    [Tooltip("디스크립션으로 미션을 안내할 때 사용할 표정입니다.")]
+    [Tooltip("오프닝 마지막 미션 안내에 사용할 표정입니다.")]
     public string missionDescriptionExpressionState = "Focused";
-    [Tooltip("디스크립션 확인 후 실제 미션을 수행하는 동안 사용할 표정입니다.")]
-    public string missionInProgressExpressionState = "Look";
-    public string missionCompleteExpressionState = "Joyful";
-    public string missionIncompleteExpressionState = "Woried";
-    public string nameQuestionExpressionState = "Joyful";
-    public string nameConfirmedExpressionState = "Joyful";
-    public string finalGreetingExpressionState = "Greet_Short";
     public string idleExpressionState = "DurryIdleAni";
 
     [Header("Durry Fixed World Start")]
@@ -313,18 +313,27 @@ public class DustinyDemoFlow : MonoBehaviour
     private OnboardingState onboardingState = OnboardingState.IntroSpeech;
     private int openingSpeechIndex;
     private bool onboardingActive;
-    private bool missionRoundActive;
     private float lastDialogueAdvanceTime = -999f;
     private float lastConfirmInputTime = -999f;
+    private float suppressMissionPinchUntil = -999f;
 
     private SpeechBubbleAutoSize speechAutoSize;
     private SpeechBubbleAutoSize descriptionAutoSize;
 
     private bool wasTriggerPressed;
     private bool wasRightIndexPinching;
+    private bool wasRightMiddlePinching;
+    private bool wasRightRingPinching;
+    private bool wasLeftRingPinching;
+    private float lastResetInputTime = -999f;
+    private bool creditUIEventSubscribed;
 
     private DustinyPage currentPage = DustinyPage.None;
     private bool pageRootOpen;
+
+    public DustinyPage CurrentPage => currentPage;
+    public bool IsAnyPageOpen => pageRootOpen;
+    public bool IsNotePageOpen => pageRootOpen && currentPage == DustinyPage.Note;
     private bool tagBasePositionsSaved;
     private Vector2 closeTagBasePosition;
     private Vector2 noteTagBasePosition;
@@ -345,6 +354,27 @@ public class DustinyDemoFlow : MonoBehaviour
             speechBubbleAnchoredPosition = sharedDialogueAnchoredPosition;
             descriptionAnchoredPosition = sharedDialogueAnchoredPosition;
         }
+
+        if (openingExpressionStates != null)
+        {
+            for (int index = 0; index < openingExpressionStates.Length; index++)
+            {
+                openingExpressionStates[index] =
+                    NormalizeLegacyExpressionName(openingExpressionStates[index]);
+            }
+        }
+    }
+
+    private void OnEnable()
+    {
+        SubscribeCreditUI();
+        ResolveShopCoinText();
+        RefreshShopCoinUI();
+    }
+
+    private void OnDisable()
+    {
+        UnsubscribeCreditUI();
     }
 
     private void Start()
@@ -357,6 +387,7 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         ResolveRightHandIfNeeded();
+        ResolveLeftHandIfNeeded();
         ResolveUIRoot();
         SetupDurry();
         SetupScanZone();
@@ -372,6 +403,10 @@ public class DustinyDemoFlow : MonoBehaviour
         ResolvePageButtons();
         ConnectPageButtonEvents();
         ConfigurePageRootGraphics();
+
+        ResolveShopCoinText();
+        SubscribeCreditUI();
+        RefreshShopCoinUI();
 
         SetupWorldCanvas();
         SetNavigationBarVisible(navigationBarStartsVisible);
@@ -402,10 +437,8 @@ public class DustinyDemoFlow : MonoBehaviour
         }
         else
         {
-            ShowDescription(
-                "미션 시작 버튼을 누르면 책상 스캔을 시작해.\n" +
-                "스캔이 끝나면 더리 노트가 활성화돼!"
-            );
+            missionController?.UnlockMissionNoteAfterOpening();
+            ShowDescription(missionNoteUnlockedDescription);
         }
     }
 
@@ -420,9 +453,12 @@ public class DustinyDemoFlow : MonoBehaviour
         UpdateDialoguePlacement();
         UpdatePageRootPlacement();
 
-        if (rightIndexPinchConfirms)
+        if (rightIndexPinchConfirms ||
+            rightMiddlePinchRetriesMissionScan ||
+            rightRingPinchStartsOrRescans ||
+            leftRingPinchResetsMissionCleanlinessAndCredit)
         {
-            UpdateRightIndexPinchInput();
+            UpdateHandPinchInput();
         }
 
         if (allowControllerFallback)
@@ -707,35 +743,55 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         ResolvePageButtons();
-        ConnectButtonClick(closePageButton, CloseBigNote);
-        ConnectButtonClick(noteTagButton, OpenNotePage);
-        ConnectButtonClick(shopTagButton, OpenShopPage);
-        ConnectButtonClick(myPageTagButton, OpenMyPage);
-        ConnectButtonClick(menuTagButton, OpenMenuPage);
+        ConnectPageButtonClick(closePageButton, CloseBigNote);
+        ConnectPageButtonClick(noteTagButton, OpenNotePage);
+        ConnectPageButtonClick(shopTagButton, OpenShopPage);
+        ConnectPageButtonClick(myPageTagButton, OpenMyPage);
+        ConnectPageButtonClick(menuTagButton, OpenMenuPage);
     }
 
     public void OpenNotePage()
     {
+        SuppressMissionPinchFromPageUI();
+
+        if (missionController == null)
+        {
+            missionController = FindFirstObjectByType<DustinyMissionController>();
+        }
+
+        // With no active round, NOTE shows a description prompt instead of an empty page.
+        if (missionController != null && !missionController.RequestOpenMissionNote())
+        {
+            return;
+        }
+
         OpenPage(DustinyPage.Note);
     }
 
     public void OpenShopPage()
     {
+        SuppressMissionPinchFromPageUI();
         OpenPage(DustinyPage.Shop);
     }
 
     public void OpenMyPage()
     {
+        SuppressMissionPinchFromPageUI();
         OpenPage(DustinyPage.MyPage);
     }
 
     public void OpenMenuPage()
     {
+        SuppressMissionPinchFromPageUI();
         OpenPage(DustinyPage.Menu);
     }
 
     public void CloseBigNote()
     {
+        // The same index pinch that clicks X must end here. It must not fall through
+        // to the global mission-confirm input and reopen NOTE.
+        SuppressMissionPinchFromPageUI();
+        ShopInventoryManager.Instance?.ClearAllPreviews();
         currentPage = DustinyPage.None;
         SetPageRootVisible(false);
         UpdatePageTags();
@@ -743,6 +799,12 @@ public class DustinyDemoFlow : MonoBehaviour
 
     public void OpenPage(DustinyPage page)
     {
+        if (page != currentPage)
+        {
+            // Leaving Shop/MyPage must always cancel temporary try-on state.
+            ShopInventoryManager.Instance?.ClearAllPreviews();
+        }
+
         if (page == DustinyPage.None)
         {
             CloseBigNote();
@@ -775,6 +837,21 @@ public class DustinyDemoFlow : MonoBehaviour
         SetPageObjectVisible(myPageObject, page == DustinyPage.MyPage);
         SetPageObjectVisible(menuPageObject, page == DustinyPage.Menu);
 
+        // Other page objects may disable after Shop/MyPage enables and clear previews.
+        // Refresh the final active item page once more after all visibility changes.
+        if (page == DustinyPage.Shop || page == DustinyPage.MyPage)
+        {
+            DustinyItemPageController itemPageController =
+                requestedPage.GetComponentInChildren<DustinyItemPageController>(true);
+            itemPageController?.RefreshPage();
+        }
+
+        if (page == DustinyPage.Note)
+        {
+            QuestStatusUI statusUI = FindFirstObjectByType<QuestStatusUI>();
+            statusUI?.RefreshMissionSlots();
+        }
+
         bool showSharedBackground = useSharedBackgroundForShopAndMyPage &&
                                     (page == DustinyPage.Shop || page == DustinyPage.MyPage);
         if (obsoleteSharedBackgroundObject != null)
@@ -794,6 +871,11 @@ public class DustinyDemoFlow : MonoBehaviour
         if (hideDialogueWhenPageOpens)
         {
             HideDialoguePanels();
+        }
+
+        if (page == DustinyPage.Shop)
+        {
+            RefreshShopCoinUI();
         }
 
         UpdatePageTags();
@@ -912,12 +994,23 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private void UpdatePageTags()
     {
+        ResolvePageButtons();
+
+        bool hideSideTabs = pageRootOpen &&
+                            hideSideTabsOnNoteAndMenu &&
+                            (currentPage == DustinyPage.Note ||
+                             currentPage == DustinyPage.Menu);
+
+        SetPageTagButtonVisible(noteTagButton, !hideSideTabs);
+        SetPageTagButtonVisible(shopTagButton, !hideSideTabs);
+        SetPageTagButtonVisible(myPageTagButton, !hideSideTabs);
+        SetPageTagButtonVisible(menuTagButton, !hideSideTabs);
+
         if (!popOutActiveTag)
         {
             return;
         }
 
-        ResolvePageButtons();
         SavePageTagBasePositions();
 
         bool isOpen = pageRootOpen;
@@ -926,6 +1019,14 @@ public class DustinyDemoFlow : MonoBehaviour
         SetTagPopped(shopTagRect, shopTagBasePosition, isOpen && currentPage == DustinyPage.Shop);
         SetTagPopped(myPageTagRect, myPageTagBasePosition, isOpen && currentPage == DustinyPage.MyPage);
         SetTagPopped(menuTagRect, menuTagBasePosition, isOpen && currentPage == DustinyPage.Menu);
+    }
+
+    private static void SetPageTagButtonVisible(Button button, bool visible)
+    {
+        if (button != null)
+        {
+            button.gameObject.SetActive(visible);
+        }
     }
 
     private void SetTagPopped(RectTransform tagRect, Vector2 basePosition, bool popped)
@@ -939,6 +1040,35 @@ public class DustinyDemoFlow : MonoBehaviour
         tagRect.anchoredPosition = basePosition + new Vector2(offset, 0f);
     }
 
+    private void ConnectPageButtonClick(Button button, UnityEngine.Events.UnityAction action)
+    {
+        if (button == null || action == null)
+        {
+            return;
+        }
+
+        // RemoveAllListeners()는 Inspector에 저장된 Persistent Listener를 제거하지 못합니다.
+        // 새 UnityEvent로 교체해야 X 버튼에 남은 OpenNotePage 같은 잘못된 연결까지
+        // 런타임에서 완전히 무시하고 이 컨트롤러가 지정한 동작 하나만 실행할 수 있습니다.
+        button.onClick = new Button.ButtonClickedEvent();
+        button.onClick.AddListener(action);
+    }
+
+    private void SuppressMissionPinchFromPageUI()
+    {
+        float duration = Mathf.Max(confirmInputCooldown, PageButtonPinchSuppressionSeconds);
+        suppressMissionPinchUntil = Mathf.Max(
+            suppressMissionPinchUntil,
+            Time.unscaledTime + duration
+        );
+        lastConfirmInputTime = Time.unscaledTime;
+    }
+
+    private bool IsMissionPinchSuppressedByPageUI()
+    {
+        return Time.unscaledTime < suppressMissionPinchUntil;
+    }
+
     private static void ConnectButtonClick(Button button, UnityEngine.Events.UnityAction action)
     {
         if (button == null || action == null)
@@ -948,6 +1078,89 @@ public class DustinyDemoFlow : MonoBehaviour
 
         button.onClick.RemoveListener(action);
         button.onClick.AddListener(action);
+    }
+
+    private void ResolveShopCoinText()
+    {
+        if (shopCoinText != null || !autoFindShopCoinText)
+        {
+            return;
+        }
+
+        ResolvePageReferences();
+
+        Transform searchRoot = shopPageObject != null
+            ? shopPageObject.transform
+            : bigNoteRoot != null
+                ? bigNoteRoot.transform
+                : worldCanvas != null
+                    ? worldCanvas.transform
+                    : transform;
+
+        Transform coinTextTransform =
+            FindChildTransformExact(searchRoot, "MyCoin") ??
+            FindChildTransformExact(searchRoot, "MyCoinText") ??
+            FindChildTransformContainsAll(searchRoot, "my", "coin");
+
+        if (coinTextTransform == null)
+        {
+            return;
+        }
+
+        shopCoinText = coinTextTransform.GetComponent<TMP_Text>() ??
+                       coinTextTransform.GetComponentInChildren<TMP_Text>(true);
+    }
+
+    private void SubscribeCreditUI()
+    {
+        if (creditUIEventSubscribed)
+        {
+            return;
+        }
+
+        CreditManager.OnCreditChanged += HandleCreditChanged;
+        creditUIEventSubscribed = true;
+    }
+
+    private void UnsubscribeCreditUI()
+    {
+        if (!creditUIEventSubscribed)
+        {
+            return;
+        }
+
+        CreditManager.OnCreditChanged -= HandleCreditChanged;
+        creditUIEventSubscribed = false;
+    }
+
+    private void HandleCreditChanged(int currentCredit)
+    {
+        RefreshShopCoinUI(currentCredit);
+    }
+
+    private void RefreshShopCoinUI()
+    {
+        int currentCredit = CreditManager.Instance != null
+            ? CreditManager.Instance.CurrentCredit
+            : 0;
+
+        RefreshShopCoinUI(currentCredit);
+    }
+
+    private void RefreshShopCoinUI(int currentCredit)
+    {
+        ResolveShopCoinText();
+
+        if (shopCoinText == null)
+        {
+            return;
+        }
+
+        string format = string.IsNullOrWhiteSpace(shopCoinTextFormat)
+            ? "{0}"
+            : shopCoinTextFormat;
+
+        shopCoinText.text = string.Format(format, Mathf.Max(0, currentCredit));
     }
 
     #endregion
@@ -1027,20 +1240,6 @@ public class DustinyDemoFlow : MonoBehaviour
 
         ConfigureAutoSize(speechAutoSize, speechText, speechBubbleRect);
         ConfigureAutoSize(descriptionAutoSize, descriptionText, descriptionRect);
-
-        if (durryNameInputObject == null && durryNameInputField != null)
-        {
-            durryNameInputObject = durryNameInputField.gameObject;
-        }
-
-        if (durryNameInputField != null)
-        {
-            durryNameInputField.text = string.Empty;
-            durryNameInputField.onSubmit.RemoveListener(OnNameInputSubmitted);
-            durryNameInputField.onSubmit.AddListener(OnNameInputSubmitted);
-        }
-
-        SetNameInputVisible(false);
     }
 
     private static void ConfigureAutoSize(SpeechBubbleAutoSize autoSize, TMP_Text text, RectTransform bubbleRect)
@@ -1069,8 +1268,6 @@ public class DustinyDemoFlow : MonoBehaviour
         onboardingActive = true;
         onboardingState = OnboardingState.IntroSpeech;
         openingSpeechIndex = 0;
-        missionRoundActive = false;
-        durryName = string.IsNullOrWhiteSpace(durryName) ? defaultDurryName : durryName;
 
         if (scanZoneObject != null)
         {
@@ -1132,133 +1329,36 @@ public class DustinyDemoFlow : MonoBehaviour
             case OnboardingState.MissionDescription:
                 ConfirmFirstMissionDescription();
                 break;
-
-            case OnboardingState.MissionInProgress:
-                missionController?.HandleMissionConfirmPressed();
-                break;
-
-            case OnboardingState.NameQuestionSpeech:
-                ConfirmDurryNameAndShowDescription();
-                break;
-
-            case OnboardingState.NamedDescription:
-                ShowFinalSpeech();
-                break;
-
-            case OnboardingState.FinalSpeech:
-                FinishOnboardingFlow();
-                break;
         }
     }
 
     private void StartFirstMissionDescription()
     {
         onboardingState = OnboardingState.MissionDescription;
-        StartMissionRound(firstMissionDescription);
+        SetScanZoneVisible(false);
+        ShowDescription(missionNoteUnlockedDescription);
         PlayDurryExpression(missionDescriptionExpressionState);
     }
 
     private void ConfirmFirstMissionDescription()
     {
-        onboardingState = OnboardingState.MissionInProgress;
         HideDialoguePanels();
-        PlayDurryExpression(missionInProgressExpressionState);
 
         if (missionController == null)
         {
             missionController = FindFirstObjectByType<DustinyMissionController>();
         }
 
-        if (missionController != null)
-        {
-            missionController.BeginMissionScan();
-        }
-        else
+        if (missionController == null)
         {
             ShowDescription("AI 미션 컨트롤러가 연결되지 않았어!");
             Debug.LogError("[DustinyDemoFlow] DustinyMissionController가 연결되지 않았습니다.");
-        }
-    }
-
-    private void ShowNameQuestionSpeech()
-    {
-        onboardingState = OnboardingState.NameQuestionSpeech;
-        ShowSpeech(nameQuestionSpeech);
-        PlayDurryExpression(nameQuestionExpressionState);
-
-        if (!showNameInputWithNameQuestion)
-        {
             return;
         }
 
-        SetNameInputVisible(true);
-
-        if (durryNameInputField != null)
-        {
-            durryNameInputField.text = string.Empty;
-            durryNameInputField.ActivateInputField();
-        }
-    }
-
-    private void OnNameInputSubmitted(string submittedName)
-    {
-        if (!onboardingActive || onboardingState != OnboardingState.NameQuestionSpeech)
-        {
-            return;
-        }
-
-        ConfirmDurryNameAndShowDescription(submittedName);
-    }
-
-    public void SetDurryNameFromVoice(string recognizedName)
-    {
-        if (!onboardingActive || onboardingState != OnboardingState.NameQuestionSpeech)
-        {
-            return;
-        }
-
-        ConfirmDurryNameAndShowDescription(recognizedName);
-    }
-
-    private void ConfirmDurryNameAndShowDescription(string inputName = null)
-    {
-        string rawName = inputName;
-
-        if (string.IsNullOrWhiteSpace(rawName) && durryNameInputField != null)
-        {
-            rawName = durryNameInputField.text;
-        }
-
-        if (string.IsNullOrWhiteSpace(rawName))
-        {
-            rawName = defaultDurryName;
-        }
-
-        durryName = rawName.Trim();
-        if (string.IsNullOrWhiteSpace(durryName))
-        {
-            durryName = defaultDurryName;
-        }
-
-        SetNameInputVisible(false);
-        onboardingState = OnboardingState.NamedDescription;
-        ShowDescription(string.Format(namedDescriptionFormat, durryName));
-        PlayDurryExpression(nameConfirmedExpressionState);
-    }
-
-    private void ShowFinalSpeech()
-    {
-        onboardingState = OnboardingState.FinalSpeech;
-        ShowSpeech(string.Format(finalSpeechFormat, durryName));
-        PlayDurryExpression(finalGreetingExpressionState);
-    }
-
-    private void FinishOnboardingFlow()
-    {
         onboardingActive = false;
         onboardingState = OnboardingState.Finished;
-        SetNameInputVisible(false);
-        ShowDescription("하단바에서 NOTE / SHOP / MY PAGE / MENU를 선택할 수 있어.");
+        missionController.UnlockMissionNoteAfterOpening();
         PlayDurryExpression(idleExpressionState);
     }
 
@@ -1297,7 +1397,6 @@ public class DustinyDemoFlow : MonoBehaviour
         ResolveDialogueReferences();
         SetSpeechVisible(false);
         SetDescriptionVisible(true);
-        SetNameInputVisible(false);
 
         if (descriptionText != null)
         {
@@ -1313,11 +1412,23 @@ public class DustinyDemoFlow : MonoBehaviour
         UpdateDialoguePlacement();
     }
 
-    private void HideDialoguePanels()
+    public void HideDialoguePanels()
     {
         SetSpeechVisible(false);
         SetDescriptionVisible(false);
-        SetNameInputVisible(false);
+    }
+
+    public bool IsDialoguePanelVisible()
+    {
+        bool speechVisible = speechBubbleObject != null
+            ? speechBubbleObject.activeSelf
+            : speechText != null && speechText.gameObject.activeSelf;
+
+        bool descriptionVisible = descriptionObject != null
+            ? descriptionObject.activeSelf
+            : descriptionText != null && descriptionText.gameObject.activeSelf;
+
+        return speechVisible || descriptionVisible;
     }
 
     private void SetSpeechVisible(bool visible)
@@ -1472,18 +1583,6 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
-    private void SetNameInputVisible(bool visible)
-    {
-        if (durryNameInputObject != null)
-        {
-            durryNameInputObject.SetActive(visible);
-        }
-        else if (durryNameInputField != null)
-        {
-            durryNameInputField.gameObject.SetActive(visible);
-        }
-    }
-
     #endregion
 
     #region Mission Flow
@@ -1501,29 +1600,7 @@ public class DustinyDemoFlow : MonoBehaviour
             missionController = FindFirstObjectByType<DustinyMissionController>();
         }
 
-        missionController?.BeginMissionScan();
-    }
-
-    private void StartMissionRound(string message)
-    {
-        missionRoundActive = true;
-
-        if (summonDurryOnMissionStart)
-        {
-            SummonDurryToUser();
-        }
-
-        if (scanZoneObject != null)
-        {
-            scanZoneObject.SetActive(true);
-        }
-
-        ShowDescription(message);
-
-        if (!onboardingActive || onboardingState != OnboardingState.MissionDescription)
-        {
-            PlayDurryExpression(missionDescriptionExpressionState);
-        }
+        missionController?.RequestOpenMissionNote();
     }
 
     /// <summary>
@@ -1532,6 +1609,13 @@ public class DustinyDemoFlow : MonoBehaviour
     /// </summary>
     public void OnConfirmButtonPressed()
     {
+        // A page button (especially X) uses the same physical index pinch.
+        // Never let that click also become a global mission confirmation.
+        if (IsMissionPinchSuppressedByPageUI() || pageRootOpen)
+        {
+            return;
+        }
+
         // 검지 핀치와 UI [확인] 버튼이 같은 프레임에 함께 들어와도 한 번만 처리합니다.
         if (Time.unscaledTime - lastConfirmInputTime < confirmInputCooldown)
         {
@@ -1546,51 +1630,133 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
+        if (missionController == null)
+        {
+            missionController = FindFirstObjectByType<DustinyMissionController>();
+        }
+
+        // NOTE를 눌러 나타난 "오늘의 미션을 진행할래?" 화면에서는
+        // 검지 핀치가 최초 스캔을 시작합니다.
+        if (missionController != null && missionController.IsAwaitingMissionStart)
+        {
+            missionController.ConfirmMissionStartFromPrompt();
+            return;
+        }
+
+        // 탐지 결과 확인 화면에서는 현재 결과를 미션 노트에 추가합니다.
+        if (missionController != null && missionController.IsAwaitingMissionConfirmation)
+        {
+            missionController.ConfirmPendingMissionScan();
+            return;
+        }
+
+        // 그 외의 말풍선/디스크립션은 검지 핀치 한 번으로 닫습니다.
+        if (IsDialoguePanelVisible())
+        {
+            HideDialoguePanels();
+            return;
+        }
+
         missionController?.HandleMissionConfirmPressed();
     }
 
     /// <summary>
-    /// 예전 UnityEvent 연결을 깨지 않기 위한 호환 메서드입니다.
-    /// 자동 완료는 제거되었으며 체크박스 또는 재스캔만 사용합니다.
+    /// 탐지 결과 확인 화면에서 오른손 중지 핀치로 현재 결과를 버리고
+    /// 미션 생성용 스캔을 다시 시작합니다.
     /// </summary>
-    public void CompleteMission()
+    public void OnRetryMissionScanPinchPressed()
     {
-        Debug.LogWarning("[DustinyDemoFlow] 자동 미션 완료는 제거되었습니다. 체크박스 또는 재스캔을 사용하세요.");
+        if (Time.unscaledTime - lastConfirmInputTime < confirmInputCooldown)
+        {
+            return;
+        }
+
+        if (missionController == null)
+        {
+            missionController = FindFirstObjectByType<DustinyMissionController>();
+        }
+
+        if (missionController == null || !missionController.IsAwaitingMissionConfirmation)
+        {
+            return;
+        }
+
+        lastConfirmInputTime = Time.unscaledTime;
+        missionController.HandleMissionRetryPinchPressed();
+    }
+
+    /// <summary>
+    /// 오른손 약지 핀치의 검사 재스캔 입력입니다.
+    /// 활성 미션에서 물건 정리 결과를 다시 검사합니다.
+    /// </summary>
+    public void OnMissionScanRingPinchPressed()
+    {
+        if (Time.unscaledTime - lastConfirmInputTime < confirmInputCooldown || onboardingActive)
+        {
+            return;
+        }
+
+        if (missionController == null)
+        {
+            missionController = FindFirstObjectByType<DustinyMissionController>();
+        }
+
+        if (!IsNotePageOpen ||
+            missionController == null ||
+            !missionController.CanHandleRingPinchScan)
+        {
+            return;
+        }
+
+        lastConfirmInputTime = Time.unscaledTime;
+        missionController.HandleMissionScanRingPinchPressed();
+    }
+
+    /// <summary>
+    /// 왼손 약지 핀치 디버그 입력입니다.
+    /// 오늘 미션 진행도, 현재 미션 카드, 보송력, 크레딧,
+    /// 구매 아이템과 장착 아이템을 즉시 초기화합니다.
+    /// </summary>
+    public void OnResetAllProgressLeftRingPinchPressed()
+    {
+        if (!leftRingPinchResetsMissionCleanlinessAndCredit ||
+            Time.unscaledTime - lastResetInputTime < resetInputCooldown)
+        {
+            return;
+        }
+
+        lastResetInputTime = Time.unscaledTime;
+        lastConfirmInputTime = Time.unscaledTime;
+
+        if (missionController == null)
+        {
+            missionController = FindFirstObjectByType<DustinyMissionController>();
+        }
+
+        if (missionController == null)
+        {
+            ShowDescriptionMessage("초기화할 미션 컨트롤러를 찾지 못했어!");
+            Debug.LogError("[DustinyDemoFlow] 왼손 약지 초기화 실패: DustinyMissionController가 없습니다.");
+            return;
+        }
+
+        // 테스트 중 언제 눌러도 초기화 결과가 유지되도록 오프닝 입력을 종료합니다.
+        onboardingActive = false;
+        onboardingState = OnboardingState.Finished;
+
+        // 미션/보송력/크레딧 초기화와 같은 입력에서 아이템도 함께 초기화합니다.
+        ShopInventoryManager.Instance?.ResetAllItemState();
+        missionController.ResetMissionCleanlinessAndCreditFromLeftRingPinch();
     }
 
     public void NotifyMissionCompleted()
     {
-        missionRoundActive = false;
-
-        if (scanZoneObject != null)
-        {
-            scanZoneObject.SetActive(false);
-        }
+        SetScanZoneVisible(false);
 
         if (changeDurryColorOnMissionComplete)
         {
             RecoverDurryByCleanliness();
         }
-
-        if (onboardingActive &&
-            (onboardingState == OnboardingState.MissionDescription ||
-             onboardingState == OnboardingState.MissionInProgress))
-        {
-            onboardingActive = false;
-            onboardingState = OnboardingState.Finished;
-        }
-    }
-
-    private string BuildCleanlinessMessage(string prefix)
-    {
-        if (CleanlinessManager.Instance == null)
-        {
-            return prefix;
-        }
-
-        int score = CleanlinessManager.Instance.CleanlinessScore;
-        string stateName = CleanlinessManager.Instance.GetBosongStateName(score);
-        return $"{prefix}\n현재 보송력 {score} / 4\n{stateName}";
     }
 
     #endregion
@@ -1629,18 +1795,102 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
-    private void UpdateRightIndexPinchInput()
+    private void ResolveLeftHandIfNeeded()
+    {
+        if (!autoFindLeftOVRHandIfMissing || leftHand != null)
+        {
+            return;
+        }
+
+        OVRHand[] hands = FindObjectsByType<OVRHand>(
+            FindObjectsInactive.Include,
+            FindObjectsSortMode.None
+        );
+
+        foreach (OVRHand hand in hands)
+        {
+            if (hand == null)
+            {
+                continue;
+            }
+
+            string objectName = hand.gameObject.name.ToLowerInvariant();
+            string parentName = hand.transform.parent != null
+                ? hand.transform.parent.name.ToLowerInvariant()
+                : string.Empty;
+
+            if ((objectName + " " + parentName).Contains("left"))
+            {
+                leftHand = hand;
+                return;
+            }
+        }
+    }
+
+    private void UpdateHandPinchInput()
     {
         ResolveRightHandIfNeeded();
+        ResolveLeftHandIfNeeded();
 
-        bool isTracked = rightHand != null && rightHand.IsTracked && rightHand.IsDataValid;
-        bool isPinching = isTracked &&
-                          rightHand.GetFingerIsPinching(OVRHand.HandFinger.Index);
+        bool isRightTracked = rightHand != null && rightHand.IsTracked && rightHand.IsDataValid;
+        bool isIndexPinching = isRightTracked &&
+                               rightHand.GetFingerIsPinching(OVRHand.HandFinger.Index);
+        bool isMiddlePinching = isRightTracked &&
+                                rightHand.GetFingerIsPinching(OVRHand.HandFinger.Middle);
+        bool isRingPinching = isRightTracked &&
+                              rightHand.GetFingerIsPinching(OVRHand.HandFinger.Ring);
 
-        bool pinchDown = isPinching && !wasRightIndexPinching;
-        wasRightIndexPinching = isPinching;
+        bool isLeftTracked = leftHand != null && leftHand.IsTracked && leftHand.IsDataValid;
+        bool isLeftRingPinching = isLeftTracked &&
+                                  leftHand.GetFingerIsPinching(OVRHand.HandFinger.Ring);
 
-        if (pinchDown)
+        bool indexPinchDown = isIndexPinching && !wasRightIndexPinching;
+        bool middlePinchDown = isMiddlePinching && !wasRightMiddlePinching;
+        bool ringPinchDown = isRingPinching && !wasRightRingPinching;
+        bool leftRingPinchDown = isLeftRingPinching && !wasLeftRingPinching;
+
+        wasRightIndexPinching = isIndexPinching;
+        wasRightMiddlePinching = isMiddlePinching;
+        wasRightRingPinching = isRingPinching;
+        wasLeftRingPinching = isLeftRingPinching;
+
+        if ((indexPinchDown || middlePinchDown || ringPinchDown || leftRingPinchDown) &&
+            missionController == null)
+        {
+            missionController = FindFirstObjectByType<DustinyMissionController>();
+        }
+
+        // 왼손 약지 핀치는 디버그 전체 초기화 입력이며 다른 입력보다 먼저 처리합니다.
+        if (leftRingPinchResetsMissionCleanlinessAndCredit && leftRingPinchDown)
+        {
+            OnResetAllProgressLeftRingPinchPressed();
+            return;
+        }
+
+        // 탐지 승인 화면에서 두 손가락이 거의 동시에 감지되면
+        // 중지 핀치의 '다시 스캔'을 우선해 잘못된 미션 추가를 막습니다.
+        if (rightMiddlePinchRetriesMissionScan &&
+            middlePinchDown &&
+            missionController != null &&
+            missionController.IsAwaitingMissionConfirmation)
+        {
+            OnRetryMissionScanPinchPressed();
+            return;
+        }
+
+        // 약지 핀치는 노트 버튼의 대체 입력입니다.
+        // Ready이면 최초 스캔, Active이면 검사 재스캔을 실행합니다.
+        if (rightRingPinchStartsOrRescans &&
+            ringPinchDown &&
+            IsNotePageOpen &&
+            missionController != null &&
+            missionController.CanHandleRingPinchScan)
+        {
+            OnMissionScanRingPinchPressed();
+            return;
+        }
+
+        if (rightIndexPinchConfirms && indexPinchDown)
         {
             OnConfirmButtonPressed();
         }
@@ -1738,6 +1988,8 @@ public class DustinyDemoFlow : MonoBehaviour
 
     public void PlayDurryExpression(string expressionName)
     {
+        expressionName = NormalizeLegacyExpressionName(expressionName);
+
         if (string.IsNullOrWhiteSpace(expressionName))
         {
             return;
@@ -1786,6 +2038,17 @@ public class DustinyDemoFlow : MonoBehaviour
         {
             Debug.LogWarning($"[더리 표정] Animator에서 '{expressionName}' 상태 또는 Trigger를 찾지 못했습니다.");
         }
+    }
+
+    private static string NormalizeLegacyExpressionName(string expressionName)
+    {
+        return string.Equals(
+            expressionName,
+            "Woried",
+            System.StringComparison.OrdinalIgnoreCase
+        )
+            ? "Worried"
+            : expressionName;
     }
 
     private int FindAnimatorTriggerHash(string parameterName)
@@ -1917,6 +2180,14 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
+    public void SetScanZoneVisible(bool visible)
+    {
+        if (scanZoneObject != null)
+        {
+            scanZoneObject.SetActive(visible);
+        }
+    }
+
     private void SetupScanZone()
     {
         if (scanZoneObject == null)
@@ -1931,7 +2202,7 @@ public class DustinyDemoFlow : MonoBehaviour
 
         scanZoneRenderer = scanZoneObject.GetComponent<Renderer>();
         SetupScanZoneMaterial();
-        scanZoneObject.SetActive(true);
+        scanZoneObject.SetActive(false);
     }
 
     private void PlaceScanZoneInFrontOfUser(Vector3 forward)
