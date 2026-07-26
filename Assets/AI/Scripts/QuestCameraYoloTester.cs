@@ -45,6 +45,8 @@ public class QuestCameraYoloTester : MonoBehaviour
 
     [Header("[ 스캔 UI ]")]
     [SerializeField] private GameObject scanDimOverlay;
+    [Tooltip("검정 스캔 오버레이는 모든 상황에서 사용하지 않습니다.")]
+    [SerializeField] private bool disableScanDimOverlayCompletely = true;
     [SerializeField] private GameObject scanBox;
     [TextArea(2, 4)] [SerializeField] private string scanningMessage = "스캔 중...";
     [TextArea(2, 4)] [SerializeField] private string waitingForCameraMessage = "카메라 준비 중...";
@@ -710,10 +712,24 @@ public class QuestCameraYoloTester : MonoBehaviour
 
     private void SetScanningUI(bool visible)
     {
+        // 검정 ScanDimOverlay는 항상 비활성화합니다.
+        disableScanDimOverlayCompletely = true;
+
         if (scanDimOverlay != null)
         {
-            scanDimOverlay.SetActive(visible);
+            Image dimImage = scanDimOverlay.GetComponent<Image>();
+            if (dimImage != null)
+            {
+                Color color = dimImage.color;
+                color.a = 0f;
+                dimImage.color = color;
+                dimImage.raycastTarget = false;
+            }
+
+            scanDimOverlay.SetActive(false);
         }
+
+        // 스캔 프레임/안내 박스는 유지합니다.
         if (scanBox != null)
         {
             scanBox.SetActive(visible);

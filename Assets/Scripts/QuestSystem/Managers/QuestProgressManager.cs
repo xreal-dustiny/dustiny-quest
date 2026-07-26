@@ -282,9 +282,6 @@ public class QuestProgressManager : MonoBehaviour
                 CreditManager.Instance?.AddCredit(RoundRewardCreditValue);
             }
 
-            // Bosong power is part of the daily round reward, so it is also capped at three.
-            CleanlinessManager.Instance?.OnCleanSuccess();
-
             bool reachedRewardLimitThisRound =
                 !isTodayMissionCompleted &&
                 completedCleaningRoundsToday >= requiredCleaningRoundsPerDay;
@@ -296,6 +293,10 @@ public class QuestProgressManager : MonoBehaviour
                 ProcessContinuousCleanCheck();
             }
         }
+
+        // 보송력은 코인 일일 한도와 무관합니다.
+        // 첫 3회 이후의 추가 미션까지 포함해 라운드 완료마다 +1, 최대 4입니다.
+        CleanlinessManager.Instance?.OnCleanSuccess();
 
         SaveDailyProgress();
 

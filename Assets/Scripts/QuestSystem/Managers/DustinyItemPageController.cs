@@ -62,8 +62,15 @@ public class DustinyItemPageController : MonoBehaviour
 
     private void Awake()
     {
+        // 상점과 마이페이지에서는 카드를 선택하면 항상 더리에게 미리보기가 적용됩니다.
+        previewSelectedItemOnDurry = true;
         ResolveAllReferences();
         HideTemplate();
+    }
+
+    private void OnValidate()
+    {
+        previewSelectedItemOnDurry = true;
     }
 
     private void OnEnable()
@@ -114,7 +121,10 @@ public class DustinyItemPageController : MonoBehaviour
 
         if (previewSelectedItemOnDurry)
         {
+            // Shop/MyPage 모두 전역 미리보기 하나만 사용합니다.
+            // 새 카드를 선택하면 이전 미리보기는 자동으로 취소됩니다.
             manager.PreviewItem(item.itemId);
+            RefreshDurryItemVisuals();
         }
 
         RefreshCardsOnly();
@@ -141,7 +151,13 @@ public class DustinyItemPageController : MonoBehaviour
             return;
         }
 
-        manager.EquipItem(selectedItemId);
+        // ShopInventoryManager가 이전 착용 아이템을 자동 해제하고
+        // 선택한 아이템 하나만 전역 착용 상태로 저장합니다.
+        if (manager.EquipItem(selectedItemId))
+        {
+            RefreshDurryItemVisuals();
+        }
+
         RefreshPage();
     }
 
@@ -252,8 +268,26 @@ public class DustinyItemPageController : MonoBehaviour
     {
         selectedItemId = string.Empty;
         ShopInventoryManager.Instance?.ClearAllPreviews();
+        RefreshDurryItemVisuals();
         RefreshCardsOnly();
         RefreshInformationBox();
+    }
+
+    private static void RefreshDurryItemVisuals()
+    {
+        DustinyEquippedItemVisual[] visuals =
+            FindObjectsByType<DustinyEquippedItemVisual>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None
+            );
+
+        foreach (DustinyEquippedItemVisual visual in visuals)
+        {
+            if (visual != null)
+            {
+                visual.ForceRefreshVisual();
+            }
+        }
     }
 
     private void HandleInventoryChanged()

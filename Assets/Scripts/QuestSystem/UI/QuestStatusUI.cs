@@ -27,6 +27,9 @@ public class QuestStatusUI : MonoBehaviour
     [Tooltip("NotePage 안의 Scroll View 오브젝트에 붙은 ScrollRect입니다.")]
     [SerializeField] private ScrollRect missionScrollRect;
 
+    [Tooltip("Scroll View의 Viewport RectTransform입니다. 비워두면 자동 탐색합니다.")]
+    [SerializeField] private RectTransform missionViewport;
+
     [Tooltip("Scroll View/Viewport/Content의 Content RectTransform입니다.")]
     [SerializeField] private RectTransform missionContent;
 
@@ -49,7 +52,20 @@ public class QuestStatusUI : MonoBehaviour
     [SerializeField, Min(0)] private int contentPaddingRight = 0;
 
     [Tooltip("켜면 Scroll View 루트 높이를 카드 3개가 정확히 보이도록 자동 계산합니다.")]
-    [SerializeField] private bool autoResizeScrollAreaForVisibleCards = true;
+    [SerializeField] private bool autoResizeScrollAreaForVisibleCards = false;
+
+    [Tooltip("현재 Inspector에서 맞춰 둔 Scroll View와 Viewport 크기를 코드가 변경하지 않도록 합니다.")]
+    [SerializeField] private bool preserveInspectorScrollAreaSize = true;
+
+    [Header("< Viewport 잘라내기 >")]
+    [Tooltip("Viewport에 RectMask2D를 강제로 적용하여 영역 밖 미션 카드를 숨깁니다.")]
+    [SerializeField] private bool forceViewportRectMask = true;
+
+    [Tooltip("기존 Mask와 RectMask2D가 동시에 동작하지 않도록 일반 Mask를 비활성화합니다.")]
+    [SerializeField] private bool disableLegacyViewportMask = true;
+
+    [Tooltip("동적으로 생성된 카드의 TMP/Image가 Viewport 마스크를 따르도록 강제합니다.")]
+    [SerializeField] private bool forceMissionGraphicsMaskable = true;
 
     [Tooltip("켜면 Content에 VerticalLayoutGroup과 ContentSizeFitter를 자동 구성합니다.")]
     [SerializeField] private bool autoConfigureContentLayout = true;
@@ -322,6 +338,8 @@ public class QuestStatusUI : MonoBehaviour
             );
         }
 
+        EnforceMissionCardMasking();
+
         bool hasQuests = quests.Count > 0;
         if (emptyStateObject != null)
         {
@@ -395,6 +413,11 @@ public class QuestStatusUI : MonoBehaviour
 
     private void ResolveScrollReferences()
     {
+        if (missionViewport == null && missionScrollRect != null)
+        {
+            missionViewport = missionScrollRect.viewport;
+        }
+
         if (missionContent == null && missionScrollRect != null)
         {
             missionContent = missionScrollRect.content;
@@ -469,6 +492,16 @@ public class QuestStatusUI : MonoBehaviour
             {
                 missionScrollRect.viewport = viewportTransform as RectTransform;
             }
+        }
+
+        if (missionViewport == null && missionScrollRect != null)
+        {
+            missionViewport = missionScrollRect.viewport;
+        }
+
+        if (missionScrollRect != null && missionViewport != null)
+        {
+            missionScrollRect.viewport = missionViewport;
         }
 
         if (missionCardTemplate == null && missionContent != null)
@@ -570,6 +603,8 @@ public class QuestStatusUI : MonoBehaviour
             }
         }
 
+        ConfigureViewportClipping();
+
         if (missionContent != null)
         {
             missionContent.anchorMin = new Vector2(0f, 1f);
@@ -618,7 +653,9 @@ public class QuestStatusUI : MonoBehaviour
             }
         }
 
-        if (missionScrollRect != null && autoResizeScrollAreaForVisibleCards)
+        if (missionScrollRect != null &&
+            autoResizeScrollAreaForVisibleCards &&
+            !preserveInspectorScrollAreaSize)
         {
             RectTransform scrollAreaRect = missionScrollRect.GetComponent<RectTransform>();
             if (scrollAreaRect != null)
@@ -637,6 +674,83 @@ public class QuestStatusUI : MonoBehaviour
         }
     }
 
+    private void ConfigureViewportClipping()
+    {
+        if (missionScrollRect == null)
+        {
+            return;
+        }
+
+        if (missionViewport == null)
+        {
+            missionViewport = missionScrollRect.viewport;
+        }
+
+        if (missionViewport == null)
+        {
+            Transform viewportTransform = FindChildExact(missionScrollRect.transform, "Viewport");
+            missionViewport = viewportTransform as RectTransform;
+        }
+
+        if (missionViewport == null)
+        {
+            return;
+        }
+
+        missionScrollRect.viewport = missionViewport;
+
+        Mask legacyMask = missionViewport.GetComponent<Mask>();
+        if (legacyMask != null && disableLegacyViewportMask)
+        {
+            legacyMask.enabled = false;
+        }
+
+        if (forceViewportRectMask)
+        {
+            RectMask2D rectMask = missionViewport.GetComponent<RectMask2D>();
+            if (rectMask == null && Application.isPlaying)
+            {
+                rectMask = missionViewport.gameObject.AddComponent<RectMask2D>();
+            }
+
+            if (rectMask != null)
+            {
+                rectMask.enabled = true;
+                rectMask.padding = Vector4.zero;
+            }
+        }
+    }
+
+    private void EnforceMissionCardMasking()
+    {
+        if (!forceMissionGraphicsMaskable || missionContent == null)
+        {
+            return;
+        }
+
+        MaskableGraphic[] graphics = missionContent.GetComponentsInChildren<MaskableGraphic>(true);
+        foreach (MaskableGraphic graphic in graphics)
+        {
+            if (graphic != null)
+            {
+                graphic.maskable = true;
+            }
+        }
+
+        // Override Sorting Canvas가 카드 안에 있으면 부모 Viewport 마스크를 벗어날 수 있습니다.
+        // 미션 카드에 붙은 중첩 Canvas만 정렬 오버라이드를 해제합니다.
+        Canvas[] nestedCanvases = missionContent.GetComponentsInChildren<Canvas>(true);
+        foreach (Canvas nestedCanvas in nestedCanvases)
+        {
+            if (nestedCanvas == null || nestedCanvas.transform == missionScrollRect.transform)
+            {
+                continue;
+            }
+
+            nestedCanvas.overrideSorting = false;
+        }
+    }
+
     private void RebuildScrollLayout()
     {
         if (missionContent == null)
@@ -644,6 +758,8 @@ public class QuestStatusUI : MonoBehaviour
             return;
         }
 
+        ConfigureViewportClipping();
+        EnforceMissionCardMasking();
         Canvas.ForceUpdateCanvases();
         LayoutRebuilder.ForceRebuildLayoutImmediate(missionContent);
         Canvas.ForceUpdateCanvases();

@@ -5,7 +5,7 @@ using UnityEngine;
 /// <summary>
 /// 더리의 보송력을 저장하고 관리합니다.
 /// - 범위: 0 ~ 4
-/// - 최초 시작값: 2
+/// - 최초 시작값: 1
 /// - 청소 라운드 완료: +1
 /// - 최대값 4 유지
 /// - 청소하지 않으면 2시간마다 -1
@@ -18,13 +18,14 @@ public class CleanlinessManager : MonoBehaviour
 
     private const int MinimumScore = 0;
     private const int MaximumScore = 4;
-    private const int InitialScore = 2;
+    private const int InitialScore = 1;
     private const float DefaultDecayHours = 2f;
 
-    // 이전 버전 저장값과 충돌하지 않도록 V3 키를 사용합니다.
-    private const string InitializedKey = "Dustiny_CleanlinessInitialized_V3";
-    private const string ScoreKey = "Dustiny_CleanlinessScore_V3";
-    private const string ReferenceTimeKey = "Dustiny_CleanlinessReferenceTime_V3";
+    // V6 키는 이전 테스트 저장값과 분리합니다.
+    // 이 버전을 처음 실행하는 단 한 번만 L1에서 시작하고, 이후에는 정상 저장/성장합니다.
+    private const string InitializedKey = "Dustiny_CleanlinessInitialized_V6";
+    private const string ScoreKey = "Dustiny_CleanlinessScore_V6";
+    private const string ReferenceTimeKey = "Dustiny_CleanlinessReferenceTime_V6";
 
     [Header("[ 보송력 시스템 (0 ~ 4) ]")]
     [SerializeField, Range(MinimumScore, MaximumScore)]
@@ -130,14 +131,14 @@ public class CleanlinessManager : MonoBehaviour
         }
     }
 
-    [ContextMenu("Debug/Reset Cleanliness To 2")]
+    [ContextMenu("Debug/Reset Cleanliness To 1")]
     public void ResetToDefaultForDebug()
     {
         cleanlinessScore = InitialScore;
         decayReferenceTime = DateTime.Now;
         SaveData();
         OnStateChanged?.Invoke(cleanlinessScore);
-        Debug.Log("[보송력 초기화] 보송력을 2로 초기화했습니다.");
+        Debug.Log("[보송력 초기화] 보송력을 1로 초기화했습니다.");
     }
 
     private void SetScore(int newScore, bool notifyEvenWhenUnchanged)

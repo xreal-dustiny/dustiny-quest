@@ -11,12 +11,14 @@ public class CreditManager : MonoBehaviour
     public static CreditManager Instance { get; private set; }
     public static event Action<int> OnCreditChanged;
 
-    private const string CreditKey = "Dustiny_CurrentCredit_V2";
+    private const int InitialCredit = 100;
+    // V3 키를 사용해 기존 테스트용 0 CR 저장값과 분리합니다.
+    private const string CreditKey = "Dustiny_CurrentCredit_V3";
     private const string DailyCreditDateKey = "Dustiny_DailyCreditDate_V1";
     private const string DailyEarnedCreditKey = "Dustiny_DailyEarnedCredit_V1";
 
     [Header("[ 크레딧 시스템 ]")]
-    [SerializeField, Min(0)] private int currentCredit = 0;
+    [SerializeField, Min(0)] private int currentCredit = InitialCredit;
 
     [Header("[ 하루 획득 한도 ]")]
     [SerializeField, Min(0)] private int dailyEarnedCreditCap = 30;
@@ -40,7 +42,7 @@ public class CreditManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            currentCredit = Mathf.Max(0, PlayerPrefs.GetInt(CreditKey, currentCredit));
+            currentCredit = Mathf.Max(0, PlayerPrefs.GetInt(CreditKey, InitialCredit));
             EnsureDailyEarnState();
             return;
         }
@@ -148,7 +150,7 @@ public class CreditManager : MonoBehaviour
     [ContextMenu("Reset Credit")]
     public void ResetCreditForDebug()
     {
-        currentCredit = 0;
+        currentCredit = InitialCredit;
         earnedCreditToday = 0;
         PlayerPrefs.SetString(DailyCreditDateKey, DateTime.Today.ToString("yyyy-MM-dd"));
         SaveData();

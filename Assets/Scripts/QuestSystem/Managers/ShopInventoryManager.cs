@@ -5,8 +5,10 @@ using UnityEngine;
 /// <summary>
 /// Owns the Dustiny item catalog and persists purchased/equipped item IDs.
 ///
-/// Card icons are assigned once in this manager and are reused by both
-/// ShopPage and MyPage. No item data is assigned to individual cards.
+/// Important rule:
+/// - The player can equip exactly one item at a time across every category.
+/// - Shop/MyPage preview also shows exactly one temporary item at a time.
+/// - Preview is never saved and returns to the saved equipped item when the page closes.
 /// </summary>
 public class ShopInventoryManager : MonoBehaviour
 {
@@ -20,7 +22,7 @@ public class ShopInventoryManager : MonoBehaviour
         [TextArea(2, 5)]
         public string description = "아이템 설명";
 
-        [Tooltip("같은 카테고리에서는 한 아이템만 착용됩니다. 예: head, body, back")]
+        [Tooltip("아이템의 부착 위치 자동 탐색에 사용합니다. 착용 가능 개수와는 관계없으며, 전체 아이템 중 한 개만 착용됩니다.")]
         public string category = "head";
 
         [Range(10, 20)]
@@ -31,8 +33,11 @@ public class ShopInventoryManager : MonoBehaviour
         public Sprite icon;
 
         [Header("Durry Visual")]
-        [Tooltip("Durry_Main 아래 실제 착용 오브젝트 이름입니다. 비워두면 itemId로 기본 이름을 자동 지정합니다.")]
+        [Tooltip("더리 비주얼 루트 아래 실제 착용 오브젝트 이름입니다.")]
         public string visualObjectName;
+
+        [Tooltip("비워두면 category를 기준으로 머리/몸통 뼈를 자동 탐색합니다. 정확한 뼈 이름을 알고 있을 때만 입력하세요.")]
+        public string attachmentTargetName;
     }
 
     [Serializable]
@@ -41,6 +46,7 @@ public class ShopInventoryManager : MonoBehaviour
         public List<string> values = new List<string>();
     }
 
+    // Legacy V2 save format. It allowed one item per category.
     [Serializable]
     private class EquippedItemEntry
     {
@@ -62,7 +68,8 @@ public class ShopInventoryManager : MonoBehaviour
     public static event Action OnPreviewChanged;
 
     private const string OwnedItemsKey = "Dustiny_OwnedItems_V2";
-    private const string EquippedItemsKey = "Dustiny_EquippedItems_V2";
+    private const string EquippedSingleItemKey = "Dustiny_EquippedSingleItem_V3";
+    private const string LegacyEquippedItemsKey = "Dustiny_EquippedItems_V2";
 
     [Header("[ 더스티니 아이템 카탈로그 ]")]
     [Tooltip("아이콘은 여기에서 아이템마다 한 번만 연결합니다. 두 페이지가 같은 아이콘을 재사용합니다.")]
@@ -74,19 +81,19 @@ public class ShopInventoryManager : MonoBehaviour
 
     [Header("[ 저장된 인벤토리 - Runtime Read Only ]")]
     [SerializeField] private List<string> ownedItemIds = new List<string>();
+    [SerializeField] private string equippedItemId = string.Empty;
+    [SerializeField] private string previewItemId = string.Empty;
 
     private readonly Dictionary<string, ShopItemDefinition> itemById =
         new Dictionary<string, ShopItemDefinition>();
 
-    private readonly Dictionary<string, string> equippedItems =
-        new Dictionary<string, string>();
-
-    // Preview state is temporary and is never saved.
-    private readonly Dictionary<string, string> previewItems =
-        new Dictionary<string, string>();
-
     public IReadOnlyList<ShopItemDefinition> ShopItems => shopItems;
     public IReadOnlyList<string> OwnedItemIds => ownedItemIds;
+    public string EquippedItemId => equippedItemId;
+    public string PreviewItemId => previewItemId;
+    public string DisplayedItemId => !string.IsNullOrWhiteSpace(previewItemId)
+        ? previewItemId
+        : equippedItemId;
 
     private void Awake()
     {
@@ -196,6 +203,9 @@ public class ShopInventoryManager : MonoBehaviour
         Debug.Log($"[인벤토리] 새로운 아이템 저장: {item.itemId}");
     }
 
+    /// <summary>
+    /// Equips one item globally. Any previously equipped item is automatically replaced.
+    /// </summary>
     public bool EquipItem(string itemId)
     {
         ShopItemDefinition item = GetItem(itemId);
@@ -205,38 +215,64 @@ public class ShopInventoryManager : MonoBehaviour
             return false;
         }
 
-        return EquipItem(item.itemId, item.category);
-    }
-
-    public bool EquipItem(string itemId, string category)
-    {
-        if (!IsOwned(itemId))
+        if (!IsOwned(item.itemId))
         {
-            Debug.LogWarning($"[장착 실패] 보유하지 않은 아이템입니다: {itemId}");
+            Debug.LogWarning($"[장착 실패] 보유하지 않은 아이템입니다: {item.itemId}");
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(category))
-        {
-            Debug.LogWarning("[장착 실패] 카테고리가 비어 있습니다.");
-            return false;
-        }
-
-        string normalizedCategory = category.Trim();
-        string normalizedItemId = itemId.Trim();
-
-        equippedItems[normalizedCategory] = normalizedItemId;
-        previewItems.Remove(normalizedCategory);
+        string previousItemId = equippedItemId;
+        equippedItemId = item.itemId;
+        previewItemId = string.Empty;
 
         SaveData();
-        OnItemEquipped?.Invoke(normalizedItemId);
+        OnItemEquipped?.Invoke(equippedItemId);
         OnInventoryChanged?.Invoke();
         OnPreviewChanged?.Invoke();
 
-        Debug.Log($"[장착 완료] {normalizedCategory}: {normalizedItemId}");
+        if (!string.IsNullOrWhiteSpace(previousItemId) && previousItemId != equippedItemId)
+        {
+            Debug.Log($"[장착 교체] {previousItemId} 해제 → {equippedItemId} 장착");
+        }
+        else
+        {
+            Debug.Log($"[장착 완료] {equippedItemId}");
+        }
+
         return true;
     }
 
+    /// <summary>
+    /// Legacy-compatible overload. Category is ignored because only one global item can be equipped.
+    /// </summary>
+    public bool EquipItem(string itemId, string category)
+    {
+        return EquipItem(itemId);
+    }
+
+    public bool UnequipItem()
+    {
+        bool hadEquippedItem = !string.IsNullOrWhiteSpace(equippedItemId);
+        bool hadPreviewItem = !string.IsNullOrWhiteSpace(previewItemId);
+
+        equippedItemId = string.Empty;
+        previewItemId = string.Empty;
+
+        if (!hadEquippedItem && !hadPreviewItem)
+        {
+            return false;
+        }
+
+        SaveData();
+        OnInventoryChanged?.Invoke();
+        OnPreviewChanged?.Invoke();
+        Debug.Log("[장착 해제] 현재 착용 아이템을 해제했습니다.");
+        return true;
+    }
+
+    /// <summary>
+    /// Legacy-compatible method. The equipped item is removed only when it belongs to the requested category.
+    /// </summary>
     public bool UnequipCategory(string category)
     {
         if (string.IsNullOrWhiteSpace(category))
@@ -244,106 +280,142 @@ public class ShopInventoryManager : MonoBehaviour
             return false;
         }
 
-        string normalizedCategory = category.Trim();
-        bool removed = equippedItems.Remove(normalizedCategory);
-        previewItems.Remove(normalizedCategory);
-
-        if (!removed)
+        ShopItemDefinition equippedItem = GetItem(equippedItemId);
+        if (equippedItem == null || !string.Equals(
+                equippedItem.category,
+                category.Trim(),
+                StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        SaveData();
-        OnInventoryChanged?.Invoke();
-        OnPreviewChanged?.Invoke();
-        return true;
+        return UnequipItem();
     }
 
-    public string GetEquippedItemId(string category)
+    public string GetEquippedItemId()
     {
-        if (string.IsNullOrWhiteSpace(category))
-        {
-            return string.Empty;
-        }
-
-        return equippedItems.TryGetValue(category.Trim(), out string itemId)
-            ? itemId
-            : string.Empty;
+        return equippedItemId;
     }
 
     /// <summary>
-    /// Temporary page preview takes priority over the saved equipped item.
+    /// Legacy-compatible category lookup.
     /// </summary>
-    public string GetDisplayedItemId(string category)
+    public string GetEquippedItemId(string category)
     {
-        if (string.IsNullOrWhiteSpace(category))
+        if (string.IsNullOrWhiteSpace(equippedItemId))
         {
             return string.Empty;
         }
 
-        string normalizedCategory = category.Trim();
-        if (previewItems.TryGetValue(normalizedCategory, out string previewItemId))
+        if (string.IsNullOrWhiteSpace(category))
         {
-            return previewItemId;
+            return equippedItemId;
         }
 
-        return GetEquippedItemId(normalizedCategory);
+        ShopItemDefinition item = GetItem(equippedItemId);
+        return item != null && string.Equals(
+            item.category,
+            category.Trim(),
+            StringComparison.OrdinalIgnoreCase)
+                ? equippedItemId
+                : string.Empty;
     }
 
+    public string GetDisplayedItemId()
+    {
+        return DisplayedItemId;
+    }
+
+    /// <summary>
+    /// Legacy-compatible category lookup. Preview still has global priority.
+    /// </summary>
+    public string GetDisplayedItemId(string category)
+    {
+        string displayedItemId = DisplayedItemId;
+        if (string.IsNullOrWhiteSpace(displayedItemId))
+        {
+            return string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(category))
+        {
+            return displayedItemId;
+        }
+
+        ShopItemDefinition item = GetItem(displayedItemId);
+        return item != null && string.Equals(
+            item.category,
+            category.Trim(),
+            StringComparison.OrdinalIgnoreCase)
+                ? displayedItemId
+                : string.Empty;
+    }
+
+    /// <summary>
+    /// Shows one temporary item globally. Selecting another card immediately cancels the old preview.
+    /// </summary>
     public bool PreviewItem(string itemId)
     {
         ShopItemDefinition item = GetItem(itemId);
-        if (item == null || string.IsNullOrWhiteSpace(item.category))
+        if (item == null)
         {
             return false;
         }
 
-        previewItems[item.category.Trim()] = item.itemId;
+        if (previewItemId == item.itemId)
+        {
+            return true;
+        }
+
+        previewItemId = item.itemId;
         OnPreviewChanged?.Invoke();
         return true;
     }
 
     public void ClearPreviewForCategory(string category)
     {
-        if (string.IsNullOrWhiteSpace(category))
+        if (string.IsNullOrWhiteSpace(previewItemId))
         {
             return;
         }
 
-        if (previewItems.Remove(category.Trim()))
+        if (string.IsNullOrWhiteSpace(category))
         {
-            OnPreviewChanged?.Invoke();
+            ClearAllPreviews();
+            return;
+        }
+
+        ShopItemDefinition previewItem = GetItem(previewItemId);
+        if (previewItem != null && string.Equals(
+                previewItem.category,
+                category.Trim(),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            ClearAllPreviews();
         }
     }
 
     public void ClearAllPreviews()
     {
-        if (previewItems.Count == 0)
+        if (string.IsNullOrWhiteSpace(previewItemId))
         {
             return;
         }
 
-        previewItems.Clear();
+        previewItemId = string.Empty;
         OnPreviewChanged?.Invoke();
     }
 
     public bool IsEquipped(string itemId)
     {
-        if (string.IsNullOrWhiteSpace(itemId))
-        {
-            return false;
-        }
+        return !string.IsNullOrWhiteSpace(itemId) &&
+               equippedItemId == itemId.Trim();
+    }
 
-        string normalizedId = itemId.Trim();
-        foreach (string equippedId in equippedItems.Values)
-        {
-            if (equippedId == normalizedId)
-            {
-                return true;
-            }
-        }
-
-        return false;
+    public bool IsDisplayed(string itemId)
+    {
+        return !string.IsNullOrWhiteSpace(itemId) &&
+               DisplayedItemId == itemId.Trim();
     }
 
     public bool IsOwned(string itemId)
@@ -397,11 +469,12 @@ public class ShopInventoryManager : MonoBehaviour
     public void ResetAllItemState()
     {
         ownedItemIds.Clear();
-        equippedItems.Clear();
-        previewItems.Clear();
+        equippedItemId = string.Empty;
+        previewItemId = string.Empty;
 
         PlayerPrefs.DeleteKey(OwnedItemsKey);
-        PlayerPrefs.DeleteKey(EquippedItemsKey);
+        PlayerPrefs.DeleteKey(EquippedSingleItemKey);
+        PlayerPrefs.DeleteKey(LegacyEquippedItemsKey);
         PlayerPrefs.Save();
 
         OnInventoryChanged?.Invoke();
@@ -549,10 +622,15 @@ public class ShopInventoryManager : MonoBehaviour
             ? "head"
             : item.category.Trim();
         item.price = Mathf.Clamp(item.price, 10, 20);
+        item.attachmentTargetName = item.attachmentTargetName?.Trim() ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(item.visualObjectName))
         {
             item.visualObjectName = GetDefaultVisualObjectName(item.itemId);
+        }
+        else
+        {
+            item.visualObjectName = item.visualObjectName.Trim();
         }
     }
 
@@ -600,26 +678,30 @@ public class ShopInventoryManager : MonoBehaviour
             values = new List<string>(ownedItemIds)
         };
 
-        EquippedItemSaveData equippedSaveData = new EquippedItemSaveData();
-        foreach (KeyValuePair<string, string> pair in equippedItems)
+        PlayerPrefs.SetString(OwnedItemsKey, JsonUtility.ToJson(ownedSaveData));
+        PlayerPrefs.SetString(EquippedSingleItemKey, equippedItemId ?? string.Empty);
+
+        // Keep a one-entry V2 save for compatibility with older scene copies.
+        EquippedItemSaveData legacySaveData = new EquippedItemSaveData();
+        ShopItemDefinition equippedItem = GetItem(equippedItemId);
+        if (equippedItem != null)
         {
-            equippedSaveData.entries.Add(new EquippedItemEntry
+            legacySaveData.entries.Add(new EquippedItemEntry
             {
-                category = pair.Key,
-                itemId = pair.Value
+                category = equippedItem.category,
+                itemId = equippedItem.itemId
             });
         }
 
-        PlayerPrefs.SetString(OwnedItemsKey, JsonUtility.ToJson(ownedSaveData));
-        PlayerPrefs.SetString(EquippedItemsKey, JsonUtility.ToJson(equippedSaveData));
+        PlayerPrefs.SetString(LegacyEquippedItemsKey, JsonUtility.ToJson(legacySaveData));
         PlayerPrefs.Save();
     }
 
     private void LoadData()
     {
         ownedItemIds.Clear();
-        equippedItems.Clear();
-        previewItems.Clear();
+        equippedItemId = string.Empty;
+        previewItemId = string.Empty;
 
         string ownedJson = PlayerPrefs.GetString(OwnedItemsKey, string.Empty);
         if (!string.IsNullOrWhiteSpace(ownedJson))
@@ -638,31 +720,40 @@ public class ShopInventoryManager : MonoBehaviour
             }
         }
 
-        string equippedJson = PlayerPrefs.GetString(EquippedItemsKey, string.Empty);
-        if (!string.IsNullOrWhiteSpace(equippedJson))
+        string savedSingleItemId = PlayerPrefs.GetString(EquippedSingleItemKey, string.Empty).Trim();
+        if (IsOwned(savedSingleItemId) && GetItem(savedSingleItemId) != null)
         {
-            EquippedItemSaveData equippedSaveData =
-                JsonUtility.FromJson<EquippedItemSaveData>(equippedJson);
+            equippedItemId = savedSingleItemId;
+            return;
+        }
 
-            if (equippedSaveData?.entries != null)
+        // Migrate old multi-category data by keeping only the first valid owned item.
+        string legacyJson = PlayerPrefs.GetString(LegacyEquippedItemsKey, string.Empty);
+        if (string.IsNullOrWhiteSpace(legacyJson))
+        {
+            return;
+        }
+
+        EquippedItemSaveData legacySaveData = JsonUtility.FromJson<EquippedItemSaveData>(legacyJson);
+        if (legacySaveData?.entries == null)
+        {
+            return;
+        }
+
+        foreach (EquippedItemEntry entry in legacySaveData.entries)
+        {
+            if (entry == null || string.IsNullOrWhiteSpace(entry.itemId))
             {
-                foreach (EquippedItemEntry entry in equippedSaveData.entries)
-                {
-                    if (entry == null ||
-                        string.IsNullOrWhiteSpace(entry.category) ||
-                        string.IsNullOrWhiteSpace(entry.itemId))
-                    {
-                        continue;
-                    }
+                continue;
+            }
 
-                    string category = entry.category.Trim();
-                    string itemId = entry.itemId.Trim();
-
-                    if (IsOwned(itemId) && GetItem(itemId) != null)
-                    {
-                        equippedItems[category] = itemId;
-                    }
-                }
+            string itemId = entry.itemId.Trim();
+            if (IsOwned(itemId) && GetItem(itemId) != null)
+            {
+                equippedItemId = itemId;
+                SaveData();
+                Debug.Log($"[아이템 저장 마이그레이션] 여러 카테고리 착용 데이터를 단일 착용 '{itemId}'로 변경했습니다.");
+                break;
             }
         }
     }

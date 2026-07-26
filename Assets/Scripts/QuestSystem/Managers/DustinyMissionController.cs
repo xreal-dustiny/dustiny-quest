@@ -211,11 +211,11 @@ public class DustinyMissionController : MonoBehaviour
             string prompt = rewardLimitReached
                 ? "오늘의 보상 미션 3회를 모두 완료했어!\n" +
                   "이제부터는 보상 없이 추가 미션을 진행하게 돼.\n" +
-                  "그래도 계속 진행할래?\n" +
-                  "검지 핀치: 진행"
-                : $"오늘의 미션을 진행할래?\n" +
+                  "그래도 계속 실행할래?\n" +
+                  "검지 핀치: 진행(O) · 중지 핀치: 취소(X)"
+                : $"오늘의 미션을 실행할래?\n" +
                   $"현재 오늘의 미션 {completed}/{required}회 완료!\n" +
-                  "검지 핀치로 미션을 시작해줘.";
+                  "검지 핀치: 시작(O) · 중지 핀치: 취소(X)";
 
             demoFlow?.ShowDescriptionMessage(prompt);
             demoFlow?.PlayDurryExpression(rewardLimitReached ? "Look" : "Focused");
@@ -248,6 +248,32 @@ public class DustinyMissionController : MonoBehaviour
         currentState = MissionRuntimeState.Ready;
         ApplyInteractionState();
         BeginMissionScan();
+    }
+
+    /// <summary>
+    /// "오늘의 미션을 실행할래?" 질문에서 오른손 중지 핀치(X)를 눌렀을 때
+    /// 아무 스캔도 시작하지 않고 시작 대기 상태를 취소합니다.
+    /// NOTE를 다시 누르면 같은 질문을 다시 열 수 있습니다.
+    /// </summary>
+    public void CancelMissionStartFromPrompt()
+    {
+        if (currentState != MissionRuntimeState.AwaitingMissionStart)
+        {
+            return;
+        }
+
+        ClearPendingMissionScan();
+        currentState = MissionRuntimeState.Ready;
+        ApplyInteractionState();
+        demoFlow?.SetScanZoneVisible(false);
+        demoFlow?.HideDialoguePanels();
+
+        if (demoFlow != null)
+        {
+            demoFlow.PlayDurryExpression(demoFlow.idleExpressionState);
+        }
+
+        Debug.Log("[DustinyMission] 오른손 중지 핀치로 오늘의 미션 시작을 취소했습니다.");
     }
 
     private void BindRescanButton()
@@ -502,35 +528,46 @@ public class DustinyMissionController : MonoBehaviour
     }
 
     /// <summary>
-    /// Called by the common confirm input only when no dialogue is currently open.
+    /// 이미 NOTE 버튼을 통해 열린 확인 질문에서만 검지 확인을 처리합니다.
+    /// Ready/Active/Completed 상태의 기본 화면에서는 아무 동작도 하지 않습니다.
+    /// 미션 시작 질문과 미션 노트는 반드시 네비게이션 바 NOTE 버튼으로만 엽니다.
     /// </summary>
     public void HandleMissionConfirmPressed()
     {
         if (currentState == MissionRuntimeState.AwaitingMissionStart)
         {
             ConfirmMissionStartFromPrompt();
+            return;
         }
-        else if (currentState == MissionRuntimeState.AwaitingMissionConfirmation)
+
+        if (currentState == MissionRuntimeState.AwaitingMissionConfirmation)
         {
             ConfirmPendingMissionScan();
-        }
-        else if (currentState == MissionRuntimeState.Ready)
-        {
-            RequestOpenMissionNote();
-        }
-        else if (currentState == MissionRuntimeState.Active)
-        {
-            demoFlow?.OpenNotePage();
-        }
-        else if (currentState == MissionRuntimeState.Completed)
-        {
-            RequestOpenMissionNote();
         }
     }
 
     /// <summary>
-    /// 오른손 중지 핀치로 현재 탐지 결과를 버리고 미션 생성용 스캔을 다시 시작합니다.
-    /// 탐지 결과 확인 화면이 아닐 때는 아무 동작도 하지 않습니다.
+    /// 오른손 중지 핀치의 공용 거절(X) 처리입니다.
+    /// - 미션 시작 질문: 취소하고 Ready로 복귀
+    /// - 탐지 결과 질문: 현재 결과를 거절하고 다시 스캔
+    /// </summary>
+    public void HandleMissionRejectPressed()
+    {
+        if (currentState == MissionRuntimeState.AwaitingMissionStart)
+        {
+            CancelMissionStartFromPrompt();
+            return;
+        }
+
+        if (currentState == MissionRuntimeState.AwaitingMissionConfirmation)
+        {
+            RetryPendingMissionScan();
+        }
+    }
+
+    /// <summary>
+    /// 레거시 호환용입니다. 오른손 중지 핀치로 현재 탐지 결과를 거절하고
+    /// 미션 생성용 스캔을 다시 시작합니다.
     /// </summary>
     public void HandleMissionRetryPinchPressed()
     {
@@ -980,8 +1017,8 @@ public class DustinyMissionController : MonoBehaviour
         questStatusUI?.RefreshMissionList(true);
 
         demoFlow?.ShowDescriptionMessage(
-            "초기화 완료!\n오늘의 미션, 보송력, 크레딧을 처음 상태로 되돌렸어.\n" +
-            "NOTE를 눌러 새 미션을 시작해줘!"
+            "초기화 완료!\n오늘의 미션과 보송력, 아이템 상태를 처음으로 되돌렸어.\n" +
+            "보유 코인은 기본값 100 CR이야. NOTE를 눌러 새 미션을 시작해줘!"
         );
         demoFlow?.PlayDurryExpression("Focused");
 

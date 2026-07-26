@@ -4,9 +4,8 @@ using UnityEngine.UI;
 /// <summary>
 /// Runtime-generated selectable item card.
 ///
-/// A card template only needs an Image and Button. This component is added
-/// automatically when missing, and it creates/fills the child ItemIcon Image.
-/// No item ID or icon is assigned on individual cards.
+/// The card template only needs an Image and Button. This component is added
+/// automatically and creates the ItemIcon and purchased-state dim overlay.
 /// </summary>
 public class DustinyShopItemButton : MonoBehaviour
 {
@@ -16,6 +15,15 @@ public class DustinyShopItemButton : MonoBehaviour
 
     [Header("Generated Icon Layout")]
     [SerializeField, Min(0f)] private float iconPadding = 14f;
+
+    [Header("Purchased Shop Card")]
+    [Tooltip("상점에서 이미 구매한 카드 위에 회색 오버레이를 표시합니다.")]
+    [SerializeField] private bool dimOwnedCardsInShop = true;
+
+    [Tooltip("구매 완료 카드 위에 덮이는 회색입니다. A=0.70이면 약 70% 농도입니다.")]
+    [SerializeField] private Color ownedDimColor = new Color(0.35f, 0.35f, 0.35f, 0.70f);
+
+    [SerializeField] private Image ownedDimOverlay;
 
     [Header("Optional State Marks")]
     [SerializeField] private GameObject selectedMark;
@@ -99,6 +107,8 @@ public class DustinyShopItemButton : MonoBehaviour
                 iconImage.enabled = false;
             }
 
+            SetOwnedDimVisible(false);
+
             if (selectButton != null)
             {
                 selectButton.interactable = false;
@@ -122,11 +132,17 @@ public class DustinyShopItemButton : MonoBehaviour
         bool owned = manager.IsOwned(item.itemId);
         bool equipped = manager.IsEquipped(item.itemId);
         bool selected = pageController != null && pageController.IsSelected(item.itemId);
+        bool isShopCard = pageController != null &&
+                          pageController.PageMode == DustinyItemPageController.ItemPageMode.Shop;
 
+        SetOwnedDimVisible(dimOwnedCardsInShop && isShopCard && owned);
         SetMark(selectedMark, selected);
         SetMark(ownedMark, owned);
         SetMark(equippedMark, equipped);
+        BringStateMarksToFront();
 
+        // 구매 완료 카드도 눌러서 정보/미리보기는 확인할 수 있습니다.
+        // 실제 재구매는 InformationBox의 BuyButton과 BuyShopItem 양쪽에서 차단됩니다.
         if (selectButton != null)
         {
             selectButton.interactable = true;
@@ -149,6 +165,16 @@ public class DustinyShopItemButton : MonoBehaviour
             if (iconTransform != null)
             {
                 iconImage = iconTransform.GetComponent<Image>();
+            }
+        }
+
+        if (ownedDimOverlay == null)
+        {
+            Transform overlayTransform = FindChildByName(transform, "OwnedDimOverlay") ??
+                                         FindChildByName(transform, "PurchasedDimOverlay");
+            if (overlayTransform != null)
+            {
+                ownedDimOverlay = overlayTransform.GetComponent<Image>();
             }
         }
 
@@ -178,6 +204,55 @@ public class DustinyShopItemButton : MonoBehaviour
 
         ConfigureIconRect(iconImage.rectTransform);
         iconObject.transform.SetAsLastSibling();
+    }
+
+    private void EnsureOwnedDimOverlay()
+    {
+        if (ownedDimOverlay == null)
+        {
+            GameObject overlayObject = new GameObject(
+                "OwnedDimOverlay",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image)
+            );
+
+            overlayObject.transform.SetParent(transform, false);
+            ownedDimOverlay = overlayObject.GetComponent<Image>();
+        }
+
+        RectTransform overlayRect = ownedDimOverlay.rectTransform;
+        overlayRect.anchorMin = Vector2.zero;
+        overlayRect.anchorMax = Vector2.one;
+        overlayRect.pivot = new Vector2(0.5f, 0.5f);
+        overlayRect.offsetMin = Vector2.zero;
+        overlayRect.offsetMax = Vector2.zero;
+        overlayRect.localRotation = Quaternion.identity;
+        overlayRect.localScale = Vector3.one;
+
+        ownedDimOverlay.color = ownedDimColor;
+        ownedDimOverlay.raycastTarget = false;
+        ownedDimOverlay.transform.SetAsLastSibling();
+    }
+
+    private void SetOwnedDimVisible(bool visible)
+    {
+        if (visible)
+        {
+            EnsureOwnedDimOverlay();
+        }
+
+        if (ownedDimOverlay != null)
+        {
+            ownedDimOverlay.color = ownedDimColor;
+            ownedDimOverlay.raycastTarget = false;
+            ownedDimOverlay.gameObject.SetActive(visible);
+
+            if (visible)
+            {
+                ownedDimOverlay.transform.SetAsLastSibling();
+            }
+        }
     }
 
     private void ConfigureIconRect(RectTransform iconRect)
@@ -212,6 +287,13 @@ public class DustinyShopItemButton : MonoBehaviour
         {
             equippedMark = GetGameObject(FindChildByName(transform, "EquippedMark"));
         }
+    }
+
+    private void BringStateMarksToFront()
+    {
+        if (selectedMark != null) selectedMark.transform.SetAsLastSibling();
+        if (ownedMark != null) ownedMark.transform.SetAsLastSibling();
+        if (equippedMark != null) equippedMark.transform.SetAsLastSibling();
     }
 
     private void ConnectClick()
