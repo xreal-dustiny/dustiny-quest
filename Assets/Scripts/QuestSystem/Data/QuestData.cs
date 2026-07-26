@@ -10,10 +10,14 @@ public class QuestData
     public bool isCleared;
     public bool isRewardGiven;
 
-    [Header("< 퀘스트 완료 보상 >")]
-    [Min(0)] public int rewardCredit = 1;
+    [Header("< 레거시 물건별 보상 - 실제 지급 안 함 >")]
+    [Tooltip("현재 게임에서는 물건별 코인을 지급하지 않고, 재스캔으로 한 라운드를 완료했을 때만 코인을 지급합니다.")]
+    [Min(0)] public int rewardCredit = 0;
 
-    [Header("< AI 추가 연동 정보 >")]
+    [Header("< AI 탐지 원본 정보 >")]
+    public int sourceObjectId;
+    public int sourceClassId;
+    public Rect sourceRect;
     [Range(0f, 1f)] public float confidence;
     public string suggestedAction;
     public bool userConfirmRequired;

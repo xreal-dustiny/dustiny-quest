@@ -1,30 +1,38 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 /// <summary>
-/// Converts YOLO JSON results into QuestData objects.
-/// It does not grant rewards or change cleanliness.
+/// Converts every confirmed AI detection into a QuestData entry.
+/// The quest list is not limited to three items. Three is only the number
+/// of objects the player must clear to finish the cleaning round.
 /// </summary>
 public class QuestGenerator : MonoBehaviour
 {
     public static QuestGenerator Instance { get; private set; }
     public static event Action<YOLOScanData> OnObjectsDetected;
 
-    [System.Serializable]
+    [Header("[ 실제 게임 규칙 ]")]
+    [Tooltip("레거시 필드입니다. 현재는 물건별 보상을 지급하지 않습니다.")]
+    [SerializeField, Min(0)] private int creditPerCompletedObject = 0;
+    [SerializeField] private string defaultSuggestedAction = "organize";
+    [SerializeField] private bool sortByDetectionReliability = true;
+
+    [Header("[ JSON 연동용 보상 프리셋 - 선택사항 ]")]
+    [SerializeField] private List<QuestRewardPreset> rewardPresets = new List<QuestRewardPreset>();
+
+    [Serializable]
     public struct QuestRewardPreset
     {
         public string questType;
         [Min(0)] public int rewardCredit;
     }
 
-    [Header("[ 기획 데이터 테이블 ]")]
-    [SerializeField] private List<QuestRewardPreset> rewardPresets = new List<QuestRewardPreset>();
-
-    [Header("[ 기본 보상 ]")]
-    [SerializeField, Min(0)] private int defaultRewardCredit = 1;
-
     private string lastProcessedScanId = string.Empty;
+    private int runtimeScanSequence;
+
+    public int CreditPerCompletedObject => 0;
 
     private void Awake()
     {
@@ -40,6 +48,111 @@ public class QuestGenerator : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Converts all confirmed objects from the before-cleaning scan into quests.
+    /// No three-item cap is applied here.
+    /// </summary>
+    public List<QuestData> GenerateQuestsFromConfirmedObjects(
+        List<ConfirmedObjectInfo> confirmedObjects,
+        int tidinessScore)
+    {
+        IEnumerable<ConfirmedObjectInfo> validObjects =
+            (confirmedObjects ?? new List<ConfirmedObjectInfo>())
+            .Where(item => item != null);
+
+        if (sortByDetectionReliability)
+        {
+            validObjects = validObjects
+                .OrderByDescending(item => item.detectionCount)
+                .ThenByDescending(item => item.averageConfidence)
+                .ThenBy(item => item.objectId);
+        }
+
+        List<ConfirmedObjectInfo> selectedObjects = validObjects.ToList();
+
+        runtimeScanSequence++;
+        string scanId = $"runtime_{DateTime.Now:yyyyMMdd_HHmmss}_{runtimeScanSequence}";
+
+        List<QuestData> generatedQuests = new List<QuestData>();
+        List<YOLOObjectData> yoloObjects = new List<YOLOObjectData>();
+
+        for (int index = 0; index < selectedObjects.Count; index++)
+        {
+            ConfirmedObjectInfo detectedObject = selectedObjects[index];
+            string normalizedType = NormalizeQuestType(detectedObject.className);
+            Rect rect = detectedObject.lastRect;
+
+            generatedQuests.Add(new QuestData
+            {
+                questId = $"{scanId}_{detectedObject.objectId}_{index}",
+                questType = normalizedType,
+                isCleared = false,
+                isRewardGiven = false,
+                rewardCredit = 0,
+                sourceObjectId = detectedObject.objectId,
+                sourceClassId = detectedObject.classId,
+                sourceRect = rect,
+                confidence = Mathf.Clamp01(detectedObject.averageConfidence),
+                suggestedAction = defaultSuggestedAction,
+                userConfirmRequired = true
+            });
+
+            yoloObjects.Add(new YOLOObjectData
+            {
+                object_id = detectedObject.objectId.ToString(),
+                class_id = detectedObject.classId,
+                class_name = normalizedType,
+                confidence = Mathf.Clamp01(detectedObject.averageConfidence),
+                bbox_2d = new BBox2D
+                {
+                    x1 = rect.xMin,
+                    y1 = rect.yMin,
+                    x2 = rect.xMax,
+                    y2 = rect.yMax
+                },
+                suggested_action = defaultSuggestedAction,
+                user_confirm_required = true
+            });
+        }
+
+        YOLOScanData scanData = new YOLOScanData
+        {
+            scan_id = scanId,
+            scan_type = "before_cleaning",
+            area_type = "desk",
+            candidate_objects = yoloObjects,
+            scan_summary = new YOLOScanSummary
+            {
+                total_object_count = selectedObjects.Count,
+                class_counts = selectedObjects
+                    .GroupBy(item => NormalizeQuestType(item.className))
+                    .Select(group => new ClassCountData
+                    {
+                        class_name = group.Key,
+                        count = group.Count()
+                    })
+                    .ToList(),
+                tidiness_score = Mathf.Clamp(tidinessScore, 0, 100),
+                needs_cleaning = selectedObjects.Count > 0
+            }
+        };
+
+        OnObjectsDetected?.Invoke(scanData);
+
+        if (QuestProgressManager.Instance == null)
+        {
+            Debug.LogWarning("[QuestGenerator] QuestProgressManager가 없어 퀘스트를 전달하지 못했습니다.");
+            return generatedQuests;
+        }
+
+        QuestProgressManager.Instance.SetupRoomAndQuests(scanData, generatedQuests);
+        Debug.Log($"[QuestGenerator] AI가 인식한 전체 물체 {generatedQuests.Count}개를 미션 목록에 저장했습니다.");
+        return generatedQuests;
+    }
+
+    /// <summary>
+    /// Existing JSON input path. Every candidate object becomes a quest.
+    /// </summary>
     public void GenerateQuestsFromJSON(string jsonString)
     {
         if (string.IsNullOrWhiteSpace(jsonString))
@@ -71,8 +184,6 @@ public class QuestGenerator : MonoBehaviour
             }
 
             lastProcessedScanId = scanData.scan_id ?? string.Empty;
-            Debug.Log($"[QuestGenerator] 스캔 파싱 성공: {lastProcessedScanId}, 오브젝트 {scanData.candidate_objects.Count}개");
-
             OnObjectsDetected?.Invoke(scanData);
             GenerateQuestsFromYOLO(scanData);
         }
@@ -82,71 +193,71 @@ public class QuestGenerator : MonoBehaviour
         }
     }
 
-    public void GenerateQuestsFromYOLO(YOLOScanData scanData)
+    public List<QuestData> GenerateQuestsFromYOLO(YOLOScanData scanData)
     {
         if (scanData == null)
         {
             Debug.LogError("[QuestGenerator] scanData가 null입니다.");
-            return;
+            return new List<QuestData>();
         }
 
-        List<QuestData> generatedQuests = new List<QuestData>();
         List<YOLOObjectData> objects = scanData.candidate_objects ?? new List<YOLOObjectData>();
+        List<QuestData> generatedQuests = new List<QuestData>();
 
-        for (int index = 0; index < objects.Count; index++)
+        foreach (YOLOObjectData rawObject in objects.Where(item => item != null))
         {
-            YOLOObjectData rawObject = objects[index];
-            if (rawObject == null)
-            {
-                continue;
-            }
-
-            string cleanedType = NormalizeQuestType(rawObject.class_name);
-            QuestRewardPreset preset = FindPresetForType(cleanedType);
+            string normalizedType = NormalizeQuestType(rawObject.class_name);
+            int reward = 0;
+            Rect rect = ConvertRect(rawObject.bbox_2d);
 
             generatedQuests.Add(new QuestData
             {
                 questId = string.IsNullOrWhiteSpace(rawObject.object_id)
-                    ? $"{scanData.scan_id}_{index}"
-                    : rawObject.object_id,
-                questType = cleanedType,
-                confidence = Mathf.Clamp01(rawObject.confidence),
+                    ? $"{scanData.scan_id}_{generatedQuests.Count}"
+                    : $"{scanData.scan_id}_{rawObject.object_id}_{generatedQuests.Count}",
+                questType = normalizedType,
                 isCleared = false,
                 isRewardGiven = false,
-                rewardCredit = Mathf.Max(0, preset.rewardCredit),
-                suggestedAction = rawObject.suggested_action,
+                rewardCredit = reward,
+                sourceObjectId = ParseObjectId(rawObject.object_id),
+                sourceClassId = rawObject.class_id,
+                sourceRect = rect,
+                confidence = Mathf.Clamp01(rawObject.confidence),
+                suggestedAction = string.IsNullOrWhiteSpace(rawObject.suggested_action)
+                    ? defaultSuggestedAction
+                    : rawObject.suggested_action,
                 userConfirmRequired = rawObject.user_confirm_required
             });
         }
 
-        if (QuestProgressManager.Instance == null)
-        {
-            Debug.LogWarning("[QuestGenerator] QuestProgressManager가 없어 퀘스트를 전달하지 못했습니다.");
-            return;
-        }
-
-        QuestProgressManager.Instance.SetupRoomAndQuests(scanData, generatedQuests);
-        Debug.Log($"[QuestGenerator] 퀘스트 {generatedQuests.Count}개를 전달했습니다.");
+        QuestProgressManager.Instance?.SetupRoomAndQuests(scanData, generatedQuests);
+        Debug.Log($"[QuestGenerator] JSON의 전체 물체 {generatedQuests.Count}개를 미션 목록에 저장했습니다.");
+        return generatedQuests;
     }
 
-    private QuestRewardPreset FindPresetForType(string questType)
+    private int ResolveReward(string questType)
     {
-        foreach (QuestRewardPreset preset in rewardPresets)
-        {
-            if (NormalizeQuestType(preset.questType) == questType)
-            {
-                return preset;
-            }
-        }
-
-        return new QuestRewardPreset
-        {
-            questType = questType,
-            rewardCredit = defaultRewardCredit
-        };
+        // 물건별 보상은 사용하지 않습니다. 코인은 QuestProgressManager가
+        // 재스캔으로 한 청소 라운드가 완료된 순간 한 번만 지급합니다.
+        return 0;
     }
 
-    private static string NormalizeQuestType(string rawType)
+    private static Rect ConvertRect(BBox2D bbox)
+    {
+        if (bbox == null)
+        {
+            return default;
+        }
+
+        return Rect.MinMaxRect(bbox.x1, bbox.y1, bbox.x2, bbox.y2);
+    }
+
+    private static int ParseObjectId(string rawObjectId)
+    {
+        return int.TryParse(rawObjectId, out int parsed) ? parsed : 0;
+    }
+
+    public static string NormalizeQuestType(string rawType)
     {
         return string.IsNullOrWhiteSpace(rawType)
             ? "unknown"

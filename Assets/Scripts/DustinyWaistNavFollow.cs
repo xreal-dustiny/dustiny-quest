@@ -2,21 +2,16 @@ using UnityEngine;
 using UnityEngine.Serialization;
 
 /// <summary>
-/// Touch-only waist navigation follow controller for Dustiny.
+/// Touch/ray waist navigation follow controller for Dustiny.
 ///
-/// Recommended hierarchy after removing grab:
+/// Recommended hierarchy:
 /// MainMRScene
 /// └─ WaistFollowRoot                 <- attach this script here
 ///    └─ WaistNavCanvas               <- World Space Canvas + PointableCanvas + Ray/Poke Interactable
 ///       └─ NavigationBar
-///          ├─ DurryNoteButton
-///          ├─ ShopButton
-///          ├─ MyPageButton
-///          └─ MenuButton
 ///
-/// This script only keeps WaistFollowRoot in front of the user's body/head yaw.
-/// It can optionally place WaistNavCanvas once at Start/Reset.
-/// It does not use Rigidbody, Grabbable, HandGrabInteractable, BoxCollider, or GrabHandle.
+/// The follow root tracks the user's head position/yaw.
+/// WaistNavCanvas keeps an explicit local pose and script-controlled scale.
 /// </summary>
 public class DustinyWaistNavFollow : MonoBehaviour
 {
@@ -25,7 +20,7 @@ public class DustinyWaistNavFollow : MonoBehaviour
     public Transform centerEyeAnchor;
 
     [FormerlySerializedAs("waistNavGrabbableRoot")]
-    [Tooltip("Child transform that contains the navigation canvas. Usually WaistNavCanvas after removing grab.")]
+    [Tooltip("Navigation canvas transform. In the current hierarchy this is WaistNavCanvas.")]
     public Transform waistNavRoot;
 
     [Header("Follow User")]
@@ -39,20 +34,31 @@ public class DustinyWaistNavFollow : MonoBehaviour
     public float followSmoothing = 20f;
 
     [Header("Initial Waist Nav Offset")]
-    [Tooltip("Applied once to WaistNavRoot on Start/Reset. X: left-right, Y: down-up, Z: forward.")]
-    public Vector3 defaultLocalPosition = new Vector3(0f, -1f, 1f);
+    [Tooltip("Applied to WaistNavRoot on Start/Reset. X: left-right, Y: down-up, Z: forward.")]
+    public Vector3 defaultLocalPosition = new Vector3(0f, -0.8f, 0.5f);
 
-    [Tooltip("Tilt the canvas upward toward the user. If the UI is flipped, try -60 or 60.")]
-    public Vector3 defaultLocalEuler = new Vector3(60f, 0f, 0f);
+    [Tooltip("Tilt the canvas upward toward the user. If the UI is flipped, try -55 or 55.")]
+    public Vector3 defaultLocalEuler = new Vector3(55f, 0f, 0f);
 
-    [Tooltip("Usually do not force this when WaistNavRoot is the actual Canvas. Keep the Canvas scale you set in the scene.")]
+    [Tooltip("Reset WaistNavRoot to the configured local pose once when the scene starts.")]
+    public bool applyDefaultPoseOnStart = true;
+
+    [Header("Navigation Size - Use This")]
+    [Tooltip("When enabled, this script directly controls WaistNavCanvas localScale.")]
+    public bool controlNavigationScale = true;
+
+    [Tooltip("For a 900px-wide World Space Canvas, 0.00055~0.00075 is a useful range. Current recommended value: 0.00065.")]
+    [Min(0.00001f)] public float navigationUniformScale = 0.00065f;
+
+    [Tooltip("Keeps the configured scale even if another script or prefab animation changes it.")]
+    public bool enforceNavigationScaleEveryFrame = true;
+
+    [Header("Legacy Scale Fields")]
+    [Tooltip("Legacy option. Leave this off when Control Navigation Scale is on.")]
     public bool applyDefaultScaleOnStart = false;
 
-    [Tooltip("Only used if Apply Default Scale On Start is true.")]
+    [Tooltip("Legacy non-uniform scale, used only when Control Navigation Scale is off.")]
     public Vector3 defaultLocalScale = Vector3.one;
-
-    [Tooltip("If true, resets WaistNavRoot to the default local pose once when the scene starts.")]
-    public bool applyDefaultPoseOnStart = true;
 
     [Header("Debug")]
     public bool drawDebugRay = false;
@@ -67,11 +73,27 @@ public class DustinyWaistNavFollow : MonoBehaviour
         AutoFindReferences();
     }
 
+    private void OnValidate()
+    {
+        navigationUniformScale = Mathf.Max(0.00001f, navigationUniformScale);
+        followSmoothing = Mathf.Max(0f, followSmoothing);
+
+        if (!Application.isPlaying)
+        {
+            AutoFindReferences();
+            ApplyConfiguredScale();
+        }
+    }
+
     private void Start()
     {
         if (applyDefaultPoseOnStart)
         {
             ResetWaistNavPose();
+        }
+        else
+        {
+            ApplyConfiguredScale();
         }
 
         ApplyFollow(true);
@@ -80,6 +102,11 @@ public class DustinyWaistNavFollow : MonoBehaviour
     private void LateUpdate()
     {
         ApplyFollow(false);
+
+        if (enforceNavigationScaleEveryFrame)
+        {
+            ApplyConfiguredScale();
+        }
     }
 
     [ContextMenu("Reset Waist Nav Pose")]
@@ -92,7 +119,7 @@ public class DustinyWaistNavFollow : MonoBehaviour
 
         if (waistNavRoot == null)
         {
-            Debug.LogWarning("DustinyWaistNavFollow: Waist Nav Root is not assigned. Assign WaistNavCanvas.");
+            Debug.LogWarning("DustinyWaistNavFollow: WaistNavCanvas is not assigned.");
             return;
         }
 
@@ -103,8 +130,28 @@ public class DustinyWaistNavFollow : MonoBehaviour
 
         waistNavRoot.localPosition = defaultLocalPosition;
         waistNavRoot.localRotation = Quaternion.Euler(defaultLocalEuler);
+        ApplyConfiguredScale();
+    }
 
-        if (applyDefaultScaleOnStart)
+    [ContextMenu("Apply Navigation Scale")]
+    public void ApplyConfiguredScale()
+    {
+        if (waistNavRoot == null)
+        {
+            AutoFindReferences();
+        }
+
+        if (waistNavRoot == null)
+        {
+            return;
+        }
+
+        if (controlNavigationScale)
+        {
+            float safeScale = Mathf.Max(0.00001f, navigationUniformScale);
+            waistNavRoot.localScale = Vector3.one * safeScale;
+        }
+        else if (applyDefaultScaleOnStart)
         {
             waistNavRoot.localScale = defaultLocalScale;
         }
@@ -200,9 +247,12 @@ public class DustinyWaistNavFollow : MonoBehaviour
         }
     }
 
-    private Transform FindChildByName(Transform root, string childName)
+    private static Transform FindChildByName(Transform root, string childName)
     {
-        if (root == null || string.IsNullOrEmpty(childName)) return null;
+        if (root == null || string.IsNullOrEmpty(childName))
+        {
+            return null;
+        }
 
         Transform[] children = root.GetComponentsInChildren<Transform>(true);
         foreach (Transform child in children)
@@ -226,7 +276,10 @@ public class DustinyWaistNavFollow : MonoBehaviour
         Gizmos.color = Color.cyan;
         Vector3 forward = centerEyeAnchor.forward;
         forward.y = 0f;
-        if (forward.sqrMagnitude < 0.0001f) forward = Vector3.forward;
+        if (forward.sqrMagnitude < 0.0001f)
+        {
+            forward = Vector3.forward;
+        }
         forward.Normalize();
         Gizmos.DrawRay(centerEyeAnchor.position, forward * 0.8f);
 
