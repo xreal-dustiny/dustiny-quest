@@ -454,7 +454,7 @@ public class DustinyDemoFlow : MonoBehaviour
 
     [Header("Left Pinky Pinch Navigation")]
     [Tooltip("왼손 소지(새끼손가락) 핀치 한 번으로 네비게이션 바를 열거나 닫습니다. OVRSkeleton은 필요하지 않습니다.")]
-    public bool leftPinkyPinchTogglesNavigation = true;
+    public bool leftPinkyPinchTogglesNavigation = false;
 
     [Tooltip("소지 핀치가 연속으로 두 번 처리되는 것을 막는 대기 시간입니다.")]
     [Min(0f)] public float leftPinkyPinchToggleCooldown = 0.55f;
