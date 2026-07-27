@@ -60,8 +60,18 @@ public class DustinyWaistNavFollow : MonoBehaviour
     [Tooltip("Legacy non-uniform scale, used only when Control Navigation Scale is off.")]
     public Vector3 defaultLocalScale = Vector3.one;
 
+    [Header("Gaze Pitch Activation (Look Down to Open)")]
+    [Tooltip("고개를 아래로 숙여 네비게이션 바를 자동으로 켜고 끄는 기능을 활성화합니다.")]
+    public bool enableLookDownToOpen = true;
+
+    [Tooltip("고개를 아래로 숙인 정도 (0.2~0.5 추천). 값이 크수록 더 깊게 숙여야 켜집니다.")]
+    [Range(0.1f, 0.8f)]
+    public float lookDownThreshold = 0.35f;
+
     [Header("Debug")]
     public bool drawDebugRay = false;
+
+    private bool isCurrentlyVisible = true;
 
     private void Reset()
     {
@@ -106,6 +116,26 @@ public class DustinyWaistNavFollow : MonoBehaviour
         if (enforceNavigationScaleEveryFrame)
         {
             ApplyConfiguredScale();
+        }
+
+        UpdateGazeVisibility();
+    }
+
+    private void UpdateGazeVisibility()
+    {
+        if (!enableLookDownToOpen || centerEyeAnchor == null || waistNavRoot == null)
+        {
+            return;
+        }
+
+        // centerEyeAnchor.forward.y 는 정면일 때 0, 바닥을 볼 때 음수(-1)가 됩니다.
+        float lookDownAmount = -centerEyeAnchor.forward.y;
+        bool shouldBeVisible = lookDownAmount > lookDownThreshold;
+
+        if (shouldBeVisible != isCurrentlyVisible)
+        {
+            isCurrentlyVisible = shouldBeVisible;
+            waistNavRoot.gameObject.SetActive(isCurrentlyVisible);
         }
     }
 

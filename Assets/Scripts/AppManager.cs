@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Keeps the DustinyManager root alive between scenes.
-/// Attach this together with the other data managers to one DustinyManager object.
+/// Attach this. together with the other data managers to one DustinyManager object.
 /// </summary>
 public class AppManager : MonoBehaviour
 {
