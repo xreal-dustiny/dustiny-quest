@@ -68,10 +68,14 @@ public class DustinyWaistNavFollow : MonoBehaviour
     [Range(0.1f, 0.8f)]
     public float lookDownThreshold = 0.35f;
 
+    [Tooltip("Seconds to keep the navigation visible after the user looks up, giving hand rays time to finish a selection.")]
+    [Min(0f)] public float hideAfterLookUpSeconds = 1.25f;
+
     [Header("Debug")]
     public bool drawDebugRay = false;
 
     private bool isCurrentlyVisible = true;
+    private float lastLookDownTime = -999f;
 
     private void Reset()
     {
@@ -87,6 +91,7 @@ public class DustinyWaistNavFollow : MonoBehaviour
     {
         navigationUniformScale = Mathf.Max(0.00001f, navigationUniformScale);
         followSmoothing = Mathf.Max(0f, followSmoothing);
+        hideAfterLookUpSeconds = Mathf.Max(0f, hideAfterLookUpSeconds);
 
         if (!Application.isPlaying)
         {
@@ -130,13 +135,28 @@ public class DustinyWaistNavFollow : MonoBehaviour
 
         // centerEyeAnchor.forward.y 는 정면일 때 0, 바닥을 볼 때 음수(-1)가 됩니다.
         float lookDownAmount = -centerEyeAnchor.forward.y;
-        bool shouldBeVisible = lookDownAmount > lookDownThreshold;
-
-        if (shouldBeVisible != isCurrentlyVisible)
+        if (lookDownAmount > lookDownThreshold)
         {
-            isCurrentlyVisible = shouldBeVisible;
-            waistNavRoot.gameObject.SetActive(isCurrentlyVisible);
+            lastLookDownTime = Time.unscaledTime;
+            SetNavigationVisible(true);
+            return;
         }
+
+        if (Time.unscaledTime - lastLookDownTime >= hideAfterLookUpSeconds)
+        {
+            SetNavigationVisible(false);
+        }
+    }
+
+    private void SetNavigationVisible(bool visible)
+    {
+        if (visible == isCurrentlyVisible)
+        {
+            return;
+        }
+
+        isCurrentlyVisible = visible;
+        waistNavRoot.gameObject.SetActive(visible);
     }
 
     [ContextMenu("Reset Waist Nav Pose")]

@@ -136,6 +136,9 @@ public class DustinyDemoFlow : MonoBehaviour
     [Tooltip("NavInformOK 다음에 표시할 추가 제스처 안내 이미지입니다. 비워두면 이름이 Extra인 오브젝트를 자동 탐색합니다.")]
     public GameObject extraIntroObject;
 
+    [Tooltip("Show the optional scan/gesture tutorial after navigation is confirmed.")]
+    public bool showExtraIntroAfterNavigation = false;
+
     [Tooltip("패스스루 위를 어둡게 덮는 전용 인트로 오버레이입니다. 비워두면 WorldCanvas에 자동 생성합니다.")]
     public GameObject introPassthroughOverlayObject;
     public Image introPassthroughOverlayImage;
@@ -143,6 +146,24 @@ public class DustinyDemoFlow : MonoBehaviour
 
     [Range(0f, 1f)]
     public float introPassthroughOverlayOpacity = 0.72f;
+
+    [Tooltip("검지와 중지 핀치가 모두 완료된 뒤 체크 화면을 유지하는 시간입니다.")]
+    [Min(0f)] public float gestureSuccessHoldSeconds = 1.5f;
+
+    [Tooltip("체크 화면에서 네비게이션 안내 화면으로 전환할 때 사용하는 페이드 시간입니다.")]
+    [Min(0f)] public float gestureSuccessFadeDuration = 0.25f;
+
+    [Tooltip("네비게이션 튜토리얼 완료로 판단할 고개 숙임의 Forward Y 기준값입니다. 더 작은 값일수록 더 많이 숙여야 합니다.")]
+    [Range(-1f, 0f)] public float navigationLookDownForwardYThreshold = -0.35f;
+
+    [Tooltip("고개를 아래로 향한 상태를 유지해야 하는 시간입니다.")]
+    [Min(0f)] public float navigationLookDownHoldSeconds = 0.35f;
+
+    [Header("Gesture Tutorial Sprites")]
+    public Sprite gestureBothPromptSprite;
+    public Sprite gesturePositiveFirstSprite;
+    public Sprite gestureNegativeFirstSprite;
+    public Sprite gestureCompleteSprite;
 
     [Tooltip("NavInformOK가 나타난 뒤 Extra로 넘어가기까지 기다리는 시간입니다. Extra가 없으면 이 시간이 지난 뒤 종료합니다.")]
     [Min(0f)] public float navInformOKHoldSeconds = 2f;
@@ -207,7 +228,7 @@ public class DustinyDemoFlow : MonoBehaviour
     [Header("Opening Complete -> Mission")]
     [TextArea(2, 5)]
     public string missionNoteUnlockedDescription =
-        "오늘의 미션 안내가 준비됐어!\n하단 NOTE를 눌러 확인해줘.";
+        "오늘의 미션 안내가 준비됐어!\n검지 핀치로 스캔을 시작해줘.";
 
     [Header("Confirm / Reject SFX + Background Music")]
     [Tooltip("검지 확인 입력에서 Yes 효과음을 재생하는 2D AudioSource입니다. 비워두면 자동 생성합니다.")]
@@ -314,6 +335,21 @@ public class DustinyDemoFlow : MonoBehaviour
     public bool forcePageRootCenterAnchor = true;
     public bool applyPageRootSize = true;
     public Vector2 pageRootSize = new Vector2(1900f, 1150f);
+
+    [Header("Page Focus Mode")]
+    [Tooltip("Keep every full page (Note, Shop, MyPage, Menu) centered in front of the player.")]
+    public bool placePagesAtPlayerCenter = true;
+    [Min(0.2f)] public float pageCenterDistance = 2.2f;
+
+    [Tooltip("Move Durry to the player's left of an open page so equipped-item previews remain visible.")]
+    public bool placeDurryBesideOpenPage = true;
+    [Min(0.1f)] public float pageDurryLeftOffset = 2.1f;
+    public float pageDurryHeightOffset = -0.9f;
+    [Range(0.1f, 1f)] public float pageDurryScaleMultiplier = 0.8f;
+    [Min(0f)] public float pageDurryScaleSmoothing = 5f;
+    [Min(1f)] public float pageIdleRecenterSeconds = 20f;
+    [Min(0f)] public float pageOpenFadeDuration = 0.35f;
+    public float pageOpenRiseOffset = -180f;
 
     [Header("Page Placement Beside Durry - No Grab")]
     [Tooltip("켜면 BigNoteRoot를 카메라 고정 위치가 아니라 더리 옆의 월드 위치에 배치합니다.")]
@@ -544,6 +580,12 @@ public class DustinyDemoFlow : MonoBehaviour
     public float durryHeightOffset = -1f;
     public float durryYawOffset = 180f;
 
+    [Tooltip("온보딩 중 Durry가 사용자의 시선 전방을 부드럽게 따라갑니다.")]
+    public bool followDurryDuringOnboarding = true;
+
+    [Min(0f)] public float durryFollowPositionSmoothing = 4f;
+    [Min(0f)] public float durryFollowRotationSmoothing = 5f;
+
     [Header("Durry Size")]
     public float durryRootScale = 1f;
     public float durryVisualScale = 10f;
@@ -590,6 +632,11 @@ public class DustinyDemoFlow : MonoBehaviour
     private bool onboardingActive;
     private bool introTutorialActive;
     private Coroutine introFinishCoroutine;
+    private Coroutine gestureSuccessTransitionCoroutine;
+    private bool tutorialIndexPinchCompleted;
+    private bool tutorialMiddlePinchCompleted;
+    private Image gestureTutorialImage;
+    private float navigationLookDownStartedTime = -1f;
     private bool navigationWasVisibleBeforeIntro;
     private bool durryWasActiveBeforeIntro;
     private float lastDialogueAdvanceTime = -999f;
@@ -614,6 +661,16 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private DustinyPage currentPage = DustinyPage.None;
     private bool pageRootOpen;
+    private bool pageCanvasPoseApplied;
+    private Transform cachedWorldCanvasParent;
+    private Vector3 cachedWorldCanvasLocalPosition;
+    private Quaternion cachedWorldCanvasLocalRotation;
+    private Vector3 fixedPageCanvasWorldPosition;
+    private Quaternion fixedPageCanvasWorldRotation;
+    private float lastPageInteractionTime = -999f;
+    private CanvasGroup pageCanvasGroup;
+    private Coroutine pageOpenAnimationCoroutine;
+    private float pageOpenVerticalOffset;
 
     public DustinyPage CurrentPage => currentPage;
     public bool IsAnyPageOpen => pageRootOpen;
@@ -767,9 +824,9 @@ public class DustinyDemoFlow : MonoBehaviour
         RemoveLegacyPageGrabComponent();
 
         UpdateViewLockedUI();
+        KeepIntroTutorialUpright();
         UpdateDialoguePlacement();
         UpdatePageRootPlacement();
-
         if (showImageIntroBeforeOpening)
         {
             BeginImageIntroTutorial();
@@ -788,6 +845,7 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         UpdateViewLockedUI();
+        KeepIntroTutorialUpright();
         UpdateDialoguePlacement();
         UpdatePageRootPlacement();
 
@@ -801,6 +859,8 @@ public class DustinyDemoFlow : MonoBehaviour
         {
             UpdateHandPinchInput();
         }
+
+        UpdateNavigationLookDownTutorial();
 
         if (allowControllerFallback)
         {
@@ -823,6 +883,10 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private void LateUpdate()
     {
+        // Run after other Update-based interactions so they cannot overwrite
+        // Durry's head-relative pose in the same frame.
+        UpdateDurryFollowDuringOnboarding();
+
         if (!pageRootOpen ||
             !popOutActiveTag ||
             !keepActiveTagPoppedAfterLayout)
@@ -1235,8 +1299,15 @@ public class DustinyDemoFlow : MonoBehaviour
         UpdatePageTags();
     }
 
+    public void NotifyPageInteraction()
+    {
+        lastPageInteractionTime = Time.unscaledTime;
+    }
+
     public void OpenPage(DustinyPage page)
     {
+        NotifyPageInteraction();
+
         if (page != currentPage)
         {
             // Leaving Shop/MyPage must always cancel temporary try-on state.
@@ -1338,9 +1409,30 @@ public class DustinyDemoFlow : MonoBehaviour
         ResolvePageReferences();
         pageRootOpen = visible;
 
+        if (visible)
+        {
+            NotifyPageInteraction();
+        }
+
+        if (!visible)
+        {
+            RestoreWorldCanvasPoseAfterPage();
+        }
+
+        SetDurryVisibleForPage(visible);
+
         if (bigNoteRoot != null)
         {
             bigNoteRoot.SetActive(visible);
+        }
+
+        if (visible)
+        {
+            StartPageOpenAnimation();
+        }
+        else
+        {
+            StopPageOpenAnimation();
         }
 
         if (!visible)
@@ -1386,6 +1478,91 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
+    private void StartPageOpenAnimation()
+    {
+        if (bigNoteRoot == null)
+        {
+            return;
+        }
+
+        pageCanvasGroup = bigNoteRoot.GetComponent<CanvasGroup>() ??
+                          bigNoteRoot.AddComponent<CanvasGroup>();
+        if (pageOpenAnimationCoroutine != null)
+        {
+            StopCoroutine(pageOpenAnimationCoroutine);
+        }
+
+        pageOpenAnimationCoroutine = StartCoroutine(AnimatePageOpen());
+    }
+
+    private void StopPageOpenAnimation()
+    {
+        if (pageOpenAnimationCoroutine != null)
+        {
+            StopCoroutine(pageOpenAnimationCoroutine);
+            pageOpenAnimationCoroutine = null;
+        }
+
+        pageOpenVerticalOffset = 0f;
+        if (pageCanvasGroup != null)
+        {
+            pageCanvasGroup.alpha = 1f;
+            pageCanvasGroup.blocksRaycasts = true;
+            pageCanvasGroup.interactable = true;
+        }
+    }
+
+    private IEnumerator AnimatePageOpen()
+    {
+        pageOpenVerticalOffset = pageOpenRiseOffset;
+        pageCanvasGroup.alpha = 0f;
+        pageCanvasGroup.blocksRaycasts = false;
+        pageCanvasGroup.interactable = false;
+
+        if (pageOpenFadeDuration <= 0f)
+        {
+            pageOpenVerticalOffset = 0f;
+            pageCanvasGroup.alpha = 1f;
+        }
+        else
+        {
+            float elapsed = 0f;
+            while (elapsed < pageOpenFadeDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / pageOpenFadeDuration);
+                float eased = t * t * (3f - 2f * t);
+                pageOpenVerticalOffset = Mathf.Lerp(pageOpenRiseOffset, 0f, eased);
+                pageCanvasGroup.alpha = eased;
+                yield return null;
+            }
+        }
+
+        pageOpenVerticalOffset = 0f;
+        pageCanvasGroup.alpha = 1f;
+        pageCanvasGroup.blocksRaycasts = true;
+        pageCanvasGroup.interactable = true;
+        pageOpenAnimationCoroutine = null;
+    }
+
+    private void SetDurryVisibleForPage(bool pageIsOpen)
+    {
+        if (durryObject == null)
+        {
+            return;
+        }
+
+        if (pageIsOpen)
+        {
+            durryObject.SetActive(placeDurryBesideOpenPage);
+            return;
+        }
+
+        // Let the normal follow interpolation bring Durry back to the player's
+        // front smoothly instead of snapping there as the page closes.
+        durryObject.SetActive(true);
+    }
+
     private void UpdatePageRootPlacement()
     {
         ResolvePageReferences();
@@ -1397,6 +1574,36 @@ public class DustinyDemoFlow : MonoBehaviour
 
         // 새 방식: BigNoteRoot가 카메라 위치를 따르지 않고 더리 옆에 떨어져서 생성됩니다.
         // 별도 그랩 스크립트 없이 DustinyDemoFlow가 매 프레임 월드 위치를 직접 유지합니다.
+        if (placePagesAtPlayerCenter && pageRootOpen && centerEyeAnchor != null && worldCanvas != null)
+        {
+            Vector3 forward = centerEyeAnchor.forward;
+            forward.y = 0f;
+            if (forward.sqrMagnitude < 0.001f)
+            {
+                forward = Vector3.forward;
+            }
+
+            forward.Normalize();
+            bool shouldRecenter = !pageCanvasPoseApplied ||
+                                Time.unscaledTime - lastPageInteractionTime >= pageIdleRecenterSeconds;
+            if (shouldRecenter)
+            {
+                ApplyWorldCanvasPoseForPage(centerEyeAnchor.position + forward * pageCenterDistance, forward);
+                NotifyPageInteraction();
+            }
+            else
+            {
+                KeepWorldCanvasFixedForPage();
+            }
+
+            bigNoteRect.anchorMin = new Vector2(0.5f, 0.5f);
+            bigNoteRect.anchorMax = new Vector2(0.5f, 0.5f);
+            bigNoteRect.pivot = new Vector2(0.5f, 0.5f);
+            bigNoteRect.anchoredPosition = new Vector2(0f, pageOpenVerticalOffset);
+            bigNoteRect.localRotation = Quaternion.identity;
+            return;
+        }
+
         if (placePageBesideDurry)
         {
             if (!pageRootOpen && followDurryWhilePageOpen)
@@ -1441,6 +1648,50 @@ public class DustinyDemoFlow : MonoBehaviour
             "[더리 페이지 위치] 더 위쪽/뒤쪽 추천값을 적용했습니다. " +
             "Height=0.45, Depth=-0.14, Gap=0.14"
         );
+    }
+
+    private void ApplyWorldCanvasPoseForPage(Vector3 position, Vector3 forward)
+    {
+        Transform canvasTransform = worldCanvas.transform;
+        if (!pageCanvasPoseApplied)
+        {
+            cachedWorldCanvasParent = canvasTransform.parent;
+            cachedWorldCanvasLocalPosition = canvasTransform.localPosition;
+            cachedWorldCanvasLocalRotation = canvasTransform.localRotation;
+            canvasTransform.SetParent(null, true);
+            pageCanvasPoseApplied = true;
+        }
+
+        canvasTransform.position = position;
+        canvasTransform.rotation = Quaternion.LookRotation(forward, Vector3.up);
+        fixedPageCanvasWorldPosition = canvasTransform.position;
+        fixedPageCanvasWorldRotation = canvasTransform.rotation;
+    }
+
+    private void KeepWorldCanvasFixedForPage()
+    {
+        if (!pageCanvasPoseApplied || worldCanvas == null)
+        {
+            return;
+        }
+
+        Transform canvasTransform = worldCanvas.transform;
+        canvasTransform.position = fixedPageCanvasWorldPosition;
+        canvasTransform.rotation = fixedPageCanvasWorldRotation;
+    }
+
+    private void RestoreWorldCanvasPoseAfterPage()
+    {
+        if (!pageCanvasPoseApplied || worldCanvas == null)
+        {
+            return;
+        }
+
+        Transform canvasTransform = worldCanvas.transform;
+        canvasTransform.SetParent(cachedWorldCanvasParent, false);
+        canvasTransform.localPosition = cachedWorldCanvasLocalPosition;
+        canvasTransform.localRotation = cachedWorldCanvasLocalRotation;
+        pageCanvasPoseApplied = false;
     }
 
     private void UpdatePageWorldPoseBesideDurry()
@@ -2015,12 +2266,29 @@ public class DustinyDemoFlow : MonoBehaviour
         introTutorialState = IntroTutorialState.GestureIntro;
         onboardingActive = false;
         awaitingResetConfirmation = false;
+        tutorialIndexPinchCompleted = false;
+        tutorialMiddlePinchCompleted = false;
+        navigationLookDownStartedTime = -1f;
 
         if (introFinishCoroutine != null)
         {
             StopCoroutine(introFinishCoroutine);
             introFinishCoroutine = null;
         }
+
+        if (gestureSuccessTransitionCoroutine != null)
+        {
+            StopCoroutine(gestureSuccessTransitionCoroutine);
+            gestureSuccessTransitionCoroutine = null;
+        }
+
+        SetIntroObjectAlpha(gestureIntroObject, 1f);
+        SetIntroObjectAlpha(gestureOKObject, 1f);
+        SetIntroObjectAlpha(navInformObject, 1f);
+        SetIntroObjectAlpha(navInformOKObject, 1f);
+        SetIntroObjectAlpha(extraIntroObject, 1f);
+        ResolveGestureTutorialImage();
+        SetGestureTutorialSprite(gestureBothPromptSprite);
 
         navigationWasVisibleBeforeIntro = navigationBarObject != null && navigationBarObject.activeSelf;
         durryWasActiveBeforeIntro = durryObject != null && durryObject.activeSelf;
@@ -2058,8 +2326,10 @@ public class DustinyDemoFlow : MonoBehaviour
     {
         introTutorialState = stage;
 
-        SetIntroObjectVisible(gestureIntroObject, stage == IntroTutorialState.GestureIntro);
-        SetIntroObjectVisible(gestureOKObject, stage == IntroTutorialState.GestureOK);
+        bool isGestureStage = stage == IntroTutorialState.GestureIntro ||
+                              stage == IntroTutorialState.GestureOK;
+        SetIntroObjectVisible(gestureIntroObject, isGestureStage);
+        SetIntroObjectVisible(gestureOKObject, false);
         SetIntroObjectVisible(navInformObject, stage == IntroTutorialState.NavInform);
         SetIntroObjectVisible(navInformOKObject, stage == IntroTutorialState.NavInformOK);
         SetIntroObjectVisible(extraIntroObject, stage == IntroTutorialState.Extra);
@@ -2111,7 +2381,7 @@ public class DustinyDemoFlow : MonoBehaviour
         switch (stage)
         {
             case IntroTutorialState.GestureIntro: return gestureIntroObject;
-            case IntroTutorialState.GestureOK: return gestureOKObject;
+            case IntroTutorialState.GestureOK: return gestureIntroObject;
             case IntroTutorialState.NavInform: return navInformObject;
             case IntroTutorialState.NavInformOK: return navInformOKObject;
             case IntroTutorialState.Extra: return extraIntroObject;
@@ -2129,12 +2399,11 @@ public class DustinyDemoFlow : MonoBehaviour
         switch (introTutorialState)
         {
             case IntroTutorialState.GestureIntro:
-                SetImageIntroStage(IntroTutorialState.GestureOK);
-                Debug.Log("[이미지 인트로] GestureOK");
+                ConfirmTutorialIndexPinch();
                 break;
 
             case IntroTutorialState.GestureOK:
-                SetImageIntroStage(IntroTutorialState.NavInform);
+                // GestureOK advances automatically after the middle-pinch success hold.
                 Debug.Log("[이미지 인트로] NavInform");
                 break;
 
@@ -2156,6 +2425,184 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
+    private void ConfirmTutorialIndexPinch()
+    {
+        if (tutorialIndexPinchCompleted)
+        {
+            return;
+        }
+
+        tutorialIndexPinchCompleted = true;
+        SetGestureTutorialSprite(
+            tutorialMiddlePinchCompleted ? gestureCompleteSprite : gesturePositiveFirstSprite);
+        TryCompleteGestureTutorial();
+    }
+
+    private void ConfirmTutorialMiddlePinch()
+    {
+        if (!introTutorialActive ||
+            introTutorialState != IntroTutorialState.GestureIntro ||
+            tutorialMiddlePinchCompleted)
+        {
+            return;
+        }
+
+        PlayYesSfx();
+        tutorialMiddlePinchCompleted = true;
+        SetGestureTutorialSprite(
+            tutorialIndexPinchCompleted ? gestureCompleteSprite : gestureNegativeFirstSprite);
+        TryCompleteGestureTutorial();
+    }
+
+    private void TryCompleteGestureTutorial()
+    {
+        if (!tutorialIndexPinchCompleted ||
+            !tutorialMiddlePinchCompleted ||
+            gestureSuccessTransitionCoroutine != null)
+        {
+            return;
+        }
+
+        SetImageIntroStage(IntroTutorialState.GestureOK);
+        gestureSuccessTransitionCoroutine = StartCoroutine(ShowGestureSuccessThenNavigation());
+        Debug.Log("[Image Intro] Positive and negative pinches confirmed.");
+    }
+
+    private IEnumerator ShowGestureSuccessThenNavigation()
+    {
+        if (gestureSuccessHoldSeconds > 0f)
+        {
+            yield return new WaitForSecondsRealtime(gestureSuccessHoldSeconds);
+        }
+
+        yield return FadeIntroObject(gestureIntroObject, 1f, 0f, gestureSuccessFadeDuration);
+
+        SetIntroObjectAlpha(navInformObject, 0f);
+        SetImageIntroStage(IntroTutorialState.NavInform);
+        SetNavigationBarVisible(true);
+        yield return FadeIntroObject(navInformObject, 0f, 1f, gestureSuccessFadeDuration);
+
+        gestureSuccessTransitionCoroutine = null;
+    }
+
+    private void UpdateNavigationLookDownTutorial()
+    {
+        if (!introTutorialActive ||
+            introTutorialState != IntroTutorialState.NavInform ||
+            centerEyeAnchor == null)
+        {
+            navigationLookDownStartedTime = -1f;
+            return;
+        }
+
+        if (centerEyeAnchor.forward.y > navigationLookDownForwardYThreshold)
+        {
+            navigationLookDownStartedTime = -1f;
+            return;
+        }
+
+        if (navigationLookDownStartedTime < 0f)
+        {
+            navigationLookDownStartedTime = Time.unscaledTime;
+            return;
+        }
+
+        if (Time.unscaledTime - navigationLookDownStartedTime >= navigationLookDownHoldSeconds)
+        {
+            ConfirmNavigationLookDownTutorial();
+        }
+    }
+
+    private void ConfirmNavigationLookDownTutorial()
+    {
+        if (!introTutorialActive || introTutorialState != IntroTutorialState.NavInform)
+        {
+            return;
+        }
+
+        navigationLookDownStartedTime = -1f;
+        PlayYesSfx();
+        SetImageIntroStage(IntroTutorialState.NavInformOK);
+
+        if (introFinishCoroutine != null)
+        {
+            StopCoroutine(introFinishCoroutine);
+        }
+
+        introFinishCoroutine = StartCoroutine(FinishImageIntroAfterDelay());
+        Debug.Log("[Image Intro] Navigation look-down confirmed.");
+    }
+
+    private void ResolveGestureTutorialImage()
+    {
+        if (gestureTutorialImage == null && gestureIntroObject != null)
+        {
+            gestureTutorialImage = gestureIntroObject.GetComponent<Image>();
+        }
+    }
+
+    private void SetGestureTutorialSprite(Sprite sprite)
+    {
+        ResolveGestureTutorialImage();
+        if (gestureTutorialImage != null && sprite != null)
+        {
+            gestureTutorialImage.sprite = sprite;
+        }
+    }
+
+    private static void SetIntroObjectAlpha(GameObject target, float alpha)
+    {
+        if (target == null)
+        {
+            return;
+        }
+
+        CanvasGroup canvasGroup = target.GetComponent<CanvasGroup>();
+        if (canvasGroup == null)
+        {
+            canvasGroup = target.AddComponent<CanvasGroup>();
+        }
+
+        canvasGroup.alpha = Mathf.Clamp01(alpha);
+    }
+
+    private static IEnumerator FadeIntroObject(
+        GameObject target,
+        float fromAlpha,
+        float toAlpha,
+        float duration)
+    {
+        if (target == null)
+        {
+            yield break;
+        }
+
+        CanvasGroup canvasGroup = target.GetComponent<CanvasGroup>();
+        if (canvasGroup == null)
+        {
+            canvasGroup = target.AddComponent<CanvasGroup>();
+        }
+
+        canvasGroup.alpha = Mathf.Clamp01(fromAlpha);
+        duration = Mathf.Max(0f, duration);
+
+        if (duration <= 0f)
+        {
+            canvasGroup.alpha = Mathf.Clamp01(toAlpha);
+            yield break;
+        }
+
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            canvasGroup.alpha = Mathf.Lerp(fromAlpha, toAlpha, Mathf.Clamp01(elapsed / duration));
+            yield return null;
+        }
+
+        canvasGroup.alpha = Mathf.Clamp01(toAlpha);
+    }
+
     private IEnumerator FinishImageIntroAfterDelay()
     {
         if (navInformOKHoldSeconds > 0f)
@@ -2165,7 +2612,7 @@ public class DustinyDemoFlow : MonoBehaviour
 
         // 새로 추가된 Extra 안내를 NavInformOK 다음에 표시합니다.
         // Extra는 별도의 확인 입력 없이 지정 시간 동안 보여준 뒤 기존처럼 자동 종료합니다.
-        if (extraIntroObject != null)
+        if (showExtraIntroAfterNavigation && extraIntroObject != null)
         {
             SetImageIntroStage(IntroTutorialState.Extra);
             Debug.Log("[이미지 인트로] Extra 표시");
@@ -2449,6 +2896,7 @@ public class DustinyDemoFlow : MonoBehaviour
         onboardingActive = false;
         onboardingState = OnboardingState.Finished;
         missionController.UnlockMissionNoteAfterOpening();
+        missionController.RequestOpenMissionNote();
         PlayDurryExpression(idleExpressionState);
     }
 
@@ -2920,6 +3368,11 @@ public class DustinyDemoFlow : MonoBehaviour
     {
         if (introTutorialActive)
         {
+            if (introTutorialState == IntroTutorialState.NavInform)
+            {
+                return;
+            }
+
             AdvanceImageIntroTutorial();
             return;
         }
@@ -2947,6 +3400,11 @@ public class DustinyDemoFlow : MonoBehaviour
         // 이미지 인트로에서는 검지 핀치만 받아 4장의 안내 이미지를 순서대로 진행합니다.
         if (introTutorialActive)
         {
+            if (introTutorialState == IntroTutorialState.NavInform)
+            {
+                return;
+            }
+
             if (Time.unscaledTime - lastConfirmInputTime < confirmInputCooldown)
             {
                 return;
@@ -3385,9 +3843,17 @@ public class DustinyDemoFlow : MonoBehaviour
         // 중지/약지/왼손 초기화/네비 토글이 튜토리얼을 방해하지 않게 모두 막습니다.
         if (introTutorialActive)
         {
-            if (rightIndexPinchConfirms && indexPinchDown)
+            if (introTutorialState == IntroTutorialState.GestureIntro)
             {
-                OnConfirmButtonPressed();
+                if (rightIndexPinchConfirms && indexPinchDown)
+                {
+                    OnConfirmButtonPressed();
+                }
+
+                if (middlePinchDown)
+                {
+                    ConfirmTutorialMiddlePinch();
+                }
             }
 
             return;
@@ -4367,6 +4833,79 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
+    private void UpdateDurryFollowDuringOnboarding()
+    {
+        if (!followDurryDuringOnboarding ||
+            centerEyeAnchor == null ||
+            durryObject == null ||
+            !durryObject.activeInHierarchy)
+        {
+            return;
+        }
+
+        Vector3 targetPosition;
+        if (pageRootOpen && placeDurryBesideOpenPage && worldCanvas != null)
+        {
+            Vector3 pageLeft = -worldCanvas.transform.right;
+            pageLeft.y = 0f;
+            if (pageLeft.sqrMagnitude < 0.001f)
+            {
+                pageLeft = Vector3.left;
+            }
+
+            pageLeft.Normalize();
+            targetPosition = worldCanvas.transform.position +
+                             pageLeft * pageDurryLeftOffset +
+                             Vector3.up * pageDurryHeightOffset;
+        }
+        else
+        {
+            Vector3 forward = GetFlatForward();
+            Vector3 right = centerEyeAnchor.right;
+            right.y = 0f;
+            if (right.sqrMagnitude < 0.001f)
+            {
+                right = Vector3.right;
+            }
+
+            right.Normalize();
+            targetPosition = centerEyeAnchor.position +
+                             forward * durryDistance +
+                             right * durrySideOffset +
+                             Vector3.up * durryHeightOffset;
+        }
+
+        Quaternion targetRotation = GetRotationFacingUser(targetPosition, durryYawOffset);
+
+        float positionT = durryFollowPositionSmoothing <= 0f
+            ? 1f
+            : 1f - Mathf.Exp(-durryFollowPositionSmoothing * Time.deltaTime);
+        float rotationT = durryFollowRotationSmoothing <= 0f
+            ? 1f
+            : 1f - Mathf.Exp(-durryFollowRotationSmoothing * Time.deltaTime);
+
+        durryObject.transform.position = Vector3.Lerp(
+            durryObject.transform.position,
+            targetPosition,
+            positionT);
+        durryObject.transform.rotation = Quaternion.Slerp(
+            durryObject.transform.rotation,
+            targetRotation,
+            rotationT);
+
+        float targetScaleMultiplier = pageRootOpen && placeDurryBesideOpenPage
+            ? pageDurryScaleMultiplier
+            : 1f;
+        float scaleT = pageDurryScaleSmoothing <= 0f
+            ? 1f
+            : 1f - Mathf.Exp(-pageDurryScaleSmoothing * Time.deltaTime);
+        Vector3 targetScale = Vector3.one * durryRootScale * targetScaleMultiplier;
+        durryObject.transform.localScale = Vector3.Lerp(
+            durryObject.transform.localScale,
+            targetScale,
+            scaleT);
+    }
+
     private void RecoverDurryByCleanliness()
     {
         if (durryRuntimeMaterials == null || durryRuntimeMaterials.Length == 0)
@@ -4556,6 +5095,17 @@ public class DustinyDemoFlow : MonoBehaviour
         resolvedUIRoot.localPosition = uiRootLocalPosition;
         resolvedUIRoot.localRotation = Quaternion.Euler(uiRootLocalEuler);
         resolvedUIRoot.localScale = Vector3.one * Mathf.Max(0.001f, uiRootLocalScale);
+    }
+
+    private void KeepIntroTutorialUpright()
+    {
+        if (!introTutorialActive || introRootObject == null || centerEyeAnchor == null)
+        {
+            return;
+        }
+
+        Vector3 forward = GetFlatForward();
+        introRootObject.transform.rotation = Quaternion.LookRotation(forward, Vector3.up);
     }
 
     private void SetupWorldCanvas()

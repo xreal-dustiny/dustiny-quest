@@ -1436,7 +1436,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 267839115}
-  - component: {fileID: 267839123}
   - component: {fileID: 267839122}
   - component: {fileID: 267839121}
   - component: {fileID: 267839114}
@@ -1688,6 +1687,29 @@ MonoBehaviour:
   rightRingPinchStartsOrRescans: 1
   rightHand: {fileID: 151412967}
   autoFindRightOVRHandIfMissing: 1
+  enableIntegratedDurryLongPinchMove: 1
+  durryMoveRayOrigin: {fileID: 1053805048}
+  durryMoveRayLocalDirection: {x: 0, y: 0, z: 1}
+  durryMoveRayDistance: 8
+  durryMoveRaycastLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  durryMoveHoldSeconds: 2
+  allowMoveFromDurryWhenPageClosed: 1
+  allowMoveFromOpenPage: 1
+  durryMovePageGrabArea: {fileID: 1261580294}
+  durryMoveUseRendererBoundsFallback: 1
+  durryMoveTargetPadding: 0.07
+  durryMoveAllowDepth: 1
+  durryMoveDepthSensitivity: 3
+  durryMoveDepthDeadZone: 0.008
+  durryMoveMinimumDistance: 0.45
+  durryMoveMaximumDistance: 4
+  durryMoveFollowSpeed: 20
+  keepDurryFacingUser: 1
+  durryFacingSmoothing: 24
+  disableExternalDurryMoveScripts: 1
+  logIntegratedDurryMove: 1
   leftRingPinchResetsMissionCleanlinessAndCredit: 1
   leftHand: {fileID: 1428020163}
   autoFindLeftOVRHandIfMissing: 1
@@ -1963,42 +1985,6 @@ MonoBehaviour:
   resetScrollToTopWhenQuestListChanges: 1
   spawnedCardCount: 0
   currentQuestCount: 0
---- !u!114 &267839123
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 267839113}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 952193f254063c44db23d682c9dab595, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DurryLaserGrabInteraction
-  demoFlow: {fileID: 267839114}
-  durryObject: {fileID: 943755369}
-  rightHand: {fileID: 151412967}
-  rayOrigin: {fileID: 2017788744}
-  rayLocalDirection: {x: 0, y: 0, z: 1}
-  rayDistance: 8
-  raycastLayerMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  durryInteractionCollider: {fileID: 0}
-  autoCreateDurryCollider: 1
-  enableShortPinchReaction: 1
-  focusedReactionThreshold: 4
-  tapSequenceResetSeconds: 6
-  happyExpressionState: Joyful
-  focusedExpressionState: Focused
-  focusedReactionMessage: "\uC65C \uC774\uB807\uAC8C \uC790\uAFB8 \uB9CC\uC9C0\uB294
-    \uAC70\uC9C0...?!?"
-  focusedMessageDuration: 2.4
-  playHappyVoice: 1
-  longPressToGrabSeconds: 0.45
-  lockDepthWhileDragging: 1
-  dragFollowSpeed: 0
-  logInteraction: 1
 --- !u!1 &269685106
 GameObject:
   m_ObjectHideFlags: 0
@@ -2765,6 +2751,8 @@ MonoBehaviour:
   enforceNavigationScaleEveryFrame: 1
   applyDefaultScaleOnStart: 0
   defaultLocalScale: {x: 3, y: 3, z: 3}
+  enableLookDownToOpen: 1
+  lookDownThreshold: 0.35
   drawDebugRay: 0
 --- !u!1 &443484085
 GameObject:
@@ -4090,19 +4078,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 5cbb7c3d3c676f3439ccbddaae0bf0c4, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 5cbb7c3d3c676f3439ccbddaae0bf0c4, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 5cbb7c3d3c676f3439ccbddaae0bf0c4, type: 3}
       propertyPath: m_LocalRotation.y
-      value: -1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 5cbb7c3d3c676f3439ccbddaae0bf0c4, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 5cbb7c3d3c676f3439ccbddaae0bf0c4, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -6511,6 +6499,11 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1017386726}
   m_CullTransparentMesh: 1
+--- !u!4 &1053805048 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1566377276569477772, guid: 0a7d2469f24041c4284c66706f84c45e, type: 3}
+  m_PrefabInstance: {fileID: 1057324116}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1057324116
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7075,7 +7068,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 3262d040444e2954caa0fa53c65e15de, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -7409,6 +7402,37 @@ MonoBehaviour:
   m_Spacing: {x: 20, y: 20}
   m_Constraint: 1
   m_ConstraintCount: 4
+--- !u!1 &1219914257
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1219914258}
+  m_Layer: 0
+  m_Name: HandRight PointerPose
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1219914258
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1219914257}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1241344549
 GameObject:
   m_ObjectHideFlags: 0
@@ -10669,11 +10693,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1998186535}
   m_CullTransparentMesh: 1
---- !u!4 &2017788744 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 1566377277047150756, guid: 0a7d2469f24041c4284c66706f84c45e, type: 3}
-  m_PrefabInstance: {fileID: 1057324116}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &2017990220
 GameObject:
   m_ObjectHideFlags: 0
@@ -11206,3 +11225,4 @@ SceneRoots:
   - {fileID: 864680779}
   - {fileID: 434479198}
   - {fileID: 292866123}
+  - {fileID: 1219914258}

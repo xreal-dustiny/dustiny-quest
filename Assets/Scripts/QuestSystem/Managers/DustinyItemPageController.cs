@@ -103,6 +103,8 @@ public class DustinyItemPageController : MonoBehaviour
 
     public void SelectItem(string itemId)
     {
+        NotifyPageInteraction();
+
         ShopInventoryManager manager = ShopInventoryManager.Instance;
         ShopInventoryManager.ShopItemDefinition item = manager?.GetItem(itemId);
 
@@ -133,6 +135,8 @@ public class DustinyItemPageController : MonoBehaviour
 
     public void BuySelectedItem()
     {
+        NotifyPageInteraction();
+
         ShopInventoryManager manager = ShopInventoryManager.Instance;
         if (manager == null || string.IsNullOrWhiteSpace(selectedItemId))
         {
@@ -145,6 +149,8 @@ public class DustinyItemPageController : MonoBehaviour
 
     public void EquipSelectedItem()
     {
+        NotifyPageInteraction();
+
         ShopInventoryManager manager = ShopInventoryManager.Instance;
         if (manager == null || string.IsNullOrWhiteSpace(selectedItemId))
         {
@@ -159,6 +165,11 @@ public class DustinyItemPageController : MonoBehaviour
         }
 
         RefreshPage();
+    }
+
+    private static void NotifyPageInteraction()
+    {
+        FindFirstObjectByType<DustinyDemoFlow>()?.NotifyPageInteraction();
     }
 
     [ContextMenu("Rebuild Item Cards")]
