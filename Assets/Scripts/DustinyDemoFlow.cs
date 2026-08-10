@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Scene/XR presentation controller for Dustiny.
@@ -44,11 +45,10 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private enum IntroTutorialState
     {
-        GestureIntro,
-        GestureOK,
+        Onboarding,
+        OnboardingOK,
         NavInform,
         NavInformOK,
-        Extra,
         Finishing,
         Finished
     }
@@ -114,30 +114,26 @@ public class DustinyDemoFlow : MonoBehaviour
     public Vector3 uiRootLocalEuler = Vector3.zero;
     public float uiRootLocalScale = 1f;
 
-    [Header("First Launch Gesture / Navigation Intro")]
-    [Tooltip("씬 시작 시 제스처 → 제스처 OK → 네비 안내 → 네비 OK 순서의 이미지 튜토리얼을 먼저 표시합니다.")]
+    [Header("First Launch Onboarding / Navigation Intro")]
+    [Tooltip("씬 시작 시 Onboarding → OnboardingOK → NavInform → NavInformOK 순서의 안내를 표시합니다.")]
     public bool showImageIntroBeforeOpening = true;
 
-    [Tooltip("GestureIntro, GestureOK, NavInform, NavInformOK, Extra를 묶은 선택적 부모입니다. 비워두어도 자동 탐색합니다.")]
+    [Tooltip("Onboarding, OnboardingOK, NavInform, NavInformOK를 묶은 선택적 부모입니다. 비워두어도 자동 탐색합니다.")]
     public GameObject introRootObject;
 
-    [Tooltip("첫 화면: 검지 핀치 제스처 안내 이미지입니다.")]
-    public GameObject gestureIntroObject;
+    [FormerlySerializedAs("gestureIntroObject")]
+    [Tooltip("첫 화면 Onboarding 이미지입니다. 검지 핀치 한 번으로 완료합니다.")]
+    public GameObject onboardingObject;
 
-    [Tooltip("첫 번째 검지 핀치 뒤 표시할 제스처 확인 이미지입니다.")]
-    public GameObject gestureOKObject;
+    [FormerlySerializedAs("gestureOKObject")]
+    [Tooltip("Onboarding 완료 직후 잠깐 표시할 OnboardingOK 이미지입니다.")]
+    public GameObject onboardingOKObject;
 
-    [Tooltip("두 번째 검지 핀치 뒤 표시할 네비게이션 안내 이미지입니다.")]
+    [Tooltip("OnboardingOK 이후 별도로 표시할 네비게이션 안내 이미지입니다.")]
     public GameObject navInformObject;
 
-    [Tooltip("세 번째 검지 핀치 뒤 표시할 네비게이션 확인 이미지입니다.")]
+    [Tooltip("사용자가 아래를 바라봐 네비게이션을 확인하면 표시할 네비게이션 완료 이미지입니다.")]
     public GameObject navInformOKObject;
-
-    [Tooltip("NavInformOK 다음에 표시할 추가 제스처 안내 이미지입니다. 비워두면 이름이 Extra인 오브젝트를 자동 탐색합니다.")]
-    public GameObject extraIntroObject;
-
-    [Tooltip("Show the optional scan/gesture tutorial after navigation is confirmed.")]
-    public bool showExtraIntroAfterNavigation = false;
 
     [Tooltip("패스스루 위를 어둡게 덮는 전용 인트로 오버레이입니다. 비워두면 WorldCanvas에 자동 생성합니다.")]
     public GameObject introPassthroughOverlayObject;
@@ -147,11 +143,13 @@ public class DustinyDemoFlow : MonoBehaviour
     [Range(0f, 1f)]
     public float introPassthroughOverlayOpacity = 0.72f;
 
-    [Tooltip("검지와 중지 핀치가 모두 완료된 뒤 체크 화면을 유지하는 시간입니다.")]
-    [Min(0f)] public float gestureSuccessHoldSeconds = 1.5f;
+    [FormerlySerializedAs("gestureSuccessHoldSeconds")]
+    [Tooltip("OnboardingOK 화면을 유지하는 시간입니다.")]
+    [Min(0f)] public float onboardingOKHoldSeconds = 1.5f;
 
-    [Tooltip("체크 화면에서 네비게이션 안내 화면으로 전환할 때 사용하는 페이드 시간입니다.")]
-    [Min(0f)] public float gestureSuccessFadeDuration = 0.25f;
+    [FormerlySerializedAs("gestureSuccessFadeDuration")]
+    [Tooltip("OnboardingOK에서 NavInform으로 전환할 때 사용하는 페이드 시간입니다.")]
+    [Min(0f)] public float onboardingTransitionFadeDuration = 0.25f;
 
     [Tooltip("네비게이션 튜토리얼 완료로 판단할 고개 숙임의 Forward Y 기준값입니다. 더 작은 값일수록 더 많이 숙여야 합니다.")]
     [Range(-1f, 0f)] public float navigationLookDownForwardYThreshold = -0.35f;
@@ -159,17 +157,8 @@ public class DustinyDemoFlow : MonoBehaviour
     [Tooltip("고개를 아래로 향한 상태를 유지해야 하는 시간입니다.")]
     [Min(0f)] public float navigationLookDownHoldSeconds = 0.35f;
 
-    [Header("Gesture Tutorial Sprites")]
-    public Sprite gestureBothPromptSprite;
-    public Sprite gesturePositiveFirstSprite;
-    public Sprite gestureNegativeFirstSprite;
-    public Sprite gestureCompleteSprite;
-
-    [Tooltip("NavInformOK가 나타난 뒤 Extra로 넘어가기까지 기다리는 시간입니다. Extra가 없으면 이 시간이 지난 뒤 종료합니다.")]
+    [Tooltip("NavInformOK가 나타난 뒤 인트로를 종료하기까지 기다리는 시간입니다.")]
     [Min(0f)] public float navInformOKHoldSeconds = 2f;
-
-    [Tooltip("Extra가 나타난 뒤 자동으로 인트로를 닫기까지 기다리는 시간입니다.")]
-    [Min(0f)] public float extraIntroHoldSeconds = 2f;
 
     [Tooltip("마지막 안내 이미지 대기 후 패스스루 오버레이가 사라지는 페이드 시간입니다.")]
     [Min(0f)] public float introOverlayFadeDuration = 0.30f;
@@ -632,10 +621,7 @@ public class DustinyDemoFlow : MonoBehaviour
     private bool onboardingActive;
     private bool introTutorialActive;
     private Coroutine introFinishCoroutine;
-    private Coroutine gestureSuccessTransitionCoroutine;
-    private bool tutorialIndexPinchCompleted;
-    private bool tutorialMiddlePinchCompleted;
-    private Image gestureTutorialImage;
+    private Coroutine onboardingTransitionCoroutine;
     private float navigationLookDownStartedTime = -1f;
     private bool navigationWasVisibleBeforeIntro;
     private bool durryWasActiveBeforeIntro;
@@ -2161,18 +2147,25 @@ public class DustinyDemoFlow : MonoBehaviour
             }
         }
 
-        if (gestureIntroObject == null)
+        // 새 기준 이름을 우선하고, 기존 씬의 GestureIntro 이름도 폴백으로 지원합니다.
+        if (onboardingObject == null)
         {
-            Transform found = FindChildTransformExact(searchRoot, "GestureIntro") ??
+            Transform found = FindChildTransformExact(searchRoot, "Onboarding") ??
+                              FindChildTransformExact(searchRoot, "OnboardingIntro") ??
+                              FindChildTransformExact(searchRoot, "GestureIntro") ??
+                              FindChildTransformContainsAll(searchRoot, "onboarding", "intro") ??
                               FindChildTransformContainsAll(searchRoot, "gesture", "intro");
-            if (found != null) gestureIntroObject = found.gameObject;
+            if (found != null) onboardingObject = found.gameObject;
         }
 
-        if (gestureOKObject == null)
+        if (onboardingOKObject == null)
         {
-            Transform found = FindChildTransformExact(searchRoot, "GestureOK") ??
+            Transform found = FindChildTransformExact(searchRoot, "OnboardingOK") ??
+                              FindChildTransformExact(searchRoot, "Onboarding OK") ??
+                              FindChildTransformExact(searchRoot, "GestureOK") ??
+                              FindChildTransformContainsAll(searchRoot, "onboarding", "ok") ??
                               FindChildTransformContainsAll(searchRoot, "gesture", "ok");
-            if (found != null) gestureOKObject = found.gameObject;
+            if (found != null) onboardingOKObject = found.gameObject;
         }
 
         if (navInformObject == null)
@@ -2185,17 +2178,9 @@ public class DustinyDemoFlow : MonoBehaviour
         if (navInformOKObject == null)
         {
             Transform found = FindChildTransformExact(searchRoot, "NavInformOK") ??
+                              FindChildTransformExact(searchRoot, "NavInform OK") ??
                               FindChildTransformContainsAll(searchRoot, "nav", "inform", "ok");
             if (found != null) navInformOKObject = found.gameObject;
-        }
-
-        if (extraIntroObject == null)
-        {
-            Transform found = FindChildTransformExact(searchRoot, "Extra") ??
-                              FindChildTransformExact(searchRoot, "ExtraIntro") ??
-                              FindChildTransformContainsAll(searchRoot, "extra", "intro") ??
-                              FindChildTransformContains(searchRoot, "extra");
-            if (found != null) extraIntroObject = found.gameObject;
         }
     }
 
@@ -2252,22 +2237,20 @@ public class DustinyDemoFlow : MonoBehaviour
         ResolveImageIntroReferences();
         SetupImageIntroOverlay();
 
-        if (gestureIntroObject == null)
+        if (onboardingObject == null)
         {
             Debug.LogWarning(
-                "[이미지 인트로] GestureIntro를 찾지 못해 이미지 인트로를 건너뜁니다. " +
-                "WorldCanvas 아래 오브젝트 이름을 GestureIntro로 맞추거나 직접 연결하세요."
+                "[온보딩] Onboarding 오브젝트를 찾지 못해 첫 안내를 건너뜁니다. " +
+                "WorldCanvas 아래 오브젝트 이름을 Onboarding으로 맞추거나 직접 연결하세요."
             );
             StartOpeningAfterImageIntro();
             return;
         }
 
         introTutorialActive = true;
-        introTutorialState = IntroTutorialState.GestureIntro;
+        introTutorialState = IntroTutorialState.Onboarding;
         onboardingActive = false;
         awaitingResetConfirmation = false;
-        tutorialIndexPinchCompleted = false;
-        tutorialMiddlePinchCompleted = false;
         navigationLookDownStartedTime = -1f;
 
         if (introFinishCoroutine != null)
@@ -2276,19 +2259,16 @@ public class DustinyDemoFlow : MonoBehaviour
             introFinishCoroutine = null;
         }
 
-        if (gestureSuccessTransitionCoroutine != null)
+        if (onboardingTransitionCoroutine != null)
         {
-            StopCoroutine(gestureSuccessTransitionCoroutine);
-            gestureSuccessTransitionCoroutine = null;
+            StopCoroutine(onboardingTransitionCoroutine);
+            onboardingTransitionCoroutine = null;
         }
 
-        SetIntroObjectAlpha(gestureIntroObject, 1f);
-        SetIntroObjectAlpha(gestureOKObject, 1f);
+        SetIntroObjectAlpha(onboardingObject, 1f);
+        SetIntroObjectAlpha(onboardingOKObject, 1f);
         SetIntroObjectAlpha(navInformObject, 1f);
         SetIntroObjectAlpha(navInformOKObject, 1f);
-        SetIntroObjectAlpha(extraIntroObject, 1f);
-        ResolveGestureTutorialImage();
-        SetGestureTutorialSprite(gestureBothPromptSprite);
 
         navigationWasVisibleBeforeIntro = navigationBarObject != null && navigationBarObject.activeSelf;
         durryWasActiveBeforeIntro = durryObject != null && durryObject.activeSelf;
@@ -2318,21 +2298,20 @@ public class DustinyDemoFlow : MonoBehaviour
             introPassthroughOverlayObject.transform.SetAsLastSibling();
         }
 
-        SetImageIntroStage(IntroTutorialState.GestureIntro);
-        Debug.Log("[이미지 인트로] GestureIntro 시작");
+        SetImageIntroStage(IntroTutorialState.Onboarding);
+        Debug.Log("[온보딩] Onboarding 시작 - 검지 핀치 1회 대기");
     }
 
     private void SetImageIntroStage(IntroTutorialState stage)
     {
         introTutorialState = stage;
 
-        bool isGestureStage = stage == IntroTutorialState.GestureIntro ||
-                              stage == IntroTutorialState.GestureOK;
-        SetIntroObjectVisible(gestureIntroObject, isGestureStage);
-        SetIntroObjectVisible(gestureOKObject, false);
+        // 각 단계는 서로 다른 오브젝트 하나만 사용합니다.
+        // 이전처럼 Onboarding 오브젝트의 Sprite를 바꿔 OK를 흉내 내지 않습니다.
+        SetIntroObjectVisible(onboardingObject, stage == IntroTutorialState.Onboarding);
+        SetIntroObjectVisible(onboardingOKObject, stage == IntroTutorialState.OnboardingOK);
         SetIntroObjectVisible(navInformObject, stage == IntroTutorialState.NavInform);
         SetIntroObjectVisible(navInformOKObject, stage == IntroTutorialState.NavInformOK);
-        SetIntroObjectVisible(extraIntroObject, stage == IntroTutorialState.Extra);
 
         GameObject visibleObject = GetImageIntroObject(stage);
         BringImageIntroAboveOverlay(visibleObject);
@@ -2380,109 +2359,69 @@ public class DustinyDemoFlow : MonoBehaviour
     {
         switch (stage)
         {
-            case IntroTutorialState.GestureIntro: return gestureIntroObject;
-            case IntroTutorialState.GestureOK: return gestureIntroObject;
+            case IntroTutorialState.Onboarding: return onboardingObject;
+            case IntroTutorialState.OnboardingOK: return onboardingOKObject;
             case IntroTutorialState.NavInform: return navInformObject;
             case IntroTutorialState.NavInformOK: return navInformOKObject;
-            case IntroTutorialState.Extra: return extraIntroObject;
             default: return null;
         }
     }
 
     private void AdvanceImageIntroTutorial()
     {
-        if (!introTutorialActive || introTutorialState == IntroTutorialState.Finishing)
-        {
-            return;
-        }
-
-        switch (introTutorialState)
-        {
-            case IntroTutorialState.GestureIntro:
-                ConfirmTutorialIndexPinch();
-                break;
-
-            case IntroTutorialState.GestureOK:
-                // GestureOK advances automatically after the middle-pinch success hold.
-                Debug.Log("[이미지 인트로] NavInform");
-                break;
-
-            case IntroTutorialState.NavInform:
-                SetImageIntroStage(IntroTutorialState.NavInformOK);
-                Debug.Log(
-                    extraIntroObject != null
-                        ? "[이미지 인트로] NavInformOK - 대기 후 Extra 표시"
-                        : "[이미지 인트로] NavInformOK - Extra가 없어 대기 후 자동 종료"
-                );
-
-                if (introFinishCoroutine != null)
-                {
-                    StopCoroutine(introFinishCoroutine);
-                }
-
-                introFinishCoroutine = StartCoroutine(FinishImageIntroAfterDelay());
-                break;
-        }
-    }
-
-    private void ConfirmTutorialIndexPinch()
-    {
-        if (tutorialIndexPinchCompleted)
-        {
-            return;
-        }
-
-        tutorialIndexPinchCompleted = true;
-        SetGestureTutorialSprite(
-            tutorialMiddlePinchCompleted ? gestureCompleteSprite : gesturePositiveFirstSprite);
-        TryCompleteGestureTutorial();
-    }
-
-    private void ConfirmTutorialMiddlePinch()
-    {
         if (!introTutorialActive ||
-            introTutorialState != IntroTutorialState.GestureIntro ||
-            tutorialMiddlePinchCompleted)
+            introTutorialState == IntroTutorialState.Finishing ||
+            introTutorialState == IntroTutorialState.Finished)
         {
             return;
         }
 
-        PlayYesSfx();
-        tutorialMiddlePinchCompleted = true;
-        SetGestureTutorialSprite(
-            tutorialIndexPinchCompleted ? gestureCompleteSprite : gestureNegativeFirstSprite);
-        TryCompleteGestureTutorial();
-    }
-
-    private void TryCompleteGestureTutorial()
-    {
-        if (!tutorialIndexPinchCompleted ||
-            !tutorialMiddlePinchCompleted ||
-            gestureSuccessTransitionCoroutine != null)
+        // 첫 Onboarding만 검지 핀치로 완료합니다.
+        // OnboardingOK 이후 NavInform 전환은 자동이고,
+        // NavInform은 고개를 아래로 보는 동작만 기다립니다.
+        if (introTutorialState != IntroTutorialState.Onboarding)
         {
             return;
         }
 
-        SetImageIntroStage(IntroTutorialState.GestureOK);
-        gestureSuccessTransitionCoroutine = StartCoroutine(ShowGestureSuccessThenNavigation());
-        Debug.Log("[Image Intro] Positive and negative pinches confirmed.");
-    }
+        SetImageIntroStage(IntroTutorialState.OnboardingOK);
 
-    private IEnumerator ShowGestureSuccessThenNavigation()
-    {
-        if (gestureSuccessHoldSeconds > 0f)
+        if (onboardingTransitionCoroutine != null)
         {
-            yield return new WaitForSecondsRealtime(gestureSuccessHoldSeconds);
+            StopCoroutine(onboardingTransitionCoroutine);
         }
 
-        yield return FadeIntroObject(gestureIntroObject, 1f, 0f, gestureSuccessFadeDuration);
+        onboardingTransitionCoroutine = StartCoroutine(ShowOnboardingOKThenNavigation());
+        Debug.Log("[온보딩] Onboarding 완료 → OnboardingOK");
+    }
+
+    private IEnumerator ShowOnboardingOKThenNavigation()
+    {
+        if (onboardingOKHoldSeconds > 0f)
+        {
+            yield return new WaitForSecondsRealtime(onboardingOKHoldSeconds);
+        }
+
+        yield return FadeIntroObject(
+            onboardingOKObject,
+            1f,
+            0f,
+            onboardingTransitionFadeDuration
+        );
 
         SetIntroObjectAlpha(navInformObject, 0f);
         SetImageIntroStage(IntroTutorialState.NavInform);
         SetNavigationBarVisible(true);
-        yield return FadeIntroObject(navInformObject, 0f, 1f, gestureSuccessFadeDuration);
 
-        gestureSuccessTransitionCoroutine = null;
+        yield return FadeIntroObject(
+            navInformObject,
+            0f,
+            1f,
+            onboardingTransitionFadeDuration
+        );
+
+        onboardingTransitionCoroutine = null;
+        Debug.Log("[온보딩] NavInform 시작 - 네비게이션 확인 대기");
     }
 
     private void UpdateNavigationLookDownTutorial()
@@ -2530,24 +2469,7 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         introFinishCoroutine = StartCoroutine(FinishImageIntroAfterDelay());
-        Debug.Log("[Image Intro] Navigation look-down confirmed.");
-    }
-
-    private void ResolveGestureTutorialImage()
-    {
-        if (gestureTutorialImage == null && gestureIntroObject != null)
-        {
-            gestureTutorialImage = gestureIntroObject.GetComponent<Image>();
-        }
-    }
-
-    private void SetGestureTutorialSprite(Sprite sprite)
-    {
-        ResolveGestureTutorialImage();
-        if (gestureTutorialImage != null && sprite != null)
-        {
-            gestureTutorialImage.sprite = sprite;
-        }
+        Debug.Log("[온보딩] Navigation 확인 → NavInformOK");
     }
 
     private static void SetIntroObjectAlpha(GameObject target, float alpha)
@@ -2610,19 +2532,6 @@ public class DustinyDemoFlow : MonoBehaviour
             yield return new WaitForSecondsRealtime(navInformOKHoldSeconds);
         }
 
-        // 새로 추가된 Extra 안내를 NavInformOK 다음에 표시합니다.
-        // Extra는 별도의 확인 입력 없이 지정 시간 동안 보여준 뒤 기존처럼 자동 종료합니다.
-        if (showExtraIntroAfterNavigation && extraIntroObject != null)
-        {
-            SetImageIntroStage(IntroTutorialState.Extra);
-            Debug.Log("[이미지 인트로] Extra 표시");
-
-            if (extraIntroHoldSeconds > 0f)
-            {
-                yield return new WaitForSecondsRealtime(extraIntroHoldSeconds);
-            }
-        }
-
         introTutorialState = IntroTutorialState.Finishing;
 
         float startAlpha = introPassthroughOverlayImage != null
@@ -2653,11 +2562,16 @@ public class DustinyDemoFlow : MonoBehaviour
         introTutorialActive = false;
         introTutorialState = IntroTutorialState.Finished;
 
-        SetIntroObjectVisible(gestureIntroObject, false);
-        SetIntroObjectVisible(gestureOKObject, false);
+        if (onboardingTransitionCoroutine != null)
+        {
+            StopCoroutine(onboardingTransitionCoroutine);
+            onboardingTransitionCoroutine = null;
+        }
+
+        SetIntroObjectVisible(onboardingObject, false);
+        SetIntroObjectVisible(onboardingOKObject, false);
         SetIntroObjectVisible(navInformObject, false);
         SetIntroObjectVisible(navInformOKObject, false);
-        SetIntroObjectVisible(extraIntroObject, false);
 
         if (introPassthroughOverlayImage != null)
         {
@@ -2687,7 +2601,7 @@ public class DustinyDemoFlow : MonoBehaviour
             SetNavigationBarVisible(navigationBarStartsVisible || navigationWasVisibleBeforeIntro);
         }
 
-        Debug.Log("[이미지 인트로] 종료 - 패스스루 복원 후 게임 오프닝 시작");
+        Debug.Log("[온보딩] 종료 - 패스스루 복원 후 게임 오프닝 시작");
         StartOpeningAfterImageIntro();
     }
 
@@ -3397,10 +3311,12 @@ public class DustinyDemoFlow : MonoBehaviour
     /// </summary>
     public void OnConfirmButtonPressed()
     {
-        // 이미지 인트로에서는 검지 핀치만 받아 4장의 안내 이미지를 순서대로 진행합니다.
+        // 첫 온보딩 화면에서는 검지 핀치 한 번만 받아 OnboardingOK로 진행합니다.
         if (introTutorialActive)
         {
-            if (introTutorialState == IntroTutorialState.NavInform)
+            // 튜토리얼에서 검지 핀치가 의미 있는 단계는 Onboarding 하나뿐입니다.
+            // OnboardingOK / NavInform / NavInformOK에서는 추가 핀치를 완전히 무시합니다.
+            if (introTutorialState != IntroTutorialState.Onboarding)
             {
                 return;
             }
@@ -3839,21 +3755,15 @@ public class DustinyDemoFlow : MonoBehaviour
             missionController = FindFirstObjectByType<DustinyMissionController>();
         }
 
-        // 최초 이미지 인트로 중에는 오른손 검지 핀치만 허용합니다.
-        // 중지/약지/왼손 초기화/네비 토글이 튜토리얼을 방해하지 않게 모두 막습니다.
+        // 첫 온보딩에서는 검지 핀치 1회만 받습니다.
+        // 중지/약지/왼손 입력은 모두 막고, NavInform 단계는 고개 숙임만 기다립니다.
         if (introTutorialActive)
         {
-            if (introTutorialState == IntroTutorialState.GestureIntro)
+            if (introTutorialState == IntroTutorialState.Onboarding &&
+                rightIndexPinchConfirms &&
+                indexPinchDown)
             {
-                if (rightIndexPinchConfirms && indexPinchDown)
-                {
-                    OnConfirmButtonPressed();
-                }
-
-                if (middlePinchDown)
-                {
-                    ConfirmTutorialMiddlePinch();
-                }
+                OnConfirmButtonPressed();
             }
 
             return;
