@@ -1439,6 +1439,7 @@ GameObject:
   - component: {fileID: 267839122}
   - component: {fileID: 267839121}
   - component: {fileID: 267839114}
+  - component: {fileID: 267839123}
   - component: {fileID: 267839120}
   - component: {fileID: 267839119}
   - component: {fileID: 267839118}
@@ -1476,10 +1477,10 @@ MonoBehaviour:
   uiRootLocalScale: 1
   showImageIntroBeforeOpening: 1
   introRootObject: {fileID: 1698419085}
-  onboardingOKNoObject: {fileID: 959193244}
+  onboardingOKNoObject: {fileID: 0}
   onboardingOKObject: {fileID: 381791939}
-  onboardingNoObject: {fileID: 1866267969}
-  onboardingNoDoneObject: {fileID: 786076754}
+  onboardingNoObject: {fileID: 0}
+  onboardingNoDoneObject: {fileID: 0}
   navInformObject: {fileID: 1612162393}
   navInformOKObject: {fileID: 60138535}
   introFullscreenOverlayCanvas: {fileID: 0}
@@ -1566,8 +1567,8 @@ MonoBehaviour:
     \uC788\uB294\uC9C0\uB294 \uBAA8\uB974\uACA0\uC5B4."
   - "\uB124 \uB3C4\uC6C0\uC774 \uD544\uC694\uD574!"
   missionNoteUnlockedDescription: "\uC624\uB298\uC758 \uBBF8\uC158 \uB178\uD2B8\uAC00
-    \uD65C\uC131\uD654\uB410\uC5B4!\n\uB178\uD2B8\uB97C \uC5F4\uACE0 [\uC2A4\uCE94
-    \uC2DC\uC791]\uC744 \uB20C\uB7EC\uC918."
+    \uD65C\uC131\uD654\uB410\uC5B4!\n\uB178\uD2B8\uB97C \uC5F4\uACE0 \uBBF8\uC158\uC744
+    \uC2DC\uC791\uD574\uBD10."
   interactionSfxSource: {fileID: 0}
   backgroundMusicSource: {fileID: 0}
   yesSfxClip: {fileID: 8300000, guid: 15f9e88b54a7545479771045aecf7a1e, type: 3}
@@ -1626,6 +1627,8 @@ MonoBehaviour:
   descriptionMinAnchoredY: -620
   navigationBarObject: {fileID: 1732729693}
   navigationBarStartsVisible: 1
+  waistNavFollow: {fileID: 0}
+  autoFindWaistNavFollow: 1
   durryNoteButton: {fileID: 927899156}
   shopButton: {fileID: 731383077}
   myPageButton: {fileID: 1282402067}
@@ -1660,7 +1663,6 @@ MonoBehaviour:
   followDurryWhilePageOpen: 1
   faceDurryPageTowardUser: 1
   durryPageFacingYawOffset: 0
-  removeLegacyPageGrabComponent: 1
   bringPageRootToFrontWhenOpen: 1
   hideDialogueWhenPageOpens: 1
   hideNavigationBarWhenPageOpen: 0
@@ -1683,8 +1685,8 @@ MonoBehaviour:
   myPageTagButton: {fileID: 386200973}
   menuTagButton: {fileID: 0}
   autoConnectPageButtons: 1
-  menuResetButton: {fileID: 1346205731}
-  menuExitButton: {fileID: 505938680}
+  menuResetButton: {fileID: 0}
+  menuExitButton: {fileID: 0}
   autoConnectMenuActionButtons: 1
   hideSideTabsOnNoteAndMenu: 1
   closeTagRect: {fileID: 378679847}
@@ -1844,8 +1846,8 @@ MonoBehaviour:
     attachmentTargetName: 
   - itemId: head_cone
     displayName: "\uC544\uC774\uC2A4\uD06C\uB9BC"
-    description: "\uBBF8\uC158 \uC644\uB8CC\uB97C \uC2E0\uB098\uAC8C \uCD95\uD558\uD574
-      \uC8FC\uB294 \uD30C\uD2F0\uC6A9 \uC544\uC774\uC2A4\uD06C\uB9BC \uACE0\uAE54\uC774\uC57C."
+    description: "\uB354\uB9AC\uB97C \uC18C\uD504\uD2B8 \uC544\uC774\uC2A4\uD06C\uB9BC\uC73C\uB85C
+      \uB9CC\uB4E4\uC5B4\uC8FC \uACE0\uAE54\uC774\uC57C."
     category: head
     price: 14
     icon: {fileID: 21300000, guid: 96952a492cc42a2428dfb05d4a8313d9, type: 3}
@@ -1985,6 +1987,47 @@ MonoBehaviour:
   resetScrollToTopWhenQuestListChanges: 1
   spawnedCardCount: 0
   currentQuestCount: 0
+--- !u!114 &267839123
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 267839113}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 19d324df92ca8c84c8626fb8ab91a496, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DurryLaserInteraction
+  demoFlow: {fileID: 267839114}
+  durryObject: {fileID: 706302340}
+  rightHand: {fileID: 151412967}
+  rayOrigin: {fileID: 1027184748}
+  rayLocalDirection: {x: 0, y: 0, z: 1}
+  rayDistance: 8
+  raycastLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  durryInteractionCollider: {fileID: 0}
+  autoCreateDurryCollider: 1
+  useRendererBoundsFallback: 1
+  targetPaddingWorld: 0.07
+  enableTouchReaction: 1
+  focusedReactionThreshold: 3
+  tapSequenceResetSeconds: 6
+  happyExpressionState: Joyful
+  focusedExpressionState: Focused
+  focusedReactionMessage: "\uC65C \uC774\uB807\uAC8C \uC790\uAFB8 \uB9CC\uC9C0\uB294
+    \uAC70\uC9C0...?"
+  focusedMessageDuration: 2.4
+  playHappyVoice: 1
+  lockInteractionDuringFocusedReaction: 1
+  hideFocusedMessageWhenFinished: 1
+  alwaysFaceUser: 1
+  useDemoFlowYawOffset: 1
+  faceUserYawOffset: 180
+  faceRotationSmoothing: 24
+  logInteraction: 1
 --- !u!1 &269685106
 GameObject:
   m_ObjectHideFlags: 0
@@ -2828,7 +2871,6 @@ MonoBehaviour:
   defaultLocalScale: {x: 3, y: 3, z: 3}
   enableLookDownToOpen: 1
   lookDownThreshold: 0.35
-  hideAfterLookUpSeconds: 1.25
   drawDebugRay: 0
 --- !u!1 &443484085
 GameObject:
@@ -6728,6 +6770,11 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1017386726}
   m_CullTransparentMesh: 1
+--- !u!4 &1027184748 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1528346308, guid: 0a7d2469f24041c4284c66706f84c45e, type: 3}
+  m_PrefabInstance: {fileID: 1057324116}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1057324116
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -9690,8 +9737,8 @@ MonoBehaviour:
   scanDimOverlay: {fileID: 227664364}
   disableScanDimOverlayCompletely: 1
   scanBox: {fileID: 1369557084}
-  scanningMessage: "\uC2A4\uCE94 \uC911..."
-  waitingForCameraMessage: "\uCE74\uBA54\uB77C \uC900\uBE44 \uC911..."
+  scanningMessage: "\uC2A4\uCE94 \uC911"
+  waitingForCameraMessage: "\uCE74\uBA54\uB77C \uC900\uBE44 \uC911"
   waitForValidCameraTexture: 1
   cameraReadyTimeout: 6
   minimumValidTextureSize: 64
@@ -10335,19 +10382,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 6a65ee6fddf48f649a19c71994f38f19, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 6a65ee6fddf48f649a19c71994f38f19, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 6a65ee6fddf48f649a19c71994f38f19, type: 3}
       propertyPath: m_LocalRotation.y
-      value: -1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 6a65ee6fddf48f649a19c71994f38f19, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 6a65ee6fddf48f649a19c71994f38f19, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -10363,20 +10410,20 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -6646249587733387481, guid: 6a65ee6fddf48f649a19c71994f38f19, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: -0.0008
       objectReference: {fileID: 0}
     - target: {fileID: -6646249587733387481, guid: 6a65ee6fddf48f649a19c71994f38f19, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.0785
+      value: 0.0739
       objectReference: {fileID: 0}
     - target: {fileID: -6646249587733387481, guid: 6a65ee6fddf48f649a19c71994f38f19, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: 0.0137
       objectReference: {fileID: 0}
     - target: {fileID: -944399570525717221, guid: 6a65ee6fddf48f649a19c71994f38f19, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: caebb12b1f8d42045bac1478c8654139, type: 2}
+      objectReference: {fileID: 2100000, guid: b86da839b46f4354fbbfa5020c04981b, type: 2}
     - target: {fileID: 919132149155446097, guid: 6a65ee6fddf48f649a19c71994f38f19, type: 3}
       propertyPath: m_Name
       value: Head_Sleepmask
