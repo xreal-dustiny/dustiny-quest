@@ -1,4 +1,9 @@
-// VERSION: 66_GRAB_FIX_2026-07-16
+// VERSION: 68_INTERACTION_MENU_SCAN_OVERLAY_FIX_2026-08-16
+// 2026-08-16 기준 통합본.
+// Tutorial: OnboardingOKNo -> (Index first: OnboardingOK / Middle first: OnboardingNo) -> OnboardingNoDone -> NavInform -> NavInformOK.
+// Interaction: left-ring reset removed. Menu Reset asks for confirmation; Menu Exit quits the app.
+// Mission start: first index pinch accepts the mission, second index pinch at the scan location starts the actual scan.
+// Tutorial overlay: full-camera Screen Space - Camera overlay instead of a World Space rectangle.
 // Includes DurryLaserGrabInteraction bridge methods and hides all SideTags on NOTE/MENU.
 using System;
 using System.Collections;
@@ -45,8 +50,10 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private enum IntroTutorialState
     {
-        Onboarding,
+        OnboardingOKNo,
         OnboardingOK,
+        OnboardingNo,
+        OnboardingNoDone,
         NavInform,
         NavInformOK,
         Finishing,
@@ -115,40 +122,60 @@ public class DustinyDemoFlow : MonoBehaviour
     public float uiRootLocalScale = 1f;
 
     [Header("First Launch Onboarding / Navigation Intro")]
-    [Tooltip("씬 시작 시 Onboarding → OnboardingOK → NavInform → NavInformOK 순서의 안내를 표시합니다.")]
+    [Tooltip("씬 시작 시 OnboardingOKNo → 첫 핀치 결과(OK/No) → OnboardingNoDone → NavInform → NavInformOK 순서의 안내를 표시합니다.")]
     public bool showImageIntroBeforeOpening = true;
 
-    [Tooltip("Onboarding, OnboardingOK, NavInform, NavInformOK를 묶은 선택적 부모입니다. 비워두어도 자동 탐색합니다.")]
+    [Tooltip("OnboardingOKNo, OnboardingOK, OnboardingNo, OnboardingNoDone, NavInform, NavInformOK를 묶은 선택적 부모입니다. 비워두어도 자동 탐색합니다.")]
     public GameObject introRootObject;
 
+    [FormerlySerializedAs("onboardingObject")]
     [FormerlySerializedAs("gestureIntroObject")]
-    [Tooltip("첫 화면 Onboarding 이미지입니다. 검지 핀치 한 번으로 완료합니다.")]
-    public GameObject onboardingObject;
+    [Tooltip("첫 화면입니다. 검지 또는 중지 핀치를 하나씩 연습합니다.")]
+    public GameObject onboardingOKNoObject;
 
     [FormerlySerializedAs("gestureOKObject")]
-    [Tooltip("Onboarding 완료 직후 잠깐 표시할 OnboardingOK 이미지입니다.")]
+    [Tooltip("검지 핀치를 먼저 성공했을 때 표시합니다. 이후 중지 핀치를 기다립니다.")]
     public GameObject onboardingOKObject;
 
-    [Tooltip("OnboardingOK 이후 별도로 표시할 네비게이션 안내 이미지입니다.")]
+    [Tooltip("중지 핀치를 먼저 성공했을 때 표시합니다. 이후 검지 핀치를 기다립니다.")]
+    public GameObject onboardingNoObject;
+
+    [Tooltip("검지와 중지 핀치를 모두 완료했을 때 표시합니다. 이후 NavInform으로 자동 전환합니다.")]
+    public GameObject onboardingNoDoneObject;
+
+    [Tooltip("OnboardingNoDone 이후 별도로 표시할 네비게이션 안내 이미지입니다.")]
     public GameObject navInformObject;
 
     [Tooltip("사용자가 아래를 바라봐 네비게이션을 확인하면 표시할 네비게이션 완료 이미지입니다.")]
     public GameObject navInformOKObject;
 
-    [Tooltip("패스스루 위를 어둡게 덮는 전용 인트로 오버레이입니다. 비워두면 WorldCanvas에 자동 생성합니다.")]
+    [Header("Fullscreen Tutorial Overlay")]
+    [Tooltip("튜토리얼 동안 카메라 전체를 덮는 필터용 Canvas입니다. 비워두면 CenterEye 카메라용 Screen Space - Camera Canvas를 자동 생성합니다.")]
+    public Canvas introFullscreenOverlayCanvas;
+
+    [Tooltip("전체 화면 필터 이미지입니다. 기존 World Space 사각형을 연결해도 실행 시 Fullscreen Canvas 아래로 옮겨 화면 전체로 Stretch합니다.")]
     public GameObject introPassthroughOverlayObject;
     public Image introPassthroughOverlayImage;
+
+    [Tooltip("켜면 WorldCanvas 직사각형 대신 카메라 전체를 덮는 Screen Space - Camera 오버레이를 사용합니다.")]
+    public bool useFullscreenCameraOverlay = true;
     public bool autoCreateIntroPassthroughOverlay = true;
+
+    [Tooltip("Fullscreen Overlay Canvas의 Camera Plane Distance입니다. 튜토리얼 World UI보다 뒤에 두기 위해 기본값을 멀게 둡니다.")]
+    [Min(0.1f)] public float introOverlayPlaneDistance = 5f;
+
+    [Tooltip("Fullscreen Overlay의 정렬 순서입니다. 튜토리얼 UI보다 뒤에서 패스스루만 어둡게 보이도록 낮은 값을 사용합니다.")]
+    public int introOverlaySortingOrder = -1000;
 
     [Range(0f, 1f)]
     public float introPassthroughOverlayOpacity = 0.72f;
 
     [FormerlySerializedAs("gestureSuccessHoldSeconds")]
-    [Tooltip("OnboardingOK 화면을 유지하는 시간입니다.")]
-    [Min(0f)] public float onboardingOKHoldSeconds = 1.5f;
+    [Tooltip("검지와 중지를 모두 완료한 OnboardingNoDone 화면을 유지하는 시간입니다.")]
+    [Min(0f)] public float onboardingDoneHoldSeconds = 1.5f;
 
     [FormerlySerializedAs("gestureSuccessFadeDuration")]
-    [Tooltip("OnboardingOK에서 NavInform으로 전환할 때 사용하는 페이드 시간입니다.")]
+    [Tooltip("OnboardingNoDone에서 NavInform으로 전환할 때 사용하는 페이드 시간입니다.")]
     [Min(0f)] public float onboardingTransitionFadeDuration = 0.25f;
 
     [Tooltip("네비게이션 튜토리얼 완료로 판단할 고개 숙임의 Forward Y 기준값입니다. 더 작은 값일수록 더 많이 숙여야 합니다.")]
@@ -421,6 +448,15 @@ public class DustinyDemoFlow : MonoBehaviour
     public Button menuTagButton;
     public bool autoConnectPageButtons = true;
 
+    [Header("Menu Action Buttons")]
+    [Tooltip("MenuPage의 Reset 버튼입니다. 기존 Resume 위치에 둔 Reset 버튼을 연결하세요. 비워두면 MenuPage 안에서 이름으로 자동 탐색합니다.")]
+    public Button menuResetButton;
+
+    [Tooltip("MenuPage의 Exit 버튼입니다. Quest 빌드에서는 Application.Quit(), 에디터에서는 Play Mode 종료로 동작합니다.")]
+    public Button menuExitButton;
+
+    public bool autoConnectMenuActionButtons = true;
+
     [Tooltip("켜면 NOTE와 MENU 페이지에서는 X 닫기 버튼을 포함한 모든 사이드 태그를 숨깁니다.")]
     public bool hideSideTabsOnNoteAndMenu = true;
 
@@ -470,11 +506,13 @@ public class DustinyDemoFlow : MonoBehaviour
     public OVRHand rightHand;
     public bool autoFindRightOVRHandIfMissing = true;
 
-    [Header("Left Hand Debug Reset")]
-    [Tooltip("왼손 약지 핀치를 한 번 하면 오늘 미션 진행도, 보송력, 크레딧, 구매/장착 아이템을 모두 초기값으로 되돌립니다.")]
-    public bool leftRingPinchResetsMissionCleanlinessAndCredit = true;
+    [Header("Left Hand Reference")]
+    [Tooltip("왼손 약지 초기화 인터랙션은 제거되었습니다. 이 참조는 왼손 소지 네비게이션 토글에만 사용합니다.")]
     public OVRHand leftHand;
     public bool autoFindLeftOVRHandIfMissing = true;
+
+    [Header("Menu Reset")]
+    [Tooltip("Menu Reset 버튼 연타로 확인창이 중복 생성되는 것을 막는 대기 시간입니다.")]
     [Min(0f)] public float resetInputCooldown = 1f;
 
     [Header("Left Pinky Pinch Navigation")]
@@ -622,6 +660,11 @@ public class DustinyDemoFlow : MonoBehaviour
     private bool introTutorialActive;
     private Coroutine introFinishCoroutine;
     private Coroutine onboardingTransitionCoroutine;
+    private bool tutorialIndexPinchCompleted;
+    private bool tutorialMiddlePinchCompleted;
+    // 첫 번째 핀치가 끝난 뒤 검지/중지를 모두 완전히 놓아야 두 번째 핀치를 받습니다.
+    // 손 추적 노이즈로 두 손가락이 같은 프레임에 잡혀 곧바로 Done으로 넘어가는 현상을 방지합니다.
+    private bool tutorialWaitingForReleaseAfterFirstPinch;
     private float navigationLookDownStartedTime = -1f;
     private bool navigationWasVisibleBeforeIntro;
     private bool durryWasActiveBeforeIntro;
@@ -636,9 +679,9 @@ public class DustinyDemoFlow : MonoBehaviour
     private bool wasRightIndexPinching;
     private bool wasRightMiddlePinching;
     private bool wasRightRingPinching;
-    private bool wasLeftRingPinching;
     private float lastResetInputTime = -999f;
     private bool awaitingResetConfirmation;
+    private bool awaitingMissionScanPlacementConfirmation;
     private bool creditUIEventSubscribed;
 
     private bool currentDescriptionUsesDim = true;
@@ -780,6 +823,8 @@ public class DustinyDemoFlow : MonoBehaviour
         ResolvePageBackgroundReferences();
         ResolvePageButtons();
         ConnectPageButtonEvents();
+        ResolveMenuActionButtons();
+        ConnectMenuActionButtonEvents();
         ConfigurePageRootGraphics();
 
         ResolveShopCoinText();
@@ -840,7 +885,6 @@ public class DustinyDemoFlow : MonoBehaviour
             rightMiddlePinchRetriesMissionScan ||
             rightMiddlePinchClosesOpenPage ||
             rightRingPinchStartsOrRescans ||
-            leftRingPinchResetsMissionCleanlinessAndCredit ||
             leftPinkyPinchTogglesNavigation)
         {
             UpdateHandPinchInput();
@@ -1170,8 +1214,8 @@ public class DustinyDemoFlow : MonoBehaviour
 
         if (closePageButton == null)
         {
-            closePageButton = FindButtonByKeywords(searchRoot, "close") ??
-                              FindButtonByKeywords(searchRoot, "exit");
+            // MenuPage의 Exit는 앱 종료 버튼이므로 절대 X/Close 버튼으로 자동 연결하지 않습니다.
+            closePageButton = FindButtonByKeywords(searchRoot, "close");
         }
 
         if (noteTagButton == null)
@@ -1238,9 +1282,103 @@ public class DustinyDemoFlow : MonoBehaviour
         ConnectPageButtonClick(menuTagButton, OpenMenuPage);
     }
 
+    private void ResolveMenuActionButtons()
+    {
+        ResolvePageReferences();
+
+        Transform searchRoot = menuPageObject != null
+            ? menuPageObject.transform
+            : bigNoteRoot != null
+                ? bigNoteRoot.transform
+                : worldCanvas != null
+                    ? worldCanvas.transform
+                    : transform;
+
+        if (menuResetButton == null)
+        {
+            menuResetButton = FindButtonByExactNames(
+                searchRoot,
+                "Reset",
+                "ResetButton",
+                "Reset Button",
+                "MenuReset",
+                "MenuResetButton"
+            );
+
+            if (menuResetButton == null)
+            {
+                menuResetButton = FindButtonByKeywords(searchRoot, "reset");
+            }
+        }
+
+        if (menuExitButton == null)
+        {
+            menuExitButton = FindButtonByExactNames(
+                searchRoot,
+                "Exit",
+                "ExitButton",
+                "Exit Button",
+                "Quit",
+                "QuitButton",
+                "Quit Button"
+            );
+
+            if (menuExitButton == null)
+            {
+                menuExitButton = FindButtonByKeywords(searchRoot, "exit") ??
+                                 FindButtonByKeywords(searchRoot, "quit");
+            }
+        }
+
+        if (menuResetButton != null && menuResetButton == closePageButton)
+        {
+            Debug.LogError("[메뉴 버튼 연결 오류] Reset 버튼이 Close 버튼과 같은 오브젝트로 연결되어 있습니다.");
+        }
+
+        if (menuExitButton != null && menuExitButton == closePageButton)
+        {
+            Debug.LogError("[메뉴 버튼 연결 오류] Exit 버튼이 Close 버튼과 같은 오브젝트로 연결되어 있습니다. Close Button을 별도로 연결하세요.");
+        }
+    }
+
+    private void ConnectMenuActionButtonEvents()
+    {
+        if (!autoConnectMenuActionButtons)
+        {
+            return;
+        }
+
+        ResolveMenuActionButtons();
+
+        if (menuResetButton != null)
+        {
+            ConnectPageButtonClick(menuResetButton, RequestResetAllProgress);
+        }
+
+        if (menuExitButton != null)
+        {
+            ConnectPageButtonClick(menuExitButton, ExitGame);
+        }
+    }
+
+    public void ExitGame()
+    {
+        SuppressMissionPinchFromPageUI();
+        StopDurryVoicePlayback();
+
+        Debug.Log("[Dustiny Menu] Exit 버튼 입력 - 게임을 종료합니다.");
+
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
+    }
+
     public void OpenNotePage()
     {
         SuppressMissionPinchFromPageUI();
+        awaitingMissionScanPlacementConfirmation = false;
 
         if (missionController == null)
         {
@@ -1272,6 +1410,8 @@ public class DustinyDemoFlow : MonoBehaviour
     {
         SuppressMissionPinchFromPageUI();
         OpenPage(DustinyPage.Menu);
+        ResolveMenuActionButtons();
+        ConnectMenuActionButtonEvents();
     }
 
     public void CloseBigNote()
@@ -2147,25 +2287,39 @@ public class DustinyDemoFlow : MonoBehaviour
             }
         }
 
-        // 새 기준 이름을 우선하고, 기존 씬의 GestureIntro 이름도 폴백으로 지원합니다.
-        if (onboardingObject == null)
+        // 온보딩 화면은 이름이 비슷하므로 반드시 Exact 검색을 우선합니다.
+        // Contains 검색으로 OnboardingOKNo와 OnboardingOK를 같은 오브젝트로 잡는 문제를 막습니다.
+        if (onboardingOKNoObject == null)
         {
-            Transform found = FindChildTransformExact(searchRoot, "Onboarding") ??
-                              FindChildTransformExact(searchRoot, "OnboardingIntro") ??
-                              FindChildTransformExact(searchRoot, "GestureIntro") ??
-                              FindChildTransformContainsAll(searchRoot, "onboarding", "intro") ??
-                              FindChildTransformContainsAll(searchRoot, "gesture", "intro");
-            if (found != null) onboardingObject = found.gameObject;
+            Transform found = FindChildTransformExact(searchRoot, "OnboardingOKNo") ??
+                              FindChildTransformExact(searchRoot, "Onboarding OK No") ??
+                              FindChildTransformExact(searchRoot, "Onboarding") ??
+                              FindChildTransformExact(searchRoot, "GestureIntro");
+            if (found != null) onboardingOKNoObject = found.gameObject;
         }
 
         if (onboardingOKObject == null)
         {
             Transform found = FindChildTransformExact(searchRoot, "OnboardingOK") ??
                               FindChildTransformExact(searchRoot, "Onboarding OK") ??
-                              FindChildTransformExact(searchRoot, "GestureOK") ??
-                              FindChildTransformContainsAll(searchRoot, "onboarding", "ok") ??
-                              FindChildTransformContainsAll(searchRoot, "gesture", "ok");
+                              FindChildTransformExact(searchRoot, "GestureOK");
             if (found != null) onboardingOKObject = found.gameObject;
+        }
+
+        if (onboardingNoObject == null)
+        {
+            Transform found = FindChildTransformExact(searchRoot, "OnboardingNo") ??
+                              FindChildTransformExact(searchRoot, "Onboarding NO") ??
+                              FindChildTransformExact(searchRoot, "Onboarding No");
+            if (found != null) onboardingNoObject = found.gameObject;
+        }
+
+        if (onboardingNoDoneObject == null)
+        {
+            Transform found = FindChildTransformExact(searchRoot, "OnboardingNoDone") ??
+                              FindChildTransformExact(searchRoot, "Onboarding NO Done") ??
+                              FindChildTransformExact(searchRoot, "Onboarding No Done");
+            if (found != null) onboardingNoDoneObject = found.gameObject;
         }
 
         if (navInformObject == null)
@@ -2188,36 +2342,116 @@ public class DustinyDemoFlow : MonoBehaviour
     {
         ResolveImageIntroReferences();
 
-        if (introPassthroughOverlayObject == null && introPassthroughOverlayImage != null)
+        Camera centerEyeCamera = centerEyeAnchor != null
+            ? centerEyeAnchor.GetComponent<Camera>()
+            : null;
+
+        if (useFullscreenCameraOverlay && centerEyeCamera != null)
         {
-            introPassthroughOverlayObject = introPassthroughOverlayImage.gameObject;
+            if (introFullscreenOverlayCanvas == null)
+            {
+                GameObject existingCanvasObject = GameObject.Find("DustinyTutorialFullscreenOverlayCanvas");
+                if (existingCanvasObject != null)
+                {
+                    introFullscreenOverlayCanvas = existingCanvasObject.GetComponent<Canvas>();
+                }
+            }
+
+            if (introFullscreenOverlayCanvas == null && autoCreateIntroPassthroughOverlay)
+            {
+                GameObject canvasObject = new GameObject(
+                    "DustinyTutorialFullscreenOverlayCanvas",
+                    typeof(RectTransform),
+                    typeof(Canvas)
+                );
+
+                canvasObject.transform.SetParent(transform, false);
+                introFullscreenOverlayCanvas = canvasObject.GetComponent<Canvas>();
+            }
+
+            if (introFullscreenOverlayCanvas != null)
+            {
+                introFullscreenOverlayCanvas.renderMode = RenderMode.ScreenSpaceCamera;
+                introFullscreenOverlayCanvas.worldCamera = centerEyeCamera;
+                introFullscreenOverlayCanvas.planeDistance = Mathf.Clamp(
+                    introOverlayPlaneDistance,
+                    centerEyeCamera.nearClipPlane + 0.05f,
+                    Mathf.Max(centerEyeCamera.nearClipPlane + 0.1f, centerEyeCamera.farClipPlane - 0.1f)
+                );
+                introFullscreenOverlayCanvas.overrideSorting = true;
+                introFullscreenOverlayCanvas.sortingOrder = introOverlaySortingOrder;
+            }
+
+            if (introPassthroughOverlayObject == null && introPassthroughOverlayImage != null)
+            {
+                introPassthroughOverlayObject = introPassthroughOverlayImage.gameObject;
+            }
+
+            if (introPassthroughOverlayObject == null && autoCreateIntroPassthroughOverlay)
+            {
+                introPassthroughOverlayObject = new GameObject(
+                    "IntroPassthroughOverlay",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image)
+                );
+            }
+
+            if (introPassthroughOverlayObject != null && introFullscreenOverlayCanvas != null)
+            {
+                RectTransform overlayRect =
+                    introPassthroughOverlayObject.GetComponent<RectTransform>() ??
+                    introPassthroughOverlayObject.AddComponent<RectTransform>();
+
+                overlayRect.SetParent(introFullscreenOverlayCanvas.transform, false);
+                overlayRect.anchorMin = Vector2.zero;
+                overlayRect.anchorMax = Vector2.one;
+                overlayRect.pivot = new Vector2(0.5f, 0.5f);
+                overlayRect.offsetMin = Vector2.zero;
+                overlayRect.offsetMax = Vector2.zero;
+                overlayRect.anchoredPosition = Vector2.zero;
+                overlayRect.localScale = Vector3.one;
+                overlayRect.localRotation = Quaternion.identity;
+
+                introPassthroughOverlayImage =
+                    introPassthroughOverlayObject.GetComponent<Image>() ??
+                    introPassthroughOverlayObject.AddComponent<Image>();
+            }
         }
-
-        if (introPassthroughOverlayImage == null && introPassthroughOverlayObject != null)
+        else
         {
-            introPassthroughOverlayImage = introPassthroughOverlayObject.GetComponent<Image>();
-        }
+            // 카메라를 찾지 못한 경우에만 기존 WorldCanvas 방식으로 폴백합니다.
+            if (introPassthroughOverlayObject == null && introPassthroughOverlayImage != null)
+            {
+                introPassthroughOverlayObject = introPassthroughOverlayImage.gameObject;
+            }
 
-        if (introPassthroughOverlayObject == null &&
-            autoCreateIntroPassthroughOverlay &&
-            worldCanvas != null)
-        {
-            introPassthroughOverlayObject = new GameObject(
-                "IntroPassthroughOverlay",
-                typeof(RectTransform),
-                typeof(CanvasRenderer),
-                typeof(Image)
-            );
+            if (introPassthroughOverlayImage == null && introPassthroughOverlayObject != null)
+            {
+                introPassthroughOverlayImage = introPassthroughOverlayObject.GetComponent<Image>();
+            }
 
-            RectTransform overlayRect = introPassthroughOverlayObject.GetComponent<RectTransform>();
-            overlayRect.SetParent(worldCanvas.transform, false);
-            overlayRect.anchorMin = Vector2.zero;
-            overlayRect.anchorMax = Vector2.one;
-            overlayRect.offsetMin = Vector2.zero;
-            overlayRect.offsetMax = Vector2.zero;
-            overlayRect.localScale = Vector3.one;
+            if (introPassthroughOverlayObject == null &&
+                autoCreateIntroPassthroughOverlay &&
+                worldCanvas != null)
+            {
+                introPassthroughOverlayObject = new GameObject(
+                    "IntroPassthroughOverlay",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image)
+                );
 
-            introPassthroughOverlayImage = introPassthroughOverlayObject.GetComponent<Image>();
+                RectTransform overlayRect = introPassthroughOverlayObject.GetComponent<RectTransform>();
+                overlayRect.SetParent(worldCanvas.transform, false);
+                overlayRect.anchorMin = Vector2.zero;
+                overlayRect.anchorMax = Vector2.one;
+                overlayRect.offsetMin = Vector2.zero;
+                overlayRect.offsetMax = Vector2.zero;
+                overlayRect.localScale = Vector3.one;
+
+                introPassthroughOverlayImage = introPassthroughOverlayObject.GetComponent<Image>();
+            }
         }
 
         if (introPassthroughOverlayImage != null)
@@ -2230,6 +2464,16 @@ public class DustinyDemoFlow : MonoBehaviour
             introPassthroughOverlayImage.color = overlayColor;
             introPassthroughOverlayImage.raycastTarget = false;
         }
+
+        if (introFullscreenOverlayCanvas != null)
+        {
+            introFullscreenOverlayCanvas.gameObject.SetActive(false);
+        }
+
+        if (introPassthroughOverlayObject != null)
+        {
+            introPassthroughOverlayObject.SetActive(false);
+        }
     }
 
     private void BeginImageIntroTutorial()
@@ -2237,21 +2481,34 @@ public class DustinyDemoFlow : MonoBehaviour
         ResolveImageIntroReferences();
         SetupImageIntroOverlay();
 
-        if (onboardingObject == null)
+        if (onboardingOKNoObject == null)
         {
             Debug.LogWarning(
-                "[온보딩] Onboarding 오브젝트를 찾지 못해 첫 안내를 건너뜁니다. " +
-                "WorldCanvas 아래 오브젝트 이름을 Onboarding으로 맞추거나 직접 연결하세요."
+                "[온보딩] OnboardingOKNo 오브젝트를 찾지 못해 첫 안내를 건너뜁니다. " +
+                "WorldCanvas 아래 오브젝트 이름을 OnboardingOKNo로 맞추거나 직접 연결하세요."
             );
             StartOpeningAfterImageIntro();
             return;
         }
 
         introTutorialActive = true;
-        introTutorialState = IntroTutorialState.Onboarding;
+        introTutorialState = IntroTutorialState.OnboardingOKNo;
         onboardingActive = false;
         awaitingResetConfirmation = false;
+        awaitingMissionScanPlacementConfirmation = false;
+        tutorialIndexPinchCompleted = false;
+        tutorialMiddlePinchCompleted = false;
+        tutorialWaitingForReleaseAfterFirstPinch = false;
         navigationLookDownStartedTime = -1f;
+
+        // 튜토리얼이 뜨는 순간 이미 손가락을 핀치하고 있었다면
+        // 그것을 새 입력으로 오인하지 않습니다. 한 번 놓고 다시 핀치해야 합니다.
+        ResolveRightHandIfNeeded();
+        if (rightHand != null && rightHand.IsTracked && rightHand.IsDataValid)
+        {
+            wasRightIndexPinching = rightHand.GetFingerIsPinching(OVRHand.HandFinger.Index);
+            wasRightMiddlePinching = rightHand.GetFingerIsPinching(OVRHand.HandFinger.Middle);
+        }
 
         if (introFinishCoroutine != null)
         {
@@ -2265,8 +2522,10 @@ public class DustinyDemoFlow : MonoBehaviour
             onboardingTransitionCoroutine = null;
         }
 
-        SetIntroObjectAlpha(onboardingObject, 1f);
+        SetIntroObjectAlpha(onboardingOKNoObject, 1f);
         SetIntroObjectAlpha(onboardingOKObject, 1f);
+        SetIntroObjectAlpha(onboardingNoObject, 1f);
+        SetIntroObjectAlpha(onboardingNoDoneObject, 1f);
         SetIntroObjectAlpha(navInformObject, 1f);
         SetIntroObjectAlpha(navInformOKObject, 1f);
 
@@ -2292,24 +2551,30 @@ public class DustinyDemoFlow : MonoBehaviour
             introRootObject.SetActive(true);
         }
 
+        if (introFullscreenOverlayCanvas != null)
+        {
+            introFullscreenOverlayCanvas.gameObject.SetActive(true);
+        }
+
         if (introPassthroughOverlayObject != null)
         {
             introPassthroughOverlayObject.SetActive(true);
             introPassthroughOverlayObject.transform.SetAsLastSibling();
         }
 
-        SetImageIntroStage(IntroTutorialState.Onboarding);
-        Debug.Log("[온보딩] Onboarding 시작 - 검지 핀치 1회 대기");
+        SetImageIntroStage(IntroTutorialState.OnboardingOKNo);
+        Debug.Log("[온보딩] OnboardingOKNo 시작 - 검지/중지 핀치를 각각 1회 대기");
     }
 
     private void SetImageIntroStage(IntroTutorialState stage)
     {
         introTutorialState = stage;
 
-        // 각 단계는 서로 다른 오브젝트 하나만 사용합니다.
-        // 이전처럼 Onboarding 오브젝트의 Sprite를 바꿔 OK를 흉내 내지 않습니다.
-        SetIntroObjectVisible(onboardingObject, stage == IntroTutorialState.Onboarding);
+        // 각 단계에서는 정확히 하나의 안내 오브젝트만 켭니다.
+        SetIntroObjectVisible(onboardingOKNoObject, stage == IntroTutorialState.OnboardingOKNo);
         SetIntroObjectVisible(onboardingOKObject, stage == IntroTutorialState.OnboardingOK);
+        SetIntroObjectVisible(onboardingNoObject, stage == IntroTutorialState.OnboardingNo);
+        SetIntroObjectVisible(onboardingNoDoneObject, stage == IntroTutorialState.OnboardingNoDone);
         SetIntroObjectVisible(navInformObject, stage == IntroTutorialState.NavInform);
         SetIntroObjectVisible(navInformOKObject, stage == IntroTutorialState.NavInformOK);
 
@@ -2359,51 +2624,99 @@ public class DustinyDemoFlow : MonoBehaviour
     {
         switch (stage)
         {
-            case IntroTutorialState.Onboarding: return onboardingObject;
+            case IntroTutorialState.OnboardingOKNo: return onboardingOKNoObject;
             case IntroTutorialState.OnboardingOK: return onboardingOKObject;
+            case IntroTutorialState.OnboardingNo: return onboardingNoObject;
+            case IntroTutorialState.OnboardingNoDone: return onboardingNoDoneObject;
             case IntroTutorialState.NavInform: return navInformObject;
             case IntroTutorialState.NavInformOK: return navInformOKObject;
             default: return null;
         }
     }
 
-    private void AdvanceImageIntroTutorial()
+    private bool IsOnboardingPinchTutorialState()
+    {
+        return introTutorialState == IntroTutorialState.OnboardingOKNo ||
+               introTutorialState == IntroTutorialState.OnboardingOK ||
+               introTutorialState == IntroTutorialState.OnboardingNo;
+    }
+
+    private void ConfirmTutorialIndexPinch()
     {
         if (!introTutorialActive ||
-            introTutorialState == IntroTutorialState.Finishing ||
-            introTutorialState == IntroTutorialState.Finished)
+            !IsOnboardingPinchTutorialState() ||
+            tutorialIndexPinchCompleted ||
+            tutorialWaitingForReleaseAfterFirstPinch)
         {
             return;
         }
 
-        // 첫 Onboarding만 검지 핀치로 완료합니다.
-        // OnboardingOK 이후 NavInform 전환은 자동이고,
-        // NavInform은 고개를 아래로 보는 동작만 기다립니다.
-        if (introTutorialState != IntroTutorialState.Onboarding)
+        tutorialIndexPinchCompleted = true;
+        PlayYesSfx();
+
+        if (tutorialMiddlePinchCompleted)
         {
+            CompletePinchTutorial();
             return;
         }
 
+        tutorialWaitingForReleaseAfterFirstPinch = true;
         SetImageIntroStage(IntroTutorialState.OnboardingOK);
+        Debug.Log("[온보딩] 검지 핀치 먼저 완료 → OnboardingOK. 손을 완전히 놓은 뒤 중지 핀치 대기");
+    }
+
+    private void ConfirmTutorialMiddlePinch()
+    {
+        if (!introTutorialActive ||
+            !IsOnboardingPinchTutorialState() ||
+            tutorialMiddlePinchCompleted ||
+            tutorialWaitingForReleaseAfterFirstPinch)
+        {
+            return;
+        }
+
+        tutorialMiddlePinchCompleted = true;
+        PlayNoSfx();
+
+        if (tutorialIndexPinchCompleted)
+        {
+            CompletePinchTutorial();
+            return;
+        }
+
+        tutorialWaitingForReleaseAfterFirstPinch = true;
+        SetImageIntroStage(IntroTutorialState.OnboardingNo);
+        Debug.Log("[온보딩] 중지 핀치 먼저 완료 → OnboardingNo. 손을 완전히 놓은 뒤 검지 핀치 대기");
+    }
+
+    private void CompletePinchTutorial()
+    {
+        if (!tutorialIndexPinchCompleted || !tutorialMiddlePinchCompleted)
+        {
+            return;
+        }
+
+        tutorialWaitingForReleaseAfterFirstPinch = false;
+        SetImageIntroStage(IntroTutorialState.OnboardingNoDone);
 
         if (onboardingTransitionCoroutine != null)
         {
             StopCoroutine(onboardingTransitionCoroutine);
         }
 
-        onboardingTransitionCoroutine = StartCoroutine(ShowOnboardingOKThenNavigation());
-        Debug.Log("[온보딩] Onboarding 완료 → OnboardingOK");
+        onboardingTransitionCoroutine = StartCoroutine(ShowOnboardingDoneThenNavigation());
+        Debug.Log("[온보딩] 검지 + 중지 핀치 모두 완료 → OnboardingNoDone");
     }
 
-    private IEnumerator ShowOnboardingOKThenNavigation()
+    private IEnumerator ShowOnboardingDoneThenNavigation()
     {
-        if (onboardingOKHoldSeconds > 0f)
+        if (onboardingDoneHoldSeconds > 0f)
         {
-            yield return new WaitForSecondsRealtime(onboardingOKHoldSeconds);
+            yield return new WaitForSecondsRealtime(onboardingDoneHoldSeconds);
         }
 
         yield return FadeIntroObject(
-            onboardingOKObject,
+            onboardingNoDoneObject,
             1f,
             0f,
             onboardingTransitionFadeDuration
@@ -2568,8 +2881,10 @@ public class DustinyDemoFlow : MonoBehaviour
             onboardingTransitionCoroutine = null;
         }
 
-        SetIntroObjectVisible(onboardingObject, false);
+        SetIntroObjectVisible(onboardingOKNoObject, false);
         SetIntroObjectVisible(onboardingOKObject, false);
+        SetIntroObjectVisible(onboardingNoObject, false);
+        SetIntroObjectVisible(onboardingNoDoneObject, false);
         SetIntroObjectVisible(navInformObject, false);
         SetIntroObjectVisible(navInformOKObject, false);
 
@@ -2584,6 +2899,11 @@ public class DustinyDemoFlow : MonoBehaviour
         if (introPassthroughOverlayObject != null)
         {
             introPassthroughOverlayObject.SetActive(false);
+        }
+
+        if (introFullscreenOverlayCanvas != null)
+        {
+            introFullscreenOverlayCanvas.gameObject.SetActive(false);
         }
 
         if (introRootObject != null)
@@ -3287,7 +3607,10 @@ public class DustinyDemoFlow : MonoBehaviour
                 return;
             }
 
-            AdvanceImageIntroTutorial();
+            if (IsOnboardingPinchTutorialState())
+            {
+                ConfirmTutorialIndexPinch();
+            }
             return;
         }
 
@@ -3311,12 +3634,11 @@ public class DustinyDemoFlow : MonoBehaviour
     /// </summary>
     public void OnConfirmButtonPressed()
     {
-        // 첫 온보딩 화면에서는 검지 핀치 한 번만 받아 OnboardingOK로 진행합니다.
+        // 온보딩 핀치 연습에서는 검지 입력을 따로 기록합니다.
+        // 검지/중지 중 어느 손가락을 먼저 했는지에 따라 화면이 달라지고, 둘 다 완료해야 다음 단계로 갑니다.
         if (introTutorialActive)
         {
-            // 튜토리얼에서 검지 핀치가 의미 있는 단계는 Onboarding 하나뿐입니다.
-            // OnboardingOK / NavInform / NavInformOK에서는 추가 핀치를 완전히 무시합니다.
-            if (introTutorialState != IntroTutorialState.Onboarding)
+            if (!IsOnboardingPinchTutorialState())
             {
                 return;
             }
@@ -3327,8 +3649,7 @@ public class DustinyDemoFlow : MonoBehaviour
             }
 
             lastConfirmInputTime = Time.unscaledTime;
-            PlayYesSfx();
-            AdvanceImageIntroTutorial();
+            ConfirmTutorialIndexPinch();
             return;
         }
 
@@ -3365,10 +3686,26 @@ public class DustinyDemoFlow : MonoBehaviour
             missionController = FindFirstObjectByType<DustinyMissionController>();
         }
 
-        // NOTE를 눌러 나타난 "오늘의 미션을 진행할래?" 화면에서는
-        // 검지 핀치가 최초 스캔을 시작합니다.
+        // NOTE에서 "오늘의 미션을 실행할래?"에 검지로 동의해도 즉시 스캔하지 않습니다.
+        // 1차 검지: 미션 시작 의사 확인 → 스캔 장소로 이동하라는 안내
+        // 2차 검지: 실제 스캔 시작
         if (missionController != null && missionController.IsAwaitingMissionStart)
         {
+            if (!awaitingMissionScanPlacementConfirmation)
+            {
+                awaitingMissionScanPlacementConfirmation = true;
+                ShowDescriptionMessage(
+                    "좋아! 스캔할 장소로 이동해줘.\n" +
+                    "책상 전체가 잘 보이는 위치에서 다시 검지 핀치하면 스캔을 시작할게!\n" +
+                    "검지 핀치: 스캔 시작(O) · 중지 핀치: 취소(X)",
+                    scanningExpressionState
+                );
+                Debug.Log("[DustinyMission] 미션 시작 동의 → 스캔 위치 이동 후 두 번째 검지 핀치 대기");
+                return;
+            }
+
+            awaitingMissionScanPlacementConfirmation = false;
+            HideDialoguePanels();
             missionController.ConfirmMissionStartFromPrompt();
             return;
         }
@@ -3421,6 +3758,24 @@ public class DustinyDemoFlow : MonoBehaviour
         if (awaitingResetConfirmation)
         {
             CancelResetAllProgress();
+            return;
+        }
+
+        if (awaitingMissionScanPlacementConfirmation)
+        {
+            awaitingMissionScanPlacementConfirmation = false;
+            StopDurryVoicePlayback();
+
+            if (missionController != null && missionController.IsAwaitingMissionStart)
+            {
+                missionController.HandleMissionRejectPressed();
+            }
+            else
+            {
+                HideDialoguePanels();
+            }
+
+            Debug.Log("[DustinyMission] 스캔 위치 대기 중 중지 핀치 → 미션 시작 취소");
             return;
         }
 
@@ -3504,21 +3859,6 @@ public class DustinyDemoFlow : MonoBehaviour
     }
 
     /// <summary>
-    /// 왼손 약지 핀치 디버그 입력입니다.
-    /// 오늘 미션 진행도, 현재 미션 카드, 보송력, 크레딧,
-    /// 구매 아이템과 장착 아이템을 즉시 초기화합니다.
-    /// </summary>
-    public void OnResetAllProgressLeftRingPinchPressed()
-    {
-        if (!leftRingPinchResetsMissionCleanlinessAndCredit)
-        {
-            return;
-        }
-
-        RequestResetAllProgress();
-    }
-
-    /// <summary>
     /// 메뉴의 초기화 버튼 OnClick에 연결하는 메서드입니다.
     /// 즉시 데이터를 지우지 않고 확인 문구를 먼저 표시합니다.
     /// </summary>
@@ -3545,8 +3885,9 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        // 메뉴의 초기화 버튼을 누른 동일한 검지 핀치가 즉시 확인으로도 처리되지 않도록
+        // 메뉴 Reset 버튼을 누른 동일한 검지 핀치가 즉시 확인으로도 처리되지 않도록
         // 페이지를 닫고 확인 대기 상태로 전환합니다.
+        awaitingMissionScanPlacementConfirmation = false;
         CloseBigNote();
         awaitingResetConfirmation = true;
 
@@ -3585,11 +3926,15 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        // 확인을 받은 뒤에만 오프닝과 저장 데이터를 실제로 초기화합니다.
+        // 확인을 받은 뒤에만 저장 데이터를 실제로 초기화합니다.
+        // 초기화 진입점은 이제 왼손 약지가 아니라 Menu > Reset 버튼뿐입니다.
         onboardingActive = false;
         onboardingState = OnboardingState.Finished;
+        awaitingMissionScanPlacementConfirmation = false;
 
         ShopInventoryManager.Instance?.ResetAllItemState();
+
+        // MissionController의 기존 공개 메서드 이름은 레거시이지만 실제 초기화 내용은 그대로 재사용합니다.
         missionController.ResetMissionCleanlinessAndCreditFromLeftRingPinch();
     }
 
@@ -3731,48 +4076,86 @@ public class DustinyDemoFlow : MonoBehaviour
                               rightHand.GetFingerIsPinching(OVRHand.HandFinger.Ring);
 
         bool isLeftTracked = leftHand != null && leftHand.IsTracked && leftHand.IsDataValid;
-        bool isLeftRingPinching = isLeftTracked &&
-                                  leftHand.GetFingerIsPinching(OVRHand.HandFinger.Ring);
         bool isLeftPinkyPinching = isLeftTracked &&
                                    leftHand.GetFingerIsPinching(OVRHand.HandFinger.Pinky);
 
         bool indexPinchDown = isIndexPinching && !wasRightIndexPinching;
         bool middlePinchDown = isMiddlePinching && !wasRightMiddlePinching;
         bool ringPinchDown = isRingPinching && !wasRightRingPinching;
-        bool leftRingPinchDown = isLeftRingPinching && !wasLeftRingPinching;
         bool leftPinkyPinchDown = isLeftPinkyPinching && !wasLeftPinkyPinching;
 
         wasRightIndexPinching = isIndexPinching;
         wasRightMiddlePinching = isMiddlePinching;
         wasRightRingPinching = isRingPinching;
-        wasLeftRingPinching = isLeftRingPinching;
         wasLeftPinkyPinching = isLeftPinkyPinching;
 
         if ((indexPinchDown || middlePinchDown || ringPinchDown ||
-             leftRingPinchDown || leftPinkyPinchDown) &&
+             leftPinkyPinchDown) &&
             missionController == null)
         {
             missionController = FindFirstObjectByType<DustinyMissionController>();
         }
 
-        // 첫 온보딩에서는 검지 핀치 1회만 받습니다.
-        // 중지/약지/왼손 입력은 모두 막고, NavInform 단계는 고개 숙임만 기다립니다.
+        // 온보딩 핀치 연습: 검지와 중지를 각각 한 번씩 성공해야 합니다.
+        // 첫 성공 손가락에 따라 OnboardingOK / OnboardingNo를 보여주고, 둘 다 완료하면 OnboardingNoDone으로 갑니다.
+        // NavInform 이후에는 기존처럼 고개 숙임만 기다립니다.
         if (introTutorialActive)
         {
-            if (introTutorialState == IntroTutorialState.Onboarding &&
-                rightIndexPinchConfirms &&
-                indexPinchDown)
+            if (IsOnboardingPinchTutorialState())
             {
-                OnConfirmButtonPressed();
+                // 첫 핀치 직후에는 두 손가락을 모두 놓을 때까지 다음 입력을 잠급니다.
+                if (tutorialWaitingForReleaseAfterFirstPinch)
+                {
+                    if (!isIndexPinching && !isMiddlePinching)
+                    {
+                        tutorialWaitingForReleaseAfterFirstPinch = false;
+                        Debug.Log("[온보딩] 첫 핀치 릴리즈 확인 → 두 번째 손가락 입력 가능");
+                    }
+
+                    return;
+                }
+
+                // 같은 프레임에 검지와 중지가 동시에 Down으로 잡혀도 하나만 처리합니다.
+                // 어느 쪽도 아직 완료하지 않았다면 더 강하게 잡힌 핀치를 우선합니다.
+                if (rightIndexPinchConfirms && indexPinchDown && middlePinchDown)
+                {
+                    float indexStrength = rightHand != null
+                        ? rightHand.GetFingerPinchStrength(OVRHand.HandFinger.Index)
+                        : 1f;
+                    float middleStrength = rightHand != null
+                        ? rightHand.GetFingerPinchStrength(OVRHand.HandFinger.Middle)
+                        : 0f;
+
+                    if (!tutorialIndexPinchCompleted && !tutorialMiddlePinchCompleted)
+                    {
+                        if (middleStrength > indexStrength)
+                        {
+                            ConfirmTutorialMiddlePinch();
+                        }
+                        else
+                        {
+                            ConfirmTutorialIndexPinch();
+                        }
+                    }
+                    else if (!tutorialIndexPinchCompleted)
+                    {
+                        ConfirmTutorialIndexPinch();
+                    }
+                    else if (!tutorialMiddlePinchCompleted)
+                    {
+                        ConfirmTutorialMiddlePinch();
+                    }
+                }
+                else if (rightIndexPinchConfirms && indexPinchDown)
+                {
+                    ConfirmTutorialIndexPinch();
+                }
+                else if (middlePinchDown)
+                {
+                    ConfirmTutorialMiddlePinch();
+                }
             }
 
-            return;
-        }
-
-        // 왼손 약지 핀치는 디버그 전체 초기화 입력이며 다른 입력보다 먼저 처리합니다.
-        if (leftRingPinchResetsMissionCleanlinessAndCredit && leftRingPinchDown)
-        {
-            OnResetAllProgressLeftRingPinchPressed();
             return;
         }
 
@@ -3813,8 +4196,8 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        // 약지 핀치는 노트 버튼의 대체 입력입니다.
-        // Ready이면 최초 스캔, Active이면 검사 재스캔을 실행합니다.
+        // 오른손 약지는 기존 활성 미션의 검사 재스캔 보조 입력만 유지합니다.
+        // 최초 미션 스캔은 반드시 '미션 시작 검지 → 장소 이동 → 검지' 두 단계로만 시작합니다.
         if (rightRingPinchStartsOrRescans &&
             ringPinchDown &&
             IsNotePageOpen &&
@@ -5332,6 +5715,38 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         return path;
+    }
+
+    private Button FindButtonByExactNames(Transform root, params string[] exactNames)
+    {
+        if (root == null || exactNames == null || exactNames.Length == 0)
+        {
+            return null;
+        }
+
+        Button[] buttons = root.GetComponentsInChildren<Button>(true);
+        foreach (string exactName in exactNames)
+        {
+            if (string.IsNullOrWhiteSpace(exactName))
+            {
+                continue;
+            }
+
+            foreach (Button button in buttons)
+            {
+                if (button != null &&
+                    string.Equals(
+                        button.gameObject.name,
+                        exactName,
+                        StringComparison.OrdinalIgnoreCase
+                    ))
+                {
+                    return button;
+                }
+            }
+        }
+
+        return null;
     }
 
     private Button FindButtonByKeywords(Transform root, params string[] keywords)

@@ -14605,6 +14605,9 @@ const Il2CppGenericInst GenInst_String_t_TensorShape_t262F74805ED00A4B71BBAE6C07
 static const Il2CppType* GenInst_String_t_ToolPropertySchema_tA513DBAD8FF465CC771508891BD48A63920DCD6B_Types[] = { (&String_t_0_0_0), (&ToolPropertySchema_tA513DBAD8FF465CC771508891BD48A63920DCD6B_0_0_0) };
 extern const Il2CppGenericInst GenInst_String_t_ToolPropertySchema_tA513DBAD8FF465CC771508891BD48A63920DCD6B;
 const Il2CppGenericInst GenInst_String_t_ToolPropertySchema_tA513DBAD8FF465CC771508891BD48A63920DCD6B = { 2, GenInst_String_t_ToolPropertySchema_tA513DBAD8FF465CC771508891BD48A63920DCD6B_Types };
+static const Il2CppType* GenInst_String_t_Transform_tB27202C6F4E36D225EE28A13E4D662BF99785DB1_Types[] = { (&String_t_0_0_0), (&Transform_tB27202C6F4E36D225EE28A13E4D662BF99785DB1_0_0_0) };
+extern const Il2CppGenericInst GenInst_String_t_Transform_tB27202C6F4E36D225EE28A13E4D662BF99785DB1;
+const Il2CppGenericInst GenInst_String_t_Transform_tB27202C6F4E36D225EE28A13E4D662BF99785DB1 = { 2, GenInst_String_t_Transform_tB27202C6F4E36D225EE28A13E4D662BF99785DB1_Types };
 static const Il2CppType* GenInst_String_t_Type_t_Types[] = { (&String_t_0_0_0), (&Type_t_0_0_0) };
 extern const Il2CppGenericInst GenInst_String_t_Type_t;
 const Il2CppGenericInst GenInst_String_t_Type_t = { 2, GenInst_String_t_Type_t_Types };
@@ -51344,7 +51347,7 @@ static const Il2CppType* GenInst_TextureResource_t6EF8F60046828C34697CE7CD52B678
 extern const Il2CppGenericInst GenInst_TextureResource_t6EF8F60046828C34697CE7CD52B67873DBD2D719;
 const Il2CppGenericInst GenInst_TextureResource_t6EF8F60046828C34697CE7CD52B67873DBD2D719 = { 1, GenInst_TextureResource_t6EF8F60046828C34697CE7CD52B67873DBD2D719_Types };
 IL2CPP_EXTERN_C const Il2CppGenericInst* const g_Il2CppGenericInstTable[];
-const Il2CppGenericInst* const g_Il2CppGenericInstTable[13752] = 
+const Il2CppGenericInst* const g_Il2CppGenericInstTable[13753] = 
 {
 	&GenInst_T_tFCD5550B9927C916AC3132AE892A1E2BFED7B30F,
 	&GenInst_TSourceJointId_t76387AF25A775CCCAE042055F31E8B3C6F72908F,
@@ -52852,6 +52855,7 @@ const Il2CppGenericInst* const g_Il2CppGenericInstTable[13752] =
 	&GenInst_String_t_TensorInfo_tAADF7F16B52F2E2C3557478DA8C4D90AFB721539,
 	&GenInst_String_t_TensorShape_t262F74805ED00A4B71BBAE6C0766049D944ACE34,
 	&GenInst_String_t_ToolPropertySchema_tA513DBAD8FF465CC771508891BD48A63920DCD6B,
+	&GenInst_String_t_Transform_tB27202C6F4E36D225EE28A13E4D662BF99785DB1,
 	&GenInst_String_t_Type_t,
 	&GenInst_String_t_UriParser_t920B0868286118827C08B08A15A9456AF6C19D81,
 	&GenInst_String_t_VisualElement_t2667F9D19E62C7A315927506C06F223AB9234115,
