@@ -56,6 +56,8 @@ public class QuestCameraYoloTester : MonoBehaviour
     [SerializeField] private bool waitForValidCameraTexture = true;
     [SerializeField, Min(0.5f)] private float cameraReadyTimeout = 6f;
     [SerializeField, Min(16)] private int minimumValidTextureSize = 64;
+    [Tooltip("Re-enable the Passthrough Camera Access component automatically before a scan if it was disabled at runtime.")]
+    [SerializeField] private bool autoActivatePassthroughCameraAccess = true;
 
     [Header("[ 스캔 설정 ]")]
     [Min(0.5f)] public float scanDuration = 2.4f;
@@ -131,6 +133,7 @@ public class QuestCameraYoloTester : MonoBehaviour
     {
         SetScanningUI(false);
         SetStatusText(string.Empty);
+        EnsurePassthroughCameraAccessActive();
         RequestCameraPermission();
         aiInferenceTest?.EnsureInitialized();
     }
@@ -159,7 +162,13 @@ public class QuestCameraYoloTester : MonoBehaviour
     {
         if (passthroughCameraAccess == null)
         {
-            passthroughCameraAccess = FindFirstObjectByType<PassthroughCameraAccess>();
+            PassthroughCameraAccess[] cameraAccesses = FindObjectsByType<PassthroughCameraAccess>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            if (cameraAccesses.Length > 0)
+            {
+                passthroughCameraAccess = cameraAccesses[0];
+            }
         }
 
         if (aiInferenceTest == null)
@@ -217,6 +226,7 @@ public class QuestCameraYoloTester : MonoBehaviour
     public bool TryStartScan()
     {
         ResolveReferences();
+        EnsurePassthroughCameraAccessActive();
 
         if (isScanning)
         {
@@ -656,7 +666,7 @@ public class QuestCameraYoloTester : MonoBehaviour
             return false;
         }
 
-        if (!passthroughCameraAccess.isActiveAndEnabled)
+        if (!EnsurePassthroughCameraAccessActive())
         {
             lastScanFailureReason = "PassthroughCameraAccess 비활성";
             Debug.LogError("[Quest Camera] 카메라 접근 컴포넌트가 비활성화되어 있습니다.");
@@ -678,6 +688,31 @@ public class QuestCameraYoloTester : MonoBehaviour
         }
 
         return true;
+    }
+
+    private bool EnsurePassthroughCameraAccessActive()
+    {
+        if (passthroughCameraAccess == null)
+        {
+            return false;
+        }
+
+        if (!autoActivatePassthroughCameraAccess)
+        {
+            return passthroughCameraAccess.isActiveAndEnabled;
+        }
+
+        if (!passthroughCameraAccess.gameObject.activeSelf)
+        {
+            passthroughCameraAccess.gameObject.SetActive(true);
+        }
+
+        if (!passthroughCameraAccess.enabled)
+        {
+            passthroughCameraAccess.enabled = true;
+        }
+
+        return passthroughCameraAccess.isActiveAndEnabled;
     }
 
     private bool HasCameraPermission()

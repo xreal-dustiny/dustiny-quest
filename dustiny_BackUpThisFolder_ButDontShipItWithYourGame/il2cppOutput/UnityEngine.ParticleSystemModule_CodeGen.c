@@ -83,9 +83,9 @@ static const int32_t s_InvokerIndices[21] =
 	17110,
 	9212,
 	16903,
-	31357,
-	28320,
-	31354,
+	31358,
+	28321,
+	31355,
 	17311,
 	17435,
 	17435,
@@ -97,7 +97,7 @@ static const int32_t s_InvokerIndices[21] =
 	17435,
 	17435,
 	14105,
-	30235,
+	30236,
 };
 IL2CPP_EXTERN_C const Il2CppCodeGenModule g_UnityEngine_ParticleSystemModule_CodeGenModule;
 const Il2CppCodeGenModule g_UnityEngine_ParticleSystemModule_CodeGenModule = 

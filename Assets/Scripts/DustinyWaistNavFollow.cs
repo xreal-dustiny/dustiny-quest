@@ -4,14 +4,22 @@ using UnityEngine.Serialization;
 /// <summary>
 /// Touch/ray waist navigation follow controller for Dustiny.
 ///
+/// VERSION: 2026-08-16 NAV_VISIBILITY_SYNC_FIX
+///
 /// Recommended hierarchy:
 /// MainMRScene
 /// └─ WaistFollowRoot                 <- attach this script here
 ///    └─ WaistNavCanvas               <- World Space Canvas + PointableCanvas + Ray/Poke Interactable
 ///       └─ NavigationBar
 ///
-/// The follow root tracks the user's head position/yaw.
-/// WaistNavCanvas keeps an explicit local pose and script-controlled scale.
+/// Normal mode:
+/// - Look down -> show navigation.
+/// - Look up   -> hide navigation.
+///
+/// Tutorial mode:
+/// - DustinyDemoFlow can temporarily force the navigation visible/hidden.
+/// - When the tutorial releases the override, visibility is refreshed immediately
+///   from the current head pitch so the bar never remains stuck on screen.
 /// </summary>
 public class DustinyWaistNavFollow : MonoBehaviour
 {
@@ -71,7 +79,15 @@ public class DustinyWaistNavFollow : MonoBehaviour
     [Header("Debug")]
     public bool drawDebugRay = false;
 
-    private bool isCurrentlyVisible = true;
+    // 실제 GameObject 상태를 보조적으로 기억할 뿐, 이 값만 믿고 표시를 건너뛰지 않습니다.
+    // 외부 스크립트가 SetActive를 호출해도 다음 Refresh에서 실제 상태와 다시 동기화됩니다.
+    private bool isCurrentlyVisible;
+
+    // 튜토리얼 동안만 사용하는 강제 표시 상태입니다.
+    private bool visibilityOverrideActive;
+    private bool visibilityOverrideValue;
+
+    public bool IsVisibilityOverrideActive => visibilityOverrideActive;
 
     private void Reset()
     {
@@ -81,6 +97,12 @@ public class DustinyWaistNavFollow : MonoBehaviour
     private void Awake()
     {
         AutoFindReferences();
+        SyncCachedVisibilityFromObject();
+    }
+
+    private void OnEnable()
+    {
+        SyncCachedVisibilityFromObject();
     }
 
     private void OnValidate()
@@ -107,6 +129,7 @@ public class DustinyWaistNavFollow : MonoBehaviour
         }
 
         ApplyFollow(true);
+        RefreshVisibilityImmediately();
     }
 
     private void LateUpdate()
@@ -121,21 +144,108 @@ public class DustinyWaistNavFollow : MonoBehaviour
         UpdateGazeVisibility();
     }
 
-    private void UpdateGazeVisibility()
+    /// <summary>
+    /// 튜토리얼에서 gaze 판정을 잠시 무시하고 네비게이션 표시 상태를 강제합니다.
+    /// true = 강제 표시, false = 강제 숨김.
+    /// </summary>
+    public void SetVisibilityOverride(bool visible)
     {
-        if (!enableLookDownToOpen || centerEyeAnchor == null || waistNavRoot == null)
+        visibilityOverrideActive = true;
+        visibilityOverrideValue = visible;
+        ApplyNavigationVisibility(visible);
+    }
+
+    /// <summary>
+    /// 튜토리얼 강제 표시를 해제하고, 같은 프레임에 현재 고개 각도로 다시 판정합니다.
+    /// </summary>
+    public void ClearVisibilityOverrideAndRefresh()
+    {
+        visibilityOverrideActive = false;
+        RefreshVisibilityImmediately();
+    }
+
+    /// <summary>
+    /// 외부에서 NavigationBar/Canvas의 SetActive 상태를 바꾼 뒤에도
+    /// 현재 gaze 규칙과 실제 GameObject 상태를 즉시 맞출 때 사용할 수 있습니다.
+    /// </summary>
+    public void RefreshVisibilityImmediately()
+    {
+        if (waistNavRoot == null)
+        {
+            AutoFindReferences();
+        }
+
+        if (waistNavRoot == null)
         {
             return;
         }
 
+        if (visibilityOverrideActive)
+        {
+            ApplyNavigationVisibility(visibilityOverrideValue);
+            return;
+        }
+
+        if (!enableLookDownToOpen || centerEyeAnchor == null)
+        {
+            SyncCachedVisibilityFromObject();
+            return;
+        }
+
+        ApplyNavigationVisibility(IsLookingDownEnough());
+    }
+
+    private void UpdateGazeVisibility()
+    {
+        if (waistNavRoot == null)
+        {
+            return;
+        }
+
+        if (visibilityOverrideActive)
+        {
+            ApplyNavigationVisibility(visibilityOverrideValue);
+            return;
+        }
+
+        if (!enableLookDownToOpen || centerEyeAnchor == null)
+        {
+            SyncCachedVisibilityFromObject();
+            return;
+        }
+
+        ApplyNavigationVisibility(IsLookingDownEnough());
+    }
+
+    private bool IsLookingDownEnough()
+    {
         // centerEyeAnchor.forward.y 는 정면일 때 0, 바닥을 볼 때 음수(-1)가 됩니다.
         float lookDownAmount = -centerEyeAnchor.forward.y;
-        bool shouldBeVisible = lookDownAmount > lookDownThreshold;
+        return lookDownAmount > lookDownThreshold;
+    }
 
-        if (shouldBeVisible != isCurrentlyVisible)
+    private void ApplyNavigationVisibility(bool visible)
+    {
+        if (waistNavRoot == null)
         {
-            isCurrentlyVisible = shouldBeVisible;
-            waistNavRoot.gameObject.SetActive(isCurrentlyVisible);
+            return;
+        }
+
+        isCurrentlyVisible = visible;
+
+        // 중요: 캐시값이 아니라 실제 activeSelf와 비교합니다.
+        // DustinyDemoFlow 같은 외부 코드가 SetActive를 바꿔도 즉시 복구됩니다.
+        if (waistNavRoot.gameObject.activeSelf != visible)
+        {
+            waistNavRoot.gameObject.SetActive(visible);
+        }
+    }
+
+    private void SyncCachedVisibilityFromObject()
+    {
+        if (waistNavRoot != null)
+        {
+            isCurrentlyVisible = waistNavRoot.gameObject.activeSelf;
         }
     }
 
@@ -259,6 +369,7 @@ public class DustinyWaistNavFollow : MonoBehaviour
             if (foundCanvas != null)
             {
                 waistNavRoot = foundCanvas;
+                SyncCachedVisibilityFromObject();
                 return;
             }
 
@@ -266,6 +377,7 @@ public class DustinyWaistNavFollow : MonoBehaviour
             if (foundRoot != null)
             {
                 waistNavRoot = foundRoot;
+                SyncCachedVisibilityFromObject();
                 return;
             }
 
@@ -273,6 +385,7 @@ public class DustinyWaistNavFollow : MonoBehaviour
             if (foundOldRoot != null)
             {
                 waistNavRoot = foundOldRoot;
+                SyncCachedVisibilityFromObject();
             }
         }
     }
