@@ -8,9 +8,12 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/StartScene.unity
     guid: 998ce27503e4f0e45bf95dc343b6708d
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/MainMRScene.unity
     guid: 1866b74be5ea1914bb50ffae07d34701
+  - enabled: 1
+    path: Assets/Scenes/MainMRScene_AIUpdate.unity
+    guid: 213f8b4488dc6d64483950bc587cae14
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

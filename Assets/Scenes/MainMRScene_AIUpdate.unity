@@ -3823,8 +3823,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 94daab5965ec39540a9e447e2cb0c3de, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AIInferenceTest
-  modelAsset: {fileID: 5022602860645237092, guid: 7cb52d54ff03d0046ac37a24a182a7db, type: 3}
-  classesFile: {fileID: 4900000, guid: 32b2ab3c5dd2f1049ae8fe6df0d97435, type: 3}
+  modelAsset: {fileID: 5022602860645237092, guid: 329708c499b55314b88ae67b1b4aebba, type: 3}
+  classesFile: {fileID: 4900000, guid: d97ade55e5e2fc547aa4abcb87547951, type: 3}
   confidenceThreshold: 0.4
   iouThreshold: 0.45
   outputLayout: 0
@@ -8074,7 +8074,7 @@ MonoBehaviour:
   passthroughCameraAccess: {fileID: 1342899569}
   markerDistance: 1.2
   markerScale: 0.04
-  outerColor: {r: 0.9719956, g: 1, b: 0, a: 0.5058824}
+  outerColor: {r: 1, g: 0.5792655, b: 0, a: 0.5058824}
   innerColor: {r: 1, g: 1, b: 1, a: 1}
   innerRadius: 0.227
   innerSparkleScale: 0.867

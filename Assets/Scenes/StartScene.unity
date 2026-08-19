@@ -220,7 +220,7 @@ MonoBehaviour:
   applyViewRootPoseOnStart: 1
   viewRootLocalPosition: {x: 0, y: -0.03, z: 1.3}
   viewRootLocalEuler: {x: 0, y: 0, z: 0}
-  mainSceneName: MainMRScene
+  mainSceneName: MainMRScene_AIUpdate
   backgroundMusicClip: {fileID: 8300000, guid: ca174d8ef5d00044893e033a16f3e777, type: 3}
   yesSfxClip: {fileID: 8300000, guid: 15f9e88b54a7545479771045aecf7a1e, type: 3}
   backgroundMusicSource: {fileID: 0}
