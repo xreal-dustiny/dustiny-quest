@@ -7375,7 +7375,7 @@ inline EqualityComparer_1_t92563A67F1C1ECDC3FE387C46498E2E56B59F3C2* EqualityCom
 #pragma clang diagnostic ignored "-Winvalid-offsetof"
 #pragma clang diagnostic ignored "-Wunused-variable"
 #endif
-// Method Definition Index: 121777
+// Method Definition Index: 121809
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsValueType_m9F3AD92E6BE4702B9647F60EFFC1807BC74459B2_gshared (const RuntimeMethod* method) 
 {
 	{
@@ -7384,7 +7384,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsValueType_m9F3AD92E6B
 		return L_0;
 	}
 }
-// Method Definition Index: 121778
+// Method Definition Index: 121810
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsPrimitive_mF59A1EC4E7C315DC76AC5D5B0490A2A80B884DB0_gshared (const RuntimeMethod* method) 
 {
 	{
@@ -7393,7 +7393,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsPrimitive_mF59A1EC4E7
 		return L_0;
 	}
 }
-// Method Definition Index: 121779
+// Method Definition Index: 121811
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsInterface_mC8D1A4991A94DE4B7516A3E085E963D3D6733BDE_gshared (const RuntimeMethod* method) 
 {
 	{
@@ -7402,7 +7402,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsInterface_mC8D1A4991A
 		return L_0;
 	}
 }
-// Method Definition Index: 121780
+// Method Definition Index: 121812
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsAbstract_m0AAB3016C972D83F940A3D0C513C2B49987A6846_gshared (const RuntimeMethod* method) 
 {
 	{
@@ -7411,7 +7411,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsAbstract_m0AAB3016C97
 		return L_0;
 	}
 }
-// Method Definition Index: 121781
+// Method Definition Index: 121813
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsArray_m1A89220EFE4ADE921E91B7B57C699A35A353736A_gshared (const RuntimeMethod* method) 
 {
 	{
@@ -7420,7 +7420,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsArray_m1A89220EFE4ADE
 		return L_0;
 	}
 }
-// Method Definition Index: 121782
+// Method Definition Index: 121814
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsEnum_mF5956401AFC309F2D0D8DCB7C5F65CB916CBA252_gshared (const RuntimeMethod* method) 
 {
 	{
@@ -7429,7 +7429,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsEnum_mF5956401AFC309F
 		return L_0;
 	}
 }
-// Method Definition Index: 121783
+// Method Definition Index: 121815
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsNullable_mDA33CD4ED45033A8307D587ADDC933DC5E400DBB_gshared (const RuntimeMethod* method) 
 {
 	{
@@ -7438,7 +7438,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsNullable_mDA33CD4ED45
 		return L_0;
 	}
 }
-// Method Definition Index: 121784
+// Method Definition Index: 121816
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsObject_m52ECB0FFA90A7E93A635FD87014C2A7ED8888A24_gshared (const RuntimeMethod* method) 
 {
 	{
@@ -7447,7 +7447,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsObject_m52ECB0FFA90A7
 		return L_0;
 	}
 }
-// Method Definition Index: 121785
+// Method Definition Index: 121817
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsString_mE3931BDFC53D36FDF9412E501C559425BF544BC2_gshared (const RuntimeMethod* method) 
 {
 	{
@@ -7456,7 +7456,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsString_mE3931BDFC53D3
 		return L_0;
 	}
 }
-// Method Definition Index: 121786
+// Method Definition Index: 121818
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsContainer_mE471457D4B41340C33DC790B73B94CE7075B3F10_gshared (const RuntimeMethod* method) 
 {
 	{
@@ -7465,7 +7465,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsContainer_mE471457D4B
 		return L_0;
 	}
 }
-// Method Definition Index: 121787
+// Method Definition Index: 121819
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_CanBeNull_m323542EF5B1AA1E73C65A517B7B44D855BDFC48E_gshared (const RuntimeMethod* method) 
 {
 	{
@@ -7474,7 +7474,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_CanBeNull_m323542EF5B1A
 		return L_0;
 	}
 }
-// Method Definition Index: 121788
+// Method Definition Index: 121820
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsAbstractOrInterface_mDC54F11CBAEE37DA680C1D38745E9155D228EDD9_gshared (const RuntimeMethod* method) 
 {
 	{
@@ -7483,7 +7483,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsAbstractOrInterface_m
 		return L_0;
 	}
 }
-// Method Definition Index: 121789
+// Method Definition Index: 121821
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsUnityObject_m1657DE5C95B6039C8B49D3C686BFC7F26BD12C67_gshared (const RuntimeMethod* method) 
 {
 	{
@@ -7492,7 +7492,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool TypeTraits_1_get_IsUnityObject_m1657DE5C
 		return L_0;
 	}
 }
-// Method Definition Index: 121790
+// Method Definition Index: 121822
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void TypeTraits_1__cctor_m8F0C92890B8DA4265DF61D3EB4086EF3E41E56BE_gshared (const RuntimeMethod* method) 
 {
 	static bool s_Il2CppMethodInitialized;

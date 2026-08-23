@@ -17794,7 +17794,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float TMP_Offset_get_left_mCDC93F
 		return L_0;
 	}
 }
-// Method Definition Index: 114906
+// Method Definition Index: 114938
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR bool MaskableGraphic_get_maskable_m34B87CD87CFF73FF4E09D892ADB316E412F22660_inline (MaskableGraphic_tFC5B6BE351C90DE53744DF2A70940242774B361E* __this, const RuntimeMethod* method) 
 {
 	{
