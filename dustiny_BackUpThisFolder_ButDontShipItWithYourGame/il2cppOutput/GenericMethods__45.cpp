@@ -11180,7 +11180,7 @@ IL_002b:
 		return;
 	}
 }
-// Method Definition Index: 116986
+// Method Definition Index: 117018
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void MemoryUtilities_Free_TisIl2CppFullySharedGenericStruct_m417F5A391638E51A2072AA568F71E0F4528410F8_gshared (Il2CppFullySharedGenericStruct* ___0_p, int32_t ___1_allocator, const RuntimeMethod* method) 
 {
 	{
@@ -11192,7 +11192,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void MemoryUtilities_Free_TisIl2CppFullyShare
 		return;
 	}
 }
-// Method Definition Index: 116985
+// Method Definition Index: 117017
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR BatchDrawCommand_t9DAB9B739DA9EBC6B1BB0D2DD51AF65B12F66BF0* MemoryUtilities_Malloc_TisBatchDrawCommand_t9DAB9B739DA9EBC6B1BB0D2DD51AF65B12F66BF0_m7E812EC737BE547DE159DEFB8ED25CFEBE919249_gshared (int32_t ___0_count, int32_t ___1_allocator, const RuntimeMethod* method) 
 {
 	il2cpp_rgctx_method_init(method);
@@ -11212,7 +11212,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR BatchDrawCommand_t9DAB9B739DA9EBC6B1BB0D2DD51
 		return (BatchDrawCommand_t9DAB9B739DA9EBC6B1BB0D2DD51AF65B12F66BF0*)(L_4);
 	}
 }
-// Method Definition Index: 116985
+// Method Definition Index: 117017
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR BatchDrawCommandIndirect_t06F3B5DC4AF7D4B115CEECDB0A1E4E92065BC705* MemoryUtilities_Malloc_TisBatchDrawCommandIndirect_t06F3B5DC4AF7D4B115CEECDB0A1E4E92065BC705_m420905EDBA9A64C361E2A6D981B38B48D85066F3_gshared (int32_t ___0_count, int32_t ___1_allocator, const RuntimeMethod* method) 
 {
 	il2cpp_rgctx_method_init(method);
@@ -11232,7 +11232,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR BatchDrawCommandIndirect_t06F3B5DC4AF7D4B115C
 		return (BatchDrawCommandIndirect_t06F3B5DC4AF7D4B115CEECDB0A1E4E92065BC705*)(L_4);
 	}
 }
-// Method Definition Index: 116985
+// Method Definition Index: 117017
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR BatchDrawRange_t736D745E918A629658B80A0F7D2D17DAFBA6172F* MemoryUtilities_Malloc_TisBatchDrawRange_t736D745E918A629658B80A0F7D2D17DAFBA6172F_m1F65CB986865A957274F7808CE94C84C797611DA_gshared (int32_t ___0_count, int32_t ___1_allocator, const RuntimeMethod* method) 
 {
 	il2cpp_rgctx_method_init(method);
@@ -11252,7 +11252,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR BatchDrawRange_t736D745E918A629658B80A0F7D2D1
 		return (BatchDrawRange_t736D745E918A629658B80A0F7D2D17DAFBA6172F*)(L_4);
 	}
 }
-// Method Definition Index: 116985
+// Method Definition Index: 117017
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR int32_t* MemoryUtilities_Malloc_TisInt32_t680FF22E76F6EFAD4375103CBBFFA0421349384C_m844E1FE9AA85FBCDA780F255652D40A313DC2633_gshared (int32_t ___0_count, int32_t ___1_allocator, const RuntimeMethod* method) 
 {
 	il2cpp_rgctx_method_init(method);
@@ -11272,7 +11272,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR int32_t* MemoryUtilities_Malloc_TisInt32_t680
 		return (int32_t*)(L_4);
 	}
 }
-// Method Definition Index: 116985
+// Method Definition Index: 117017
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR float* MemoryUtilities_Malloc_TisSingle_t4530F2FF86FCB0DC29F35385CA1BD21BE294761C_m269ABA451687B643BABE37DB6019C803CD73F66A_gshared (int32_t ___0_count, int32_t ___1_allocator, const RuntimeMethod* method) 
 {
 	il2cpp_rgctx_method_init(method);
@@ -11292,7 +11292,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR float* MemoryUtilities_Malloc_TisSingle_t4530
 		return (float*)(L_4);
 	}
 }
-// Method Definition Index: 116985
+// Method Definition Index: 117017
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR Il2CppFullySharedGenericStruct* MemoryUtilities_Malloc_TisIl2CppFullySharedGenericStruct_m43C7C4CDECC24319B6A56C2EF185AD454D5C0B13_gshared (int32_t ___0_count, int32_t ___1_allocator, const RuntimeMethod* method) 
 {
 	il2cpp_rgctx_method_init(method);
@@ -29190,7 +29190,7 @@ IL_000a:
 		return L_2;
 	}
 }
-// Method Definition Index: 123914
+// Method Definition Index: 123946
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void NativeArrayUtils_EnsureCapacity_TisIl2CppFullySharedGenericStruct_m938B4EB2931FF9C2C46F85B047C222447D732032_gshared (NativeArray_1_tDB8B8DC66CC8E16ED6D9A8C75D2C1AFC80AC1E18* ___0_array, int32_t ___1_capacity, int32_t ___2_allocator, int32_t ___3_options, const RuntimeMethod* method) 
 {
 	il2cpp_rgctx_method_init(method);

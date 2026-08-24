@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 /// <summary>
 /// Dustiny 스타트 씬 전체를 관리합니다.
@@ -10,6 +11,7 @@ using UnityEngine.SceneManagement;
 /// - StartViewRoot를 CenterEyeAnchor 아래에 배치
 /// - 시작 화면 배경음악 반복 재생
 /// - Start 버튼 선택 시 Yes 효과음 재생
+/// - StartDescription 은은한 깜빡임
 /// - 효과음 재생 후 메인 씬 로드
 ///
 /// 주의:
@@ -28,6 +30,25 @@ public class StartUIManager : MonoBehaviour
 
     [Tooltip("네비게이션 안내 확인 화면입니다.")]
     public GameObject navInformOKGroup;
+
+    [Header("Start Description Blink")]
+    [Tooltip("StartDescription의 Image/Graphic을 연결하세요. 비워두면 이름으로 자동 탐색합니다.")]
+    public Graphic startDescriptionGraphic;
+
+    [Tooltip("StartDescription 깜빡임 사용 여부입니다.")]
+    public bool blinkStartDescription = true;
+
+    [Tooltip("가장 흐려졌을 때의 투명도입니다.")]
+    [Range(0f, 1f)]
+    public float startDescriptionMinAlpha = 0.35f;
+
+    [Tooltip("가장 선명할 때의 투명도입니다.")]
+    [Range(0f, 1f)]
+    public float startDescriptionMaxAlpha = 1f;
+
+    [Tooltip("밝아지거나 어두워지는 데 걸리는 시간입니다. 값이 클수록 더 은은합니다.")]
+    [Min(0.05f)]
+    public float startDescriptionFadeDuration = 1.15f;
 
     [Header("Center Eye View")]
     [Tooltip("OVRCameraRig/TrackingSpace/CenterEyeAnchor를 연결하세요.")]
@@ -78,6 +99,7 @@ public class StartUIManager : MonoBehaviour
     public float maxSceneLoadDelay = 1.2f;
 
     private bool isStartingGame;
+    private Coroutine startDescriptionBlinkRoutine;
 
     public bool IsStartingGame => isStartingGame;
 
@@ -91,11 +113,17 @@ public class StartUIManager : MonoBehaviour
     private void Start()
     {
         ShowStartUI();
+        StartDescriptionBlink();
 
         if (playBackgroundMusicOnStart)
         {
             PlayBackgroundMusic();
         }
+    }
+
+    private void OnDisable()
+    {
+        StopDescriptionBlink(true);
     }
 
     private void ResolveReferences()
@@ -157,6 +185,19 @@ public class StartUIManager : MonoBehaviour
             if (found != null)
             {
                 navInformOKGroup = found.gameObject;
+            }
+        }
+
+        if (startDescriptionGraphic == null)
+        {
+            Transform found = FindTransformByExactName(
+                allTransforms,
+                "StartDescription"
+            );
+
+            if (found != null)
+            {
+                startDescriptionGraphic = found.GetComponent<Graphic>();
             }
         }
     }
@@ -248,6 +289,105 @@ public class StartUIManager : MonoBehaviour
         }
     }
 
+    private void StartDescriptionBlink()
+    {
+        ResolveReferences();
+
+        if (!blinkStartDescription || startDescriptionGraphic == null)
+        {
+            return;
+        }
+
+        if (startDescriptionBlinkRoutine != null)
+        {
+            StopCoroutine(startDescriptionBlinkRoutine);
+        }
+
+        startDescriptionBlinkRoutine = StartCoroutine(
+            StartDescriptionBlinkRoutine()
+        );
+    }
+
+    private IEnumerator StartDescriptionBlinkRoutine()
+    {
+        float minAlpha = Mathf.Clamp01(
+            Mathf.Min(startDescriptionMinAlpha, startDescriptionMaxAlpha)
+        );
+        float maxAlpha = Mathf.Clamp01(
+            Mathf.Max(startDescriptionMinAlpha, startDescriptionMaxAlpha)
+        );
+        float duration = Mathf.Max(0.05f, startDescriptionFadeDuration);
+
+        SetStartDescriptionAlpha(maxAlpha);
+
+        while (true)
+        {
+            yield return FadeStartDescriptionAlpha(
+                maxAlpha,
+                minAlpha,
+                duration
+            );
+
+            yield return FadeStartDescriptionAlpha(
+                minAlpha,
+                maxAlpha,
+                duration
+            );
+        }
+    }
+
+    private IEnumerator FadeStartDescriptionAlpha(
+        float from,
+        float to,
+        float duration
+    )
+    {
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+
+            // 끝에서 갑자기 꺾이는 느낌이 없도록 부드럽게 보간합니다.
+            t = Mathf.SmoothStep(0f, 1f, t);
+
+            SetStartDescriptionAlpha(
+                Mathf.Lerp(from, to, t)
+            );
+
+            yield return null;
+        }
+
+        SetStartDescriptionAlpha(to);
+    }
+
+    private void SetStartDescriptionAlpha(float alpha)
+    {
+        if (startDescriptionGraphic == null)
+        {
+            return;
+        }
+
+        Color color = startDescriptionGraphic.color;
+        color.a = Mathf.Clamp01(alpha);
+        startDescriptionGraphic.color = color;
+    }
+
+    private void StopDescriptionBlink(bool restoreFullAlpha)
+    {
+        if (startDescriptionBlinkRoutine != null)
+        {
+            StopCoroutine(startDescriptionBlinkRoutine);
+            startDescriptionBlinkRoutine = null;
+        }
+
+        if (restoreFullAlpha)
+        {
+            SetStartDescriptionAlpha(startDescriptionMaxAlpha);
+        }
+    }
+
     public void PlayBackgroundMusic()
     {
         SetupAudioSources();
@@ -296,6 +436,13 @@ public class StartUIManager : MonoBehaviour
         SetGroupActive(startUIGroup, true);
         SetGroupActive(navInformGroup, false);
         SetGroupActive(navInformOKGroup, false);
+
+        if (blinkStartDescription &&
+            startDescriptionBlinkRoutine == null &&
+            isActiveAndEnabled)
+        {
+            StartDescriptionBlink();
+        }
     }
 
     public void ToNavInform()

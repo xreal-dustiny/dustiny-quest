@@ -1,13 +1,17 @@
-// VERSION: 78_MISSION_COPY_POLISH_2026-08-17
-// 2026-08-17 기준 누적 통합본.
-// Tutorial: OnboardingOKNo -> (Index first: OnboardingOK / Middle first: OnboardingNo) -> OnboardingNoDone -> NavInform -> NavInformOK.
+// VERSION: 81_LATEST_RESTORED_FROM_V80_2026-08-23
+// Baseline: 80_SHORT_MISSION_RESULT_COPY_2026-08-17 (latest cumulative stable flow).
+// Tutorial: OnboardingOKNo -> first pinch result -> release -> second pinch -> OnboardingNoDone -> NavInform -> NavInformOK.
 // Tutorial overlay: full-camera Screen Space - Camera overlay.
-// Navigation: tutorial visibility override is synchronized with DustinyWaistNavFollow and released with an immediate gaze refresh.
+// Navigation: NavInform keeps the bar hidden; it appears only while the player is actually looking down.
+// Navigation override: synchronized with DustinyWaistNavFollow and released with an immediate gaze refresh.
 // Interaction: left-ring reset removed. Menu Reset asks for confirmation; Menu Exit quits the app.
-// Mission start: first index pinch accepts the mission, second index pinch at the scan location starts the actual scan.
-// Durry interaction: use separate DurryLaserInteraction for short-touch reactions only. No grab/move interaction.
-// Prologue: finishing Durry dialogue only unlocks NOTE; mission prompt appears only when the user presses the NOTE tab.
-// All user-driven Durry/page grab and position-moving interactions remain removed. SideTags behavior remains unchanged.
+// Mission start: NOTE only -> friendly prompt -> first index pinch accepts -> second index pinch at scan location starts actual scan.
+// Prologue: finishing Durry dialogue only unlocks NOTE; mission prompt appears only when the user presses NOTE.
+// Scan result: detected objects are auto-added; legacy "미션 노트에 추가할까?" confirmation is suppressed.
+// Reset copy: "초기화 할래? 다시 복구할 수 없어." -> "초기화가 완료되었어!"
+// NOTE glow: completely removed by user request.
+// Durry interaction: separate DurryLaserInteraction short-touch reactions only; no user grab/move.
+// SideTags behavior remains unchanged.
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -136,37 +140,34 @@ public class DustinyDemoFlow : MonoBehaviour
     public GameObject onboardingOKNoObject;
 
     [FormerlySerializedAs("gestureOKObject")]
-    [Tooltip("검지 핀치를 먼저 성공했을 때 표시합니다. 이후 중지 핀치를 기다립니다.")]
+    [Tooltip("검지 핀치를 먼저 성공했을 때 표시합니다. 이후 손을 완전히 놓고 중지 핀치를 기다립니다.")]
     public GameObject onboardingOKObject;
 
-    [Tooltip("중지 핀치를 먼저 성공했을 때 표시합니다. 이후 검지 핀치를 기다립니다.")]
+    [Tooltip("중지 핀치를 먼저 성공했을 때 표시합니다. 이후 손을 완전히 놓고 검지 핀치를 기다립니다.")]
     public GameObject onboardingNoObject;
 
     [Tooltip("검지와 중지 핀치를 모두 완료했을 때 표시합니다. 이후 NavInform으로 자동 전환합니다.")]
     public GameObject onboardingNoDoneObject;
 
-    [Tooltip("OnboardingNoDone 이후 별도로 표시할 네비게이션 안내 이미지입니다.")]
+    [Tooltip("OnboardingNoDone 이후 표시할 네비게이션 안내 이미지입니다.")]
     public GameObject navInformObject;
 
     [Tooltip("사용자가 아래를 바라봐 네비게이션을 확인하면 표시할 네비게이션 완료 이미지입니다.")]
     public GameObject navInformOKObject;
 
     [Header("Fullscreen Tutorial Overlay")]
-    [Tooltip("튜토리얼 동안 카메라 전체를 덮는 필터용 Canvas입니다. 비워두면 CenterEye 카메라용 Screen Space - Camera Canvas를 자동 생성합니다.")]
+    [Tooltip("튜토리얼 동안 CenterEye 카메라 전체를 덮는 Screen Space - Camera Canvas입니다. 비워두면 자동 생성합니다.")]
     public Canvas introFullscreenOverlayCanvas;
 
-    [Tooltip("전체 화면 필터 이미지입니다. 기존 World Space 사각형을 연결해도 실행 시 Fullscreen Canvas 아래로 옮겨 화면 전체로 Stretch합니다.")]
+    [Tooltip("전체 화면 필터 이미지입니다. 기존 오브젝트를 연결해도 실행 시 Fullscreen Canvas 아래로 옮겨 전체 화면으로 Stretch합니다.")]
     public GameObject introPassthroughOverlayObject;
     public Image introPassthroughOverlayImage;
 
-    [Tooltip("켜면 WorldCanvas 직사각형 대신 카메라 전체를 덮는 Screen Space - Camera 오버레이를 사용합니다.")]
+    [Tooltip("켜면 WorldCanvas 크기와 무관하게 CenterEye 카메라 전체를 덮는 Screen Space - Camera 오버레이를 사용합니다.")]
     public bool useFullscreenCameraOverlay = true;
     public bool autoCreateIntroPassthroughOverlay = true;
 
-    [Tooltip("Fullscreen Overlay Canvas의 Camera Plane Distance입니다. 튜토리얼 World UI보다 뒤에 두기 위해 기본값을 멀게 둡니다.")]
     [Min(0.1f)] public float introOverlayPlaneDistance = 5f;
-
-    [Tooltip("Fullscreen Overlay의 정렬 순서입니다. 튜토리얼 UI보다 뒤에서 패스스루만 어둡게 보이도록 낮은 값을 사용합니다.")]
     public int introOverlaySortingOrder = -1000;
 
     [Range(0f, 1f)]
@@ -180,7 +181,7 @@ public class DustinyDemoFlow : MonoBehaviour
     [Tooltip("OnboardingNoDone에서 NavInform으로 전환할 때 사용하는 페이드 시간입니다.")]
     [Min(0f)] public float onboardingTransitionFadeDuration = 0.25f;
 
-    [Tooltip("네비게이션 튜토리얼 완료로 판단할 고개 숙임의 Forward Y 기준값입니다. 더 작은 값일수록 더 많이 숙여야 합니다.")]
+    [Tooltip("네비게이션 튜토리얼 완료로 판단할 고개 숙임의 Forward Y 기준값입니다.")]
     [Range(-1f, 0f)] public float navigationLookDownForwardYThreshold = -0.35f;
 
     [Tooltip("고개를 아래로 향한 상태를 유지해야 하는 시간입니다.")]
@@ -195,7 +196,7 @@ public class DustinyDemoFlow : MonoBehaviour
     [Tooltip("이미지 인트로 동안 더리를 숨기고, 종료 시 다시 표시합니다.")]
     public bool hideDurryDuringImageIntro = true;
 
-    [Tooltip("이미지 인트로 동안 허리 네비게이션을 숨기고, 종료 시 시작 설정값으로 복원합니다.")]
+    [Tooltip("이미지 인트로 동안 네비게이션 가시성을 튜토리얼이 직접 제어합니다.")]
     public bool hideNavigationDuringImageIntro = true;
 
     [Header("Dialogue / Description")]
@@ -246,7 +247,7 @@ public class DustinyDemoFlow : MonoBehaviour
     [Header("Opening Complete -> Mission")]
     [TextArea(2, 5)]
     public string missionNoteUnlockedDescription =
-        "오늘의 미션 안내가 준비됐어!\n검지 핀치로 스캔을 시작해줘.";
+        "오늘의 미션이 준비됐어!\n아래 미션 버튼을 눌러 시작해줘.";
 
     [Header("Confirm / Reject SFX + Background Music")]
     [Tooltip("검지 확인 입력에서 Yes 효과음을 재생하는 2D AudioSource입니다. 비워두면 자동 생성합니다.")]
@@ -332,7 +333,7 @@ public class DustinyDemoFlow : MonoBehaviour
     public GameObject navigationBarObject;
     public bool navigationBarStartsVisible = true;
 
-    [Tooltip("고개 숙임에 따라 네비게이션 표시를 제어하는 DustinyWaistNavFollow입니다. 튜토리얼 중에는 이 컴포넌트의 visibility override를 사용합니다. 비워두면 자동 탐색합니다.")]
+    [Tooltip("고개 숙임에 따라 네비게이션 표시를 제어하는 DustinyWaistNavFollow입니다. 튜토리얼 중 visibility override를 사용합니다.")]
     public DustinyWaistNavFollow waistNavFollow;
     public bool autoFindWaistNavFollow = true;
 
@@ -342,6 +343,7 @@ public class DustinyDemoFlow : MonoBehaviour
     public Button myPageButton;
     public Button menuButton;
     public bool autoConnectNavigationButtons = true;
+
 
     [Header("Page Container - No Shared Background")]
     [Tooltip("페이지를 묶는 빈 컨테이너입니다. 이 오브젝트 자체에는 Image/RawImage를 두지 마세요.")]
@@ -373,7 +375,7 @@ public class DustinyDemoFlow : MonoBehaviour
     [Min(0f)] public float pageOpenFadeDuration = 0.35f;
     public float pageOpenRiseOffset = -180f;
 
-    [Header("Page Placement Beside Durry")]
+    [Header("Page Placement Beside Durry - No Grab")]
     [Tooltip("켜면 BigNoteRoot를 카메라 고정 위치가 아니라 더리 옆의 월드 위치에 배치합니다.")]
     public bool placePageBesideDurry = true;
 
@@ -400,6 +402,9 @@ public class DustinyDemoFlow : MonoBehaviour
 
     [Tooltip("페이지 앞뒤가 반대로 보일 때 180으로 바꿉니다.")]
     public float durryPageFacingYawOffset = 0f;
+
+    [Tooltip("이전 버전의 DustinyDurryPageFollowGrab 컴포넌트가 남아 있으면 실행 중 자동으로 제거합니다.")]
+    public bool removeLegacyPageGrabComponent = true;
 
     public bool bringPageRootToFrontWhenOpen = true;
     public bool hideDialogueWhenPageOpens = true;
@@ -452,7 +457,7 @@ public class DustinyDemoFlow : MonoBehaviour
     public bool autoConnectPageButtons = true;
 
     [Header("Menu Action Buttons")]
-    [Tooltip("MenuPage의 Reset 버튼입니다. 기존 Resume 위치에 둔 Reset 버튼을 연결하세요. 비워두면 MenuPage 안에서 이름으로 자동 탐색합니다.")]
+    [Tooltip("MenuPage의 Reset 버튼입니다. 비워두면 MenuPage 안에서 이름으로 자동 탐색합니다.")]
     public Button menuResetButton;
 
     [Tooltip("MenuPage의 Exit 버튼입니다. Quest 빌드에서는 Application.Quit(), 에디터에서는 Play Mode 종료로 동작합니다.")]
@@ -509,14 +514,12 @@ public class DustinyDemoFlow : MonoBehaviour
     public OVRHand rightHand;
     public bool autoFindRightOVRHandIfMissing = true;
 
-    [Header("Left Hand Reference")]
-    [Tooltip("왼손 약지 초기화 인터랙션은 제거되었습니다. 이 참조는 왼손 소지 네비게이션 토글에만 사용합니다.")]
+    [Header("Left Hand Tracking")]
+    [Tooltip("왼손은 소지 핀치 네비게이션 입력에만 사용합니다. 초기화는 Menu > Reset 버튼에서만 가능합니다.")]
     public OVRHand leftHand;
     public bool autoFindLeftOVRHandIfMissing = true;
-
-    [Header("Menu Reset")]
-    [Tooltip("Menu Reset 버튼 연타로 확인창이 중복 생성되는 것을 막는 대기 시간입니다.")]
     [Min(0f)] public float resetInputCooldown = 1f;
+
 
     [Header("Left Pinky Pinch Navigation")]
     [Tooltip("왼손 소지(새끼손가락) 핀치 한 번으로 네비게이션 바를 열거나 닫습니다. OVRSkeleton은 필요하지 않습니다.")]
@@ -665,8 +668,6 @@ public class DustinyDemoFlow : MonoBehaviour
     private Coroutine onboardingTransitionCoroutine;
     private bool tutorialIndexPinchCompleted;
     private bool tutorialMiddlePinchCompleted;
-    // 첫 번째 핀치가 끝난 뒤 검지/중지를 모두 완전히 놓아야 두 번째 핀치를 받습니다.
-    // 손 추적 노이즈로 두 손가락이 같은 프레임에 잡혀 곧바로 Done으로 넘어가는 현상을 방지합니다.
     private bool tutorialWaitingForReleaseAfterFirstPinch;
     private float navigationLookDownStartedTime = -1f;
     private bool navigationWasVisibleBeforeIntro;
@@ -685,6 +686,7 @@ public class DustinyDemoFlow : MonoBehaviour
     private float lastResetInputTime = -999f;
     private bool awaitingResetConfirmation;
     private bool awaitingMissionScanPlacementConfirmation;
+    private Coroutine autoAcceptMissionScanCoroutine;
     private bool creditUIEventSubscribed;
 
     private bool currentDescriptionUsesDim = true;
@@ -854,6 +856,10 @@ public class DustinyDemoFlow : MonoBehaviour
             SummonDurryToUser();
         }
 
+        // 이전 버전의 별도 그랩 컴포넌트는 사용하지 않습니다.
+        // 페이지 위치 계산과 더리 추적은 모두 이 DustinyDemoFlow가 담당합니다.
+        RemoveLegacyPageGrabComponent();
+
         UpdateViewLockedUI();
         KeepIntroTutorialUpright();
         UpdateDialoguePlacement();
@@ -1006,6 +1012,8 @@ public class DustinyDemoFlow : MonoBehaviour
             FindObjectsSortMode.None
         );
 
+        // 버전마다 waistNavRoot / waistNavGrabbableRoot 필드명이 달랐기 때문에
+        // 특정 필드에 직접 의존하지 않고 Transform 계층으로 가장 가까운 Follow를 찾습니다.
         foreach (DustinyWaistNavFollow follow in follows)
         {
             if (follow == null)
@@ -1014,10 +1022,8 @@ public class DustinyDemoFlow : MonoBehaviour
             }
 
             if (navigationBarObject != null &&
-                follow.waistNavRoot != null &&
-                (follow.waistNavRoot.gameObject == navigationBarObject ||
-                 navigationBarObject.transform.IsChildOf(follow.waistNavRoot) ||
-                 follow.waistNavRoot.IsChildOf(navigationBarObject.transform)))
+                (navigationBarObject.transform.IsChildOf(follow.transform) ||
+                 follow.transform.IsChildOf(navigationBarObject.transform)))
             {
                 waistNavFollow = follow;
                 return;
@@ -1036,11 +1042,21 @@ public class DustinyDemoFlow : MonoBehaviour
 
         if (waistNavFollow != null)
         {
-            waistNavFollow.SetVisibilityOverride(visible);
-            return;
+            // 최신 DustinyWaistNavFollow에는 SetVisibilityOverride(bool)가 있습니다.
+            // 이전 버전 스크립트가 프로젝트에 남아 있어도 DemoFlow가 컴파일되도록
+            // 리플렉션으로 선택적으로 호출하고, 없으면 SetActive 폴백을 사용합니다.
+            System.Reflection.MethodInfo method = waistNavFollow.GetType().GetMethod(
+                "SetVisibilityOverride",
+                new Type[] { typeof(bool) }
+            );
+
+            if (method != null)
+            {
+                method.Invoke(waistNavFollow, new object[] { visible });
+                return;
+            }
         }
 
-        // 폴로우 스크립트를 찾지 못한 씬을 위한 폴백입니다.
         SetNavigationBarVisible(visible);
     }
 
@@ -1050,11 +1066,18 @@ public class DustinyDemoFlow : MonoBehaviour
 
         if (waistNavFollow != null)
         {
-            waistNavFollow.ClearVisibilityOverrideAndRefresh();
-            return;
+            System.Reflection.MethodInfo method = waistNavFollow.GetType().GetMethod(
+                "ClearVisibilityOverrideAndRefresh",
+                Type.EmptyTypes
+            );
+
+            if (method != null)
+            {
+                method.Invoke(waistNavFollow, null);
+                return;
+            }
         }
 
-        // 폴백에서는 기존 시작 상태로 복원합니다.
         SetNavigationBarVisible(navigationBarStartsVisible || navigationWasVisibleBeforeIntro);
     }
 
@@ -1132,6 +1155,12 @@ public class DustinyDemoFlow : MonoBehaviour
         ConnectButtonClick(menuButton, OpenMenuPage);
     }
 
+    /// <summary>
+    /// NOTE 버튼 뒤에 반투명 Glow를 준비합니다.
+    /// 별도 에셋 없이 기존 NOTE 버튼의 targetGraphic Sprite를 복제해 사용할 수 있습니다.
+    /// </summary>
+
+
     private void ResolvePageReferences()
     {
         Transform searchRoot = worldCanvas != null ? worldCanvas.transform : transform;
@@ -1179,6 +1208,44 @@ public class DustinyDemoFlow : MonoBehaviour
             Transform tagSearchRoot = bigNoteRoot != null ? bigNoteRoot.transform : searchRoot;
             sideTagsRoot = FindChildTransformContainsAll(tagSearchRoot, "side", "tag") ??
                            FindChildTransformContains(tagSearchRoot, "sidetags");
+        }
+    }
+
+    private void RemoveLegacyPageGrabComponent()
+    {
+        if (!removeLegacyPageGrabComponent)
+        {
+            return;
+        }
+
+        ResolvePageReferences();
+        if (bigNoteRoot == null)
+        {
+            return;
+        }
+
+        Component[] components = bigNoteRoot.GetComponents<Component>();
+        foreach (Component component in components)
+        {
+            if (component == null ||
+                component == this ||
+                component.GetType().Name != "DustinyDurryPageFollowGrab")
+            {
+                continue;
+            }
+
+            // Component 자체에는 enabled 속성이 없습니다.
+            // MonoBehaviour, Renderer 등 enabled를 가진 Behaviour인 경우에만 먼저 끕니다.
+            if (component is Behaviour legacyBehaviour)
+            {
+                legacyBehaviour.enabled = false;
+            }
+
+            Destroy(component);
+            Debug.Log(
+                "[더리 페이지] 이전 DustinyDurryPageFollowGrab을 제거했습니다. " +
+                "이제 위치 추적은 DustinyDemoFlow가 직접 담당합니다."
+            );
         }
     }
 
@@ -1240,8 +1307,8 @@ public class DustinyDemoFlow : MonoBehaviour
 
         if (closePageButton == null)
         {
-            // MenuPage의 Exit는 앱 종료 버튼이므로 절대 X/Close 버튼으로 자동 연결하지 않습니다.
-            closePageButton = FindButtonByKeywords(searchRoot, "close");
+            closePageButton = FindButtonByKeywords(searchRoot, "close") ??
+                              FindButtonByKeywords(searchRoot, "exit");
         }
 
         if (noteTagButton == null)
@@ -1411,12 +1478,10 @@ public class DustinyDemoFlow : MonoBehaviour
             missionController = FindFirstObjectByType<DustinyMissionController>();
         }
 
-        // With no active round, NOTE shows a description prompt instead of an empty page.
+        // 활성 라운드가 없으면 NOTE를 빈 페이지로 열지 않고 시작 질문만 표시합니다.
         if (missionController != null && !missionController.RequestOpenMissionNote())
         {
-            // MissionController의 레거시 안내문에 남아 있는
-            // "검지 핀치: O / 중지 핀치: X" 같은 시스템 문구를 화면에 노출하지 않습니다.
-            // 실제 입력 규칙은 유지하되, 플레이 중에는 자연스러운 게임 대사만 보여줍니다.
+            // MissionController의 레거시 시스템 문구 대신 사용자 친화적인 문구를 보여줍니다.
             if (missionController.IsAwaitingMissionStart)
             {
                 ShowFriendlyMissionStartPrompt();
@@ -1432,20 +1497,23 @@ public class DustinyDemoFlow : MonoBehaviour
     {
         QuestProgressManager progress = QuestProgressManager.Instance;
 
-        int completed = progress != null
-            ? progress.CompletedRoundsToday
-            : 0;
-        int required = progress != null
-            ? progress.RequiredCleaningRoundsPerDay
-            : 3;
-        bool rewardLimitReached = progress != null &&
-                                  progress.HasReachedDailyRewardLimit;
+        int completed = progress != null ? progress.CompletedRoundsToday : 0;
+        int required = progress != null ? progress.RequiredCleaningRoundsPerDay : 3;
+        bool rewardLimitReached = progress != null && progress.HasReachedDailyRewardLimit;
+        int remainingRewards = Mathf.Max(0, required - completed);
 
-        string prompt = rewardLimitReached
-            ? "오늘의 보상 미션은 모두 완료했어!\n" +
-              "보상 없이 한 번 더 정리해볼래?"
-            : $"오늘의 미션을 시작할래?\n" +
-              $"오늘 {completed}/{required}회 완료!";
+        string remainingRewardText;
+        switch (remainingRewards)
+        {
+            case 1: remainingRewardText = "한 번"; break;
+            case 2: remainingRewardText = "두 번"; break;
+            case 3: remainingRewardText = "세 번"; break;
+            default: remainingRewardText = $"{remainingRewards}번"; break;
+        }
+
+        string prompt = rewardLimitReached || remainingRewards <= 0
+            ? "미션을 시작할래?\n오늘은 더 이상 보상을 받지 못해."
+            : $"미션을 시작할래?\n오늘 {remainingRewardText} 더 보상을 받을 수 있어.";
 
         ShowDescriptionMessage(
             prompt,
@@ -1469,6 +1537,8 @@ public class DustinyDemoFlow : MonoBehaviour
     {
         SuppressMissionPinchFromPageUI();
         OpenPage(DustinyPage.Menu);
+
+        // 비활성 상태였던 MenuPage가 실제로 열린 뒤 Reset/Exit를 다시 찾아 연결합니다.
         ResolveMenuActionButtons();
         ConnectMenuActionButtonEvents();
     }
@@ -1757,8 +1827,8 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        // BigNoteRoot는 사용자 입력으로 이동하지 않습니다.
-        // 필요하면 더리 옆의 지정 위치를 DustinyDemoFlow가 자동으로 유지합니다.
+        // 새 방식: BigNoteRoot가 카메라 위치를 따르지 않고 더리 옆에 떨어져서 생성됩니다.
+        // 별도 그랩 스크립트 없이 DustinyDemoFlow가 매 프레임 월드 위치를 직접 유지합니다.
         if (placePagesAtPlayerCenter && pageRootOpen && centerEyeAnchor != null && worldCanvas != null)
         {
             Vector3 forward = centerEyeAnchor.forward;
@@ -2346,8 +2416,7 @@ public class DustinyDemoFlow : MonoBehaviour
             }
         }
 
-        // 온보딩 화면은 이름이 비슷하므로 반드시 Exact 검색을 우선합니다.
-        // Contains 검색으로 OnboardingOKNo와 OnboardingOK를 같은 오브젝트로 잡는 문제를 막습니다.
+        // 이름이 비슷하므로 Exact 검색을 우선합니다.
         if (onboardingOKNoObject == null)
         {
             Transform found = FindChildTransformExact(searchRoot, "OnboardingOKNo") ??
@@ -2435,7 +2504,10 @@ public class DustinyDemoFlow : MonoBehaviour
                 introFullscreenOverlayCanvas.planeDistance = Mathf.Clamp(
                     introOverlayPlaneDistance,
                     centerEyeCamera.nearClipPlane + 0.05f,
-                    Mathf.Max(centerEyeCamera.nearClipPlane + 0.1f, centerEyeCamera.farClipPlane - 0.1f)
+                    Mathf.Max(
+                        centerEyeCamera.nearClipPlane + 0.1f,
+                        centerEyeCamera.farClipPlane - 0.1f
+                    )
                 );
                 introFullscreenOverlayCanvas.overrideSorting = true;
                 introFullscreenOverlayCanvas.sortingOrder = introOverlaySortingOrder;
@@ -2458,9 +2530,11 @@ public class DustinyDemoFlow : MonoBehaviour
 
             if (introPassthroughOverlayObject != null && introFullscreenOverlayCanvas != null)
             {
-                RectTransform overlayRect =
-                    introPassthroughOverlayObject.GetComponent<RectTransform>() ??
-                    introPassthroughOverlayObject.AddComponent<RectTransform>();
+                RectTransform overlayRect = introPassthroughOverlayObject.GetComponent<RectTransform>();
+                if (overlayRect == null)
+                {
+                    overlayRect = introPassthroughOverlayObject.AddComponent<RectTransform>();
+                }
 
                 overlayRect.SetParent(introFullscreenOverlayCanvas.transform, false);
                 overlayRect.anchorMin = Vector2.zero;
@@ -2472,22 +2546,19 @@ public class DustinyDemoFlow : MonoBehaviour
                 overlayRect.localScale = Vector3.one;
                 overlayRect.localRotation = Quaternion.identity;
 
-                introPassthroughOverlayImage =
-                    introPassthroughOverlayObject.GetComponent<Image>() ??
-                    introPassthroughOverlayObject.AddComponent<Image>();
+                introPassthroughOverlayImage = introPassthroughOverlayObject.GetComponent<Image>();
+                if (introPassthroughOverlayImage == null)
+                {
+                    introPassthroughOverlayImage = introPassthroughOverlayObject.AddComponent<Image>();
+                }
             }
         }
         else
         {
-            // 카메라를 찾지 못한 경우에만 기존 WorldCanvas 방식으로 폴백합니다.
+            // Fullscreen Canvas를 사용할 수 없는 경우에만 WorldCanvas 폴백을 사용합니다.
             if (introPassthroughOverlayObject == null && introPassthroughOverlayImage != null)
             {
                 introPassthroughOverlayObject = introPassthroughOverlayImage.gameObject;
-            }
-
-            if (introPassthroughOverlayImage == null && introPassthroughOverlayObject != null)
-            {
-                introPassthroughOverlayImage = introPassthroughOverlayObject.GetComponent<Image>();
             }
 
             if (introPassthroughOverlayObject == null &&
@@ -2515,23 +2586,13 @@ public class DustinyDemoFlow : MonoBehaviour
 
         if (introPassthroughOverlayImage != null)
         {
-            Color overlayColor = introPassthroughOverlayImage.color;
-            overlayColor.r = 0f;
-            overlayColor.g = 0f;
-            overlayColor.b = 0f;
-            overlayColor.a = Mathf.Clamp01(introPassthroughOverlayOpacity);
-            introPassthroughOverlayImage.color = overlayColor;
+            introPassthroughOverlayImage.color = new Color(
+                0f,
+                0f,
+                0f,
+                Mathf.Clamp01(introPassthroughOverlayOpacity)
+            );
             introPassthroughOverlayImage.raycastTarget = false;
-        }
-
-        if (introFullscreenOverlayCanvas != null)
-        {
-            introFullscreenOverlayCanvas.gameObject.SetActive(false);
-        }
-
-        if (introPassthroughOverlayObject != null)
-        {
-            introPassthroughOverlayObject.SetActive(false);
         }
     }
 
@@ -2543,8 +2604,8 @@ public class DustinyDemoFlow : MonoBehaviour
         if (onboardingOKNoObject == null)
         {
             Debug.LogWarning(
-                "[온보딩] OnboardingOKNo 오브젝트를 찾지 못해 첫 안내를 건너뜁니다. " +
-                "WorldCanvas 아래 오브젝트 이름을 OnboardingOKNo로 맞추거나 직접 연결하세요."
+                "[온보딩] OnboardingOKNo 오브젝트를 찾지 못해 이미지 튜토리얼을 건너뜁니다. " +
+                "Intro 아래 오브젝트 이름을 OnboardingOKNo로 맞추거나 직접 연결하세요."
             );
             StartOpeningAfterImageIntro();
             return;
@@ -2554,20 +2615,10 @@ public class DustinyDemoFlow : MonoBehaviour
         introTutorialState = IntroTutorialState.OnboardingOKNo;
         onboardingActive = false;
         awaitingResetConfirmation = false;
-        awaitingMissionScanPlacementConfirmation = false;
         tutorialIndexPinchCompleted = false;
         tutorialMiddlePinchCompleted = false;
         tutorialWaitingForReleaseAfterFirstPinch = false;
         navigationLookDownStartedTime = -1f;
-
-        // 튜토리얼이 뜨는 순간 이미 손가락을 핀치하고 있었다면
-        // 그것을 새 입력으로 오인하지 않습니다. 한 번 놓고 다시 핀치해야 합니다.
-        ResolveRightHandIfNeeded();
-        if (rightHand != null && rightHand.IsTracked && rightHand.IsDataValid)
-        {
-            wasRightIndexPinching = rightHand.GetFingerIsPinching(OVRHand.HandFinger.Index);
-            wasRightMiddlePinching = rightHand.GetFingerIsPinching(OVRHand.HandFinger.Middle);
-        }
 
         if (introFinishCoroutine != null)
         {
@@ -2597,7 +2648,6 @@ public class DustinyDemoFlow : MonoBehaviour
 
         if (hideNavigationDuringImageIntro)
         {
-            // 튜토리얼 시작 중에는 gaze 로직이 다시 켜지 못하도록 강제 숨김 override를 겁니다.
             SetTutorialNavigationOverride(false);
         }
 
@@ -2619,18 +2669,16 @@ public class DustinyDemoFlow : MonoBehaviour
         if (introPassthroughOverlayObject != null)
         {
             introPassthroughOverlayObject.SetActive(true);
-            introPassthroughOverlayObject.transform.SetAsLastSibling();
         }
 
         SetImageIntroStage(IntroTutorialState.OnboardingOKNo);
-        Debug.Log("[온보딩] OnboardingOKNo 시작 - 검지/중지 핀치를 각각 1회 대기");
+        Debug.Log("[온보딩] OnboardingOKNo 시작 - 검지와 중지 핀치를 각각 1회 연습");
     }
 
     private void SetImageIntroStage(IntroTutorialState stage)
     {
         introTutorialState = stage;
 
-        // 각 단계에서는 정확히 하나의 안내 오브젝트만 켭니다.
         SetIntroObjectVisible(onboardingOKNoObject, stage == IntroTutorialState.OnboardingOKNo);
         SetIntroObjectVisible(onboardingOKObject, stage == IntroTutorialState.OnboardingOK);
         SetIntroObjectVisible(onboardingNoObject, stage == IntroTutorialState.OnboardingNo);
@@ -2722,7 +2770,7 @@ public class DustinyDemoFlow : MonoBehaviour
 
         tutorialWaitingForReleaseAfterFirstPinch = true;
         SetImageIntroStage(IntroTutorialState.OnboardingOK);
-        Debug.Log("[온보딩] 검지 핀치 먼저 완료 → OnboardingOK. 손을 완전히 놓은 뒤 중지 핀치 대기");
+        Debug.Log("[온보딩] 검지 핀치 완료 → 손을 완전히 놓은 뒤 중지 핀치 대기");
     }
 
     private void ConfirmTutorialMiddlePinch()
@@ -2746,7 +2794,7 @@ public class DustinyDemoFlow : MonoBehaviour
 
         tutorialWaitingForReleaseAfterFirstPinch = true;
         SetImageIntroStage(IntroTutorialState.OnboardingNo);
-        Debug.Log("[온보딩] 중지 핀치 먼저 완료 → OnboardingNo. 손을 완전히 놓은 뒤 검지 핀치 대기");
+        Debug.Log("[온보딩] 중지 핀치 완료 → 손을 완전히 놓은 뒤 검지 핀치 대기");
     }
 
     private void CompletePinchTutorial()
@@ -2765,7 +2813,7 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         onboardingTransitionCoroutine = StartCoroutine(ShowOnboardingDoneThenNavigation());
-        Debug.Log("[온보딩] 검지 + 중지 핀치 모두 완료 → OnboardingNoDone");
+        Debug.Log("[온보딩] 검지 + 중지 완료 → OnboardingNoDone");
     }
 
     private IEnumerator ShowOnboardingDoneThenNavigation()
@@ -2785,9 +2833,9 @@ public class DustinyDemoFlow : MonoBehaviour
         SetIntroObjectAlpha(navInformObject, 0f);
         SetImageIntroStage(IntroTutorialState.NavInform);
 
-        // NavInform 동안에는 사용자가 고개를 올려도 네비가 사라지지 않아야 하므로
-        // DustinyWaistNavFollow의 표시 상태를 명시적으로 ON override 합니다.
-        SetTutorialNavigationOverride(true);
+        // NavInform만 보일 때는 네비게이션을 아직 보여주지 않습니다.
+        // 실제 고개 숙임이 감지되었을 때만 UpdateNavigationLookDownTutorial()에서 표시합니다.
+        SetTutorialNavigationOverride(false);
 
         yield return FadeIntroObject(
             navInformObject,
@@ -2797,7 +2845,7 @@ public class DustinyDemoFlow : MonoBehaviour
         );
 
         onboardingTransitionCoroutine = null;
-        Debug.Log("[온보딩] NavInform 시작 - 네비게이션 확인 대기");
+        Debug.Log("[온보딩] NavInform 시작 - 고개 숙임 대기");
     }
 
     private void UpdateNavigationLookDownTutorial()
@@ -2810,11 +2858,17 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        if (centerEyeAnchor.forward.y > navigationLookDownForwardYThreshold)
+        bool isLookingDown = centerEyeAnchor.forward.y <= navigationLookDownForwardYThreshold;
+
+        if (!isLookingDown)
         {
             navigationLookDownStartedTime = -1f;
+            SetTutorialNavigationOverride(false);
             return;
         }
+
+        // 실제로 아래를 보는 동안에만 네비게이션을 보여줍니다.
+        SetTutorialNavigationOverride(true);
 
         if (navigationLookDownStartedTime < 0f)
         {
@@ -2836,6 +2890,7 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         navigationLookDownStartedTime = -1f;
+        SetTutorialNavigationOverride(true);
         PlayYesSfx();
         SetImageIntroStage(IntroTutorialState.NavInformOK);
 
@@ -2894,7 +2949,11 @@ public class DustinyDemoFlow : MonoBehaviour
         while (elapsed < duration)
         {
             elapsed += Time.unscaledDeltaTime;
-            canvasGroup.alpha = Mathf.Lerp(fromAlpha, toAlpha, Mathf.Clamp01(elapsed / duration));
+            canvasGroup.alpha = Mathf.Lerp(
+                fromAlpha,
+                toAlpha,
+                Mathf.Clamp01(elapsed / duration)
+            );
             yield return null;
         }
 
@@ -2979,11 +3038,11 @@ public class DustinyDemoFlow : MonoBehaviour
             durryObject.SetActive(durryWasActiveBeforeIntro || summonDurryOnStart);
         }
 
-        // 튜토리얼 강제 표시/숨김 제어권을 반환하고,
-        // 현재 고개 각도로 즉시 다시 판정합니다. 고개를 들고 있으면 이 프레임에 바로 사라집니다.
+        // 튜토리얼이 네비게이션의 강제 표시/숨김 권한을 반환하고
+        // 현재 고개 각도로 즉시 다시 판정합니다.
         ClearTutorialNavigationOverrideAndRefresh();
 
-        Debug.Log("[온보딩] 종료 - 패스스루 복원 후 게임 오프닝 시작");
+        Debug.Log("[온보딩] 종료 - 전체 화면 오버레이 해제 후 게임 오프닝 시작");
         StartOpeningAfterImageIntro();
     }
 
@@ -3107,13 +3166,7 @@ public class DustinyDemoFlow : MonoBehaviour
             ? step.voiceClip
             : GetOpeningVoiceClip(openingSpeechIndex);
 
-        // 대사와 표정을 같은 메서드 호출에서 동시에 적용합니다.
-        // 별도 배열 인덱스를 참조하지 않으므로 서로 어긋날 수 없습니다.
-        ShowSpeech(
-            step.text,
-            openingClip,
-            step.expressionState
-        );
+        ShowSpeech(step.text, openingClip, step.expressionState);
     }
 
     private bool TryAdvanceOpeningSpeech()
@@ -3153,7 +3206,7 @@ public class DustinyDemoFlow : MonoBehaviour
         if (!TryAdvanceOpeningSpeech())
         {
             // 마지막 프롤로그 대사가 끝나면 별도의 미션 안내를 띄우지 않습니다.
-            // 사용자가 NOTE 탭을 직접 눌렀을 때만 MissionController가 시작 질문을 표시합니다.
+            // 사용자가 NOTE 탭을 직접 눌렀을 때만 시작 질문을 표시합니다.
             FinishOpeningWithoutMissionPrompt();
         }
     }
@@ -3174,15 +3227,12 @@ public class DustinyDemoFlow : MonoBehaviour
 
         if (missionController != null)
         {
-            // NOTE 버튼만 활성화합니다.
-            // 여기서는 RequestOpenMissionNote()를 절대 호출하지 않습니다.
+            // NOTE 버튼만 활성화합니다. 여기서는 미션 질문/스캔을 절대 시작하지 않습니다.
             missionController.UnlockMissionNoteAfterOpening();
         }
         else
         {
-            Debug.LogError(
-                "[DustinyDemoFlow] 프롤로그는 종료됐지만 DustinyMissionController를 찾지 못했습니다."
-            );
+            Debug.LogError("[DustinyDemoFlow] 프롤로그는 종료됐지만 DustinyMissionController를 찾지 못했습니다.");
         }
 
         PlayDurryExpression(idleExpressionState);
@@ -3194,6 +3244,12 @@ public class DustinyDemoFlow : MonoBehaviour
 
     public void ShowDescriptionMessage(string message)
     {
+        if (TrySuppressLegacyMissionAddPrompt(message))
+        {
+            return;
+        }
+
+        message = RewriteMissionSystemCopy(message);
         ShowDescription(message, null, null);
     }
 
@@ -3203,7 +3259,116 @@ public class DustinyDemoFlow : MonoBehaviour
     /// </summary>
     public void ShowDescriptionMessage(string message, string expressionState)
     {
+        if (TrySuppressLegacyMissionAddPrompt(message))
+        {
+            return;
+        }
+
+        message = RewriteMissionSystemCopy(message);
         ShowDescription(message, expressionState, null);
+    }
+
+    /// <summary>
+    /// MissionController의 레거시 시스템 문구를 짧은 게임 대사로 정리합니다.
+    /// 미션 로직/보상 계산은 건드리지 않고 화면 문구만 바꿉니다.
+    /// </summary>
+    private string RewriteMissionSystemCopy(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return message;
+        }
+
+        if (ContainsAny(
+                message,
+                "청소 미션 1회 완료",
+                "오늘의 미션 완료",
+                "추가 미션 완료"))
+        {
+            QuestProgressManager progress = QuestProgressManager.Instance;
+
+            if (progress != null)
+            {
+                int completed = progress.CompletedRoundsToday;
+                int required = progress.RequiredCleaningRoundsPerDay;
+                int remaining = Mathf.Max(0, required - completed);
+                bool rewardGranted = progress.LastCompletedRoundGrantedReward;
+                int reward = progress.LastCompletedRoundRewardCredit;
+
+                if (rewardGranted)
+                {
+                    if (remaining > 0)
+                    {
+                        return
+                            "청소 미션 완료!\n" +
+                            $"{reward}코인을 얻었어. 오늘 앞으로 {remaining}회 더 미션을 할 수 있어!";
+                    }
+
+                    return
+                        "청소 미션 완료!\n" +
+                        $"{reward}코인을 얻었어. 오늘은 더 이상 보상을 받지 못해.";
+                }
+
+                return "청소 미션 완료!\n오늘은 더 이상 보상을 받지 못해.";
+            }
+        }
+
+        if (ContainsAny(
+                message,
+                "검사 스캔에 실패",
+                "재스캔을 시작하지 못",
+                "아직 치운 물건을 확인하지 못"))
+        {
+            return "스캔에 실패했어!\n수동으로 체크하거나 다시 스캔해줘!";
+        }
+
+        return message;
+    }
+
+    /// <summary>
+    /// 첫 스캔 성공 후 레거시 '미션 노트에 추가할까?' 확인을 숨기고
+    /// 다음 프레임에 탐지 결과를 자동 승인합니다.
+    /// </summary>
+    private bool TrySuppressLegacyMissionAddPrompt(string message)
+    {
+        bool looksLikeLegacyAddPrompt =
+            ContainsAny(message, "검지 핀치: 추가") &&
+            ContainsAny(message, "중지 핀치: 다시 스캔");
+
+        if (!looksLikeLegacyAddPrompt)
+        {
+            return false;
+        }
+
+        if (autoAcceptMissionScanCoroutine != null)
+        {
+            StopCoroutine(autoAcceptMissionScanCoroutine);
+        }
+
+        autoAcceptMissionScanCoroutine = StartCoroutine(AutoAcceptPendingMissionScanNextFrame());
+        Debug.Log("[DustinyMission] 탐지 결과 확인 멘트 생략 → 다음 프레임에 자동으로 미션에 추가합니다.");
+        return true;
+    }
+
+    private IEnumerator AutoAcceptPendingMissionScanNextFrame()
+    {
+        yield return null;
+        autoAcceptMissionScanCoroutine = null;
+
+        if (missionController == null)
+        {
+            missionController = FindFirstObjectByType<DustinyMissionController>();
+        }
+
+        if (missionController == null ||
+            !missionController.IsAwaitingMissionConfirmation ||
+            missionController.PendingDetectedObjectCount <= 0)
+        {
+            yield break;
+        }
+
+        HideDialoguePanels();
+        missionController.ConfirmPendingMissionScan();
     }
 
     public void ShowSpeechMessage(string message)
@@ -3386,7 +3551,7 @@ public class DustinyDemoFlow : MonoBehaviour
         // 초기화, 보상 없는 추가 진행처럼 사용자의 결정을 조심스럽게 묻는 대사입니다.
         if (ContainsAny(normalized,
                 "초기화하시겠습니까", "정말 초기화", "보상 없이", "계속할래",
-                "계속 진행할래", "취소할래", "초기화할래"))
+                "계속 진행할래", "취소할래", "초기화할래", "초기화 할래"))
         {
             return DurryDialogueMood.Concern;
         }
@@ -3419,7 +3584,7 @@ public class DustinyDemoFlow : MonoBehaviour
         if (ContainsAny(normalized,
                 "오늘의 미션 완료", "추가 미션 완료", "청소 미션 1회 완료",
                 "미션 완료", "보상 획득", "보상 지급", "축하해",
-                "잘했어", "CR을 받", "코인을 받"))
+                "잘했어", "CR을 받", "코인을 받", "초기화가 완료"))
         {
             return DurryDialogueMood.Success;
         }
@@ -3678,7 +3843,7 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        // 프롤로그 이후 자유 상태에서는 A/전역 확인 입력으로 미션을 열지 않습니다.
+        // 프롤로그 이후 자유 상태에서는 전역 확인 입력으로 미션을 열지 않습니다.
         // 미션 시작 질문은 반드시 Navigation의 NOTE 버튼(OpenNotePage)을 눌렀을 때만 표시됩니다.
         return;
     }
@@ -3689,8 +3854,7 @@ public class DustinyDemoFlow : MonoBehaviour
     /// </summary>
     public void OnConfirmButtonPressed()
     {
-        // 온보딩 핀치 연습에서는 검지 입력을 따로 기록합니다.
-        // 검지/중지 중 어느 손가락을 먼저 했는지에 따라 화면이 달라지고, 둘 다 완료해야 다음 단계로 갑니다.
+        // 온보딩 핀치 연습에서는 검지 입력만 별도로 기록합니다.
         if (introTutorialActive)
         {
             if (!IsOnboardingPinchTutorialState())
@@ -3708,14 +3872,12 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        // A page button (especially X) uses the same physical index pinch.
-        // Never let that click also become a global mission confirmation.
+        // 페이지 버튼을 누른 같은 핀치가 전역 미션 확인으로 중복 처리되지 않게 막습니다.
         if (IsMissionPinchSuppressedByPageUI() || pageRootOpen)
         {
             return;
         }
 
-        // 검지 핀치와 UI [확인] 버튼이 같은 프레임에 함께 들어와도 한 번만 처리합니다.
         if (Time.unscaledTime - lastConfirmInputTime < confirmInputCooldown)
         {
             return;
@@ -3741,8 +3903,8 @@ public class DustinyDemoFlow : MonoBehaviour
             missionController = FindFirstObjectByType<DustinyMissionController>();
         }
 
-        // NOTE에서 "오늘의 미션을 실행할래?"에 검지로 동의해도 즉시 스캔하지 않습니다.
-        // 1차 검지: 미션 시작 의사 확인 → 스캔 장소로 이동하라는 안내
+        // NOTE 시작 질문에 동의해도 즉시 스캔하지 않습니다.
+        // 1차 검지: 시작 의사 확인 -> 스캔 위치 이동 안내
         // 2차 검지: 실제 스캔 시작
         if (missionController != null && missionController.IsAwaitingMissionStart)
         {
@@ -3764,14 +3926,12 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        // 탐지 결과 확인 화면에서는 현재 결과를 미션 노트에 추가합니다.
         if (missionController != null && missionController.IsAwaitingMissionConfirmation)
         {
             missionController.ConfirmPendingMissionScan();
             return;
         }
 
-        // 그 외의 말풍선/디스크립션은 검지 핀치 한 번으로 닫습니다.
         if (IsDialoguePanelVisible())
         {
             HideDialoguePanels();
@@ -3833,7 +3993,6 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        // 열린 페이지는 어떤 종류든 중지 핀치로 닫습니다.
         if (pageRootOpen)
         {
             StopDurryVoicePlayback();
@@ -3841,7 +4000,6 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        // 미션 시작 질문과 탐지 결과 질문은 컨트롤러가 상태를 안전하게 되돌립니다.
         if (missionController != null &&
             (missionController.IsAwaitingMissionStart ||
              missionController.IsAwaitingMissionConfirmation))
@@ -3851,7 +4009,6 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        // 일반 안내 문구에서도 중지는 항상 X이므로 화면과 음성을 함께 닫습니다.
         if (IsDialoguePanelVisible())
         {
             StopDurryVoicePlayback();
@@ -3939,22 +4096,17 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        // 메뉴 Reset 버튼을 누른 동일한 검지 핀치가 즉시 확인으로도 처리되지 않도록
-        // 페이지를 닫고 확인 대기 상태로 전환합니다.
+        // 초기화 진입점은 Menu > Reset뿐입니다.
+        // 버튼을 누른 동일 핀치가 곧바로 확인으로 처리되지 않게 페이지를 먼저 닫습니다.
         awaitingMissionScanPlacementConfirmation = false;
         CloseBigNote();
         awaitingResetConfirmation = true;
 
         ShowDescriptionMessage(
-            "모든 진행 상황을 초기화하시겠습니까?\n" +
-            "오늘의 미션, 보송력, 구매/착용 아이템이 초기화되고\n" +
-            "보유 코인은 기본값 100 CR로 돌아갑니다.\n" +
-            "검지 핀치: 초기화 · 중지 핀치: 취소",
+            "초기화 할래?\n다시 복구할 수 없어.",
             concernExpressionState
         );
 
-        // 위 문구는 ResolveDialogueMood()에서 Concern으로 분류되어
-        // Worried 표정과 조심스러운 음성이 함께 선택됩니다.
         Debug.Log("[Dustiny Reset] 초기화 확인을 기다립니다.");
     }
 
@@ -3966,6 +4118,7 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         awaitingResetConfirmation = false;
+        awaitingMissionScanPlacementConfirmation = false;
         StopDurryVoicePlayback();
         HideDialoguePanels();
 
@@ -3980,16 +4133,15 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        // 확인을 받은 뒤에만 저장 데이터를 실제로 초기화합니다.
-        // 초기화 진입점은 이제 왼손 약지가 아니라 Menu > Reset 버튼뿐입니다.
         onboardingActive = false;
         onboardingState = OnboardingState.Finished;
-        awaitingMissionScanPlacementConfirmation = false;
 
         ShopInventoryManager.Instance?.ResetAllItemState();
-
-        // MissionController의 기존 공개 메서드 이름은 레거시이지만 실제 초기화 내용은 그대로 재사용합니다.
         missionController.ResetMissionCleanlinessAndCreditFromLeftRingPinch();
+
+        // MissionController의 상세 초기화 안내 음성이 재생됐다면 짧은 완료 문구로 즉시 교체합니다.
+        StopDurryVoicePlayback();
+        ShowDescriptionMessage("초기화가 완료되었어!", successExpressionState);
     }
 
     private void CancelResetAllProgress()
@@ -4150,14 +4302,12 @@ public class DustinyDemoFlow : MonoBehaviour
             missionController = FindFirstObjectByType<DustinyMissionController>();
         }
 
-        // 온보딩 핀치 연습: 검지와 중지를 각각 한 번씩 성공해야 합니다.
-        // 첫 성공 손가락에 따라 OnboardingOK / OnboardingNo를 보여주고, 둘 다 완료하면 OnboardingNoDone으로 갑니다.
-        // NavInform 이후에는 기존처럼 고개 숙임만 기다립니다.
+        // 튜토리얼: 검지와 중지를 각각 한 번씩 성공해야 합니다.
+        // 첫 핀치 뒤에는 둘 다 완전히 놓을 때까지 다음 입력을 잠급니다.
         if (introTutorialActive)
         {
             if (IsOnboardingPinchTutorialState())
             {
-                // 첫 핀치 직후에는 두 손가락을 모두 놓을 때까지 다음 입력을 잠급니다.
                 if (tutorialWaitingForReleaseAfterFirstPinch)
                 {
                     if (!isIndexPinching && !isMiddlePinching)
@@ -4169,8 +4319,6 @@ public class DustinyDemoFlow : MonoBehaviour
                     return;
                 }
 
-                // 같은 프레임에 검지와 중지가 동시에 Down으로 잡혀도 하나만 처리합니다.
-                // 어느 쪽도 아직 완료하지 않았다면 더 강하게 잡힌 핀치를 우선합니다.
                 if (rightIndexPinchConfirms && indexPinchDown && middlePinchDown)
                 {
                     float indexStrength = rightHand != null
@@ -4210,26 +4358,22 @@ public class DustinyDemoFlow : MonoBehaviour
                 }
             }
 
+            // NavInform/NavInformOK에서는 핀치를 받지 않고 고개 숙임만 기다립니다.
             return;
         }
 
-        // 왼손 소지 핀치는 스켈레톤 없이 OVRHand 핀치 상태만으로 네비게이션을 토글합니다.
         if (leftPinkyPinchTogglesNavigation && leftPinkyPinchDown)
         {
             OnLeftPinkyPinchToggleNavigation();
             return;
         }
 
-        // 오른손 중지는 모든 상황에서 거절(X)입니다.
-        // 시작 질문 취소, 탐지 결과 거절/재스캔, 열린 창 닫기, 일반 안내 닫기를
-        // 하나의 입력으로 통일합니다.
         if (rightMiddlePinchRejectsEverything && middlePinchDown)
         {
             OnRejectButtonPressed();
             return;
         }
 
-        // 아래 두 분기는 기존 인스펙터 설정과의 호환을 위한 레거시 폴백입니다.
         if (!rightMiddlePinchRejectsEverything &&
             rightMiddlePinchClosesOpenPage &&
             middlePinchDown &&
@@ -4250,8 +4394,6 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
-        // 오른손 약지는 기존 활성 미션의 검사 재스캔 보조 입력만 유지합니다.
-        // 최초 미션 스캔은 반드시 '미션 시작 검지 → 장소 이동 → 검지' 두 단계로만 시작합니다.
         if (rightRingPinchStartsOrRescans &&
             ringPinchDown &&
             IsNotePageOpen &&
@@ -5779,21 +5921,17 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         Button[] buttons = root.GetComponentsInChildren<Button>(true);
-        foreach (string exactName in exactNames)
+        foreach (Button button in buttons)
         {
-            if (string.IsNullOrWhiteSpace(exactName))
+            if (button == null)
             {
                 continue;
             }
 
-            foreach (Button button in buttons)
+            foreach (string exactName in exactNames)
             {
-                if (button != null &&
-                    string.Equals(
-                        button.gameObject.name,
-                        exactName,
-                        StringComparison.OrdinalIgnoreCase
-                    ))
+                if (!string.IsNullOrWhiteSpace(exactName) &&
+                    string.Equals(button.gameObject.name, exactName, StringComparison.OrdinalIgnoreCase))
                 {
                     return button;
                 }
