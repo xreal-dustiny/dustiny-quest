@@ -1,0 +1,11 @@
+cable_charger
+cup
+bottle
+laptop
+paper
+book
+cell_phone
+tablet
+mouse
+writing_tool
+toy_decor
