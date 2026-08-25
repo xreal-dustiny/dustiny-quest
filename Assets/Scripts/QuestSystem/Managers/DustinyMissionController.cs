@@ -411,6 +411,7 @@ public class DustinyMissionController : MonoBehaviour
 
         demoFlow?.CloseBigNote();
         demoFlow?.SetScanZoneVisible(true);
+        detectionMarkerManager?.ResetMarkerPositionCache();
         detectionMarkerManager?.ClearMarkers();
         initialMissionObjects.Clear();
         ClearPendingMissionScan();
