@@ -76,7 +76,7 @@ public class CreditManager : MonoBehaviour
     /// Adds as much of the requested amount as remains under today's 30 CR cap.
     /// Returns the amount actually granted.
     /// </summary>
-    public int GrantCredit(int amount)
+public int GrantCredit(int amount)
     {
         if (amount <= 0)
         {
@@ -99,6 +99,7 @@ public class CreditManager : MonoBehaviour
         earnedCreditToday += granted;
         SaveData();
         OnCreditChanged?.Invoke(currentCredit);
+        DustinySfx.PlayCoin();
 
         Debug.Log(
             $"[크레딧 획득] +{granted} CR | 오늘 {earnedCreditToday}/{dailyEarnedCreditCap} CR | 보유 {currentCredit} CR"
@@ -115,7 +116,7 @@ public class CreditManager : MonoBehaviour
     /// <summary>
     /// Debug/admin use only. This bypasses the daily earning cap.
     /// </summary>
-    public void AddCreditIgnoringDailyLimit(int amount)
+public void AddCreditIgnoringDailyLimit(int amount)
     {
         if (amount <= 0)
         {
@@ -125,6 +126,7 @@ public class CreditManager : MonoBehaviour
         currentCredit += amount;
         SaveData();
         OnCreditChanged?.Invoke(currentCredit);
+        DustinySfx.PlayCoin();
     }
 
     public bool UseCredit(int amount)

@@ -1,4 +1,4 @@
-// VERSION: 81_LATEST_RESTORED_FROM_V80_2026-08-23
+// VERSION: 82_GAME_BUTTON_DOLL_SCENE_2026-08-24
 // Baseline: 80_SHORT_MISSION_RESULT_COPY_2026-08-17 (latest cumulative stable flow).
 // Tutorial: OnboardingOKNo -> first pinch result -> release -> second pinch -> OnboardingNoDone -> NavInform -> NavInformOK.
 // Tutorial overlay: full-camera Screen Space - Camera overlay.
@@ -18,7 +18,9 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using UnityEngine.Serialization;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Scene/XR presentation controller for Dustiny.
@@ -110,6 +112,8 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
+    public static bool ResumeIdleAfterMiniGame;
+
     [Header("XR Reference")]
     public Transform centerEyeAnchor;
 
@@ -193,8 +197,8 @@ public class DustinyDemoFlow : MonoBehaviour
     [Tooltip("마지막 안내 이미지 대기 후 패스스루 오버레이가 사라지는 페이드 시간입니다.")]
     [Min(0f)] public float introOverlayFadeDuration = 0.30f;
 
-    [Tooltip("이미지 인트로 동안 더리를 숨기고, 종료 시 다시 표시합니다.")]
-    public bool hideDurryDuringImageIntro = true;
+    [Tooltip("이미지 인트로 동안에도 더리를 바로 표시합니다. 켜면 튜토리얼 중에만 숨깁니다.")]
+    public bool hideDurryDuringImageIntro = false;
 
     [Tooltip("이미지 인트로 동안 네비게이션 가시성을 튜토리얼이 직접 제어합니다.")]
     public bool hideNavigationDuringImageIntro = true;
@@ -342,6 +346,13 @@ public class DustinyDemoFlow : MonoBehaviour
     public Button shopButton;
     public Button myPageButton;
     public Button menuButton;
+
+    [Tooltip("NavigationBar의 Game Button입니다. 비워두면 Game Button/GameButton 이름으로 자동 탐색합니다.")]
+    public Button gameButton;
+
+    [Tooltip("Game Button을 눌렀을 때 이동할 씬 이름입니다. Build Settings에 동일한 이름의 씬을 등록하세요.")]
+    public string dollSceneName = "DollScene";
+
     public bool autoConnectNavigationButtons = true;
 
 
@@ -635,7 +646,6 @@ public class DustinyDemoFlow : MonoBehaviour
 
     [Tooltip("체크하면 바디 Renderer의 모든 머터리얼 슬롯을 현재 보송력 머터리얼로 바꿉니다.")]
     public bool replaceAllDurryBodyMaterialSlots = false;
-
     public bool autoFindDurryCleanlinessRenderers = true;
 
     [Tooltip("SkinnedMeshRenderer와 같은 오브젝트에 실수로 추가된 MeshRenderer를 런타임에 끕니다.")]
@@ -864,7 +874,11 @@ public class DustinyDemoFlow : MonoBehaviour
         KeepIntroTutorialUpright();
         UpdateDialoguePlacement();
         UpdatePageRootPlacement();
-        if (showImageIntroBeforeOpening)
+        if (ConsumeResumeIdleAfterMiniGame())
+        {
+            EnterIdleAfterMiniGame();
+        }
+        else if (showImageIntroBeforeOpening)
         {
             BeginImageIntroTutorial();
         }
@@ -872,6 +886,9 @@ public class DustinyDemoFlow : MonoBehaviour
         {
             StartOpeningAfterImageIntro();
         }
+        EnsureUiPointerModule();
+        RestoreWaistNavInteraction();
+        StartCoroutine(EnsureDurryVisibleRoutine());
     }
 
     private void Update()
@@ -1139,9 +1156,18 @@ public class DustinyDemoFlow : MonoBehaviour
         {
             menuButton = FindButtonByKeywords(searchRoot, "menu");
         }
+
+        if (gameButton == null)
+        {
+            gameButton = FindButtonByExactNames(
+                searchRoot,
+                "Game Button",
+                "GameButton"
+            ) ?? FindButtonByKeywords(searchRoot, "game");
+        }
     }
 
-    private void ConnectNavigationButtonEvents()
+private void ConnectNavigationButtonEvents()
     {
         if (!autoConnectNavigationButtons)
         {
@@ -1149,11 +1175,160 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         ResolveNavigationButtons();
-        ConnectButtonClick(durryNoteButton, OpenNotePage);
-        ConnectButtonClick(shopButton, OpenShopPage);
-        ConnectButtonClick(myPageButton, OpenMyPage);
-        ConnectButtonClick(menuButton, OpenMenuPage);
+        ConnectPageButtonClick(durryNoteButton, OpenNotePage);
+        ConnectPageButtonClick(shopButton, OpenShopPage);
+        ConnectPageButtonClick(myPageButton, OpenMyPage);
+        ConnectPageButtonClick(menuButton, OpenMenuPage);
+        ConnectPageButtonClick(gameButton, OpenDollScene);
     }
+
+private void EnsureUiPointerModule()
+    {
+        EventSystem eventSystem = EventSystem.current;
+        if (eventSystem == null)
+        {
+            eventSystem = FindFirstObjectByType<EventSystem>();
+        }
+
+        if (eventSystem == null)
+        {
+            return;
+        }
+
+        eventSystem.gameObject.SetActive(true);
+        eventSystem.enabled = true;
+        eventSystem.sendNavigationEvents = false;
+
+        BaseInputModule[] modules = eventSystem.GetComponents<BaseInputModule>();
+        BaseInputModule pointable = null;
+        for (int i = 0; i < modules.Length; i++)
+        {
+            if (modules[i] == null)
+            {
+                continue;
+            }
+
+            if (modules[i].GetType().Name == "PointableCanvasModule")
+            {
+                pointable = modules[i];
+                modules[i].enabled = true;
+            }
+        }
+
+        if (pointable == null)
+        {
+            for (int i = 0; i < modules.Length; i++)
+            {
+                if (modules[i] != null)
+                {
+                    modules[i].enabled = true;
+                }
+            }
+
+            return;
+        }
+
+        for (int i = 0; i < modules.Length; i++)
+        {
+            if (modules[i] != null && modules[i] != pointable)
+            {
+                modules[i].enabled = false;
+            }
+        }
+    }
+
+private void RestoreWaistNavInteraction()
+    {
+        ResolveNavigationReferences();
+        ResolveWaistNavFollow();
+
+        Transform canvasTransform = waistNavFollow != null && waistNavFollow.waistNavRoot != null
+            ? waistNavFollow.waistNavRoot
+            : navigationBarObject != null ? navigationBarObject.transform : null;
+
+        if (canvasTransform != null)
+        {
+            Transform current = canvasTransform;
+            while (current != null)
+            {
+                current.gameObject.SetActive(true);
+                current = current.parent;
+            }
+
+            Canvas canvas = canvasTransform.GetComponent<Canvas>();
+            if (canvas != null)
+            {
+                canvas.enabled = true;
+                canvas.overrideSorting = false;
+                Camera eyeCamera = centerEyeAnchor != null
+                    ? centerEyeAnchor.GetComponent<Camera>()
+                    : Camera.main;
+                if (eyeCamera != null)
+                {
+                    canvas.worldCamera = eyeCamera;
+                }
+            }
+
+            GraphicRaycaster raycaster = canvasTransform.GetComponent<GraphicRaycaster>();
+            if (raycaster != null)
+            {
+                raycaster.enabled = true;
+            }
+
+            MonoBehaviour[] behaviours = canvasTransform.GetComponents<MonoBehaviour>();
+            for (int i = 0; i < behaviours.Length; i++)
+            {
+                if (behaviours[i] != null)
+                {
+                    behaviours[i].enabled = true;
+                }
+            }
+        }
+
+        ConnectNavigationButtonEvents();
+
+        if (introTutorialActive)
+        {
+            return;
+        }
+
+        if (waistNavFollow != null)
+        {
+            waistNavFollow.ClearVisibilityOverrideAndRefresh();
+        }
+
+        SetNavigationBarVisible(true);
+    }
+
+
+private IEnumerator EnsureDurryVisibleRoutine()
+    {
+        float endTime = Time.unscaledTime + 2.5f;
+        while (Time.unscaledTime < endTime)
+        {
+            if (durryObject != null)
+            {
+                durryObject.SetActive(true);
+                if (durryVisual != null)
+                {
+                    durryVisual.gameObject.SetActive(true);
+                }
+
+                ApplyDurryScale();
+                if (centerEyeAnchor != null)
+                {
+                    SummonDurryToUser();
+                }
+            }
+
+            yield return null;
+        }
+    }
+
+
+
+
+
 
     /// <summary>
     /// NOTE 버튼 뒤에 반투명 Glow를 준비합니다.
@@ -1543,6 +1718,30 @@ public class DustinyDemoFlow : MonoBehaviour
         ConnectMenuActionButtonEvents();
     }
 
+    public void OpenDollScene()
+    {
+        SuppressMissionPinchFromPageUI();
+        StopDurryVoicePlayback();
+
+        if (string.IsNullOrWhiteSpace(dollSceneName))
+        {
+            Debug.LogError("[Dustiny Navigation] Doll Scene 이름이 비어 있습니다.");
+            return;
+        }
+
+        if (!Application.CanStreamedLevelBeLoaded(dollSceneName))
+        {
+            Debug.LogError(
+                $"[Dustiny Navigation] '{dollSceneName}' 씬을 불러올 수 없습니다. " +
+                "File > Build Profiles(Build Settings)의 Scene List에 씬이 등록되어 있는지 확인하세요."
+            );
+            return;
+        }
+
+        Debug.Log($"[Dustiny Navigation] Game Button → {dollSceneName} 이동");
+        SceneManager.LoadScene(dollSceneName);
+    }
+
     public void CloseBigNote()
     {
         // The same index pinch that clicks X must end here. It must not fall through
@@ -1559,13 +1758,27 @@ public class DustinyDemoFlow : MonoBehaviour
         lastPageInteractionTime = Time.unscaledTime;
     }
 
-    public void OpenPage(DustinyPage page)
+public void OpenPage(DustinyPage page)
     {
         NotifyPageInteraction();
 
+        if (uiRoot != null)
+        {
+            uiRoot.gameObject.SetActive(true);
+        }
+
+        if (worldCanvas != null)
+        {
+            worldCanvas.gameObject.SetActive(true);
+        }
+
+        if (durryObject != null)
+        {
+            durryObject.SetActive(true);
+        }
+
         if (page != currentPage)
         {
-            // Leaving Shop/MyPage must always cancel temporary try-on state.
             ShopInventoryManager.Instance?.ClearAllPreviews();
         }
 
@@ -1601,8 +1814,6 @@ public class DustinyDemoFlow : MonoBehaviour
         SetPageObjectVisible(myPageObject, page == DustinyPage.MyPage);
         SetPageObjectVisible(menuPageObject, page == DustinyPage.Menu);
 
-        // Other page objects may disable after Shop/MyPage enables and clear previews.
-        // Refresh the final active item page once more after all visibility changes.
         if (page == DustinyPage.Shop || page == DustinyPage.MyPage)
         {
             DustinyItemPageController itemPageController =
@@ -1623,7 +1834,6 @@ public class DustinyDemoFlow : MonoBehaviour
             obsoleteSharedBackgroundObject.SetActive(showSharedBackground);
         }
 
-        // Note and Menu own separate backgrounds. Shop/MyPage use the shared background above.
         SetSeparateBackgroundVisible(noteBackgroundObject, page == DustinyPage.Note, notePageObject);
         SetSeparateBackgroundVisible(menuBackgroundObject, page == DustinyPage.Menu, menuPageObject);
 
@@ -1800,21 +2010,14 @@ public class DustinyDemoFlow : MonoBehaviour
         pageOpenAnimationCoroutine = null;
     }
 
-    private void SetDurryVisibleForPage(bool pageIsOpen)
+private void SetDurryVisibleForPage(bool pageIsOpen)
     {
         if (durryObject == null)
         {
             return;
         }
 
-        if (pageIsOpen)
-        {
-            durryObject.SetActive(placeDurryBesideOpenPage);
-            return;
-        }
-
-        // Let the normal follow interpolation bring Durry back to the player's
-        // front smoothly instead of snapping there as the page closes.
+        // 페이지를 열어도 더리는 항상 보입니다. 엽에 둘 배치만 합니다.
         durryObject.SetActive(true);
     }
 
@@ -2178,18 +2381,19 @@ public class DustinyDemoFlow : MonoBehaviour
         tagRect.anchoredPosition = basePosition + new Vector2(offset, 0f);
     }
 
-    private void ConnectPageButtonClick(Button button, UnityEngine.Events.UnityAction action)
+private void ConnectPageButtonClick(Button button, UnityEngine.Events.UnityAction action)
     {
         if (button == null || action == null)
         {
             return;
         }
 
-        // RemoveAllListeners()는 Inspector에 저장된 Persistent Listener를 제거하지 못합니다.
-        // 새 UnityEvent로 교체해야 X 버튼에 남은 OpenNotePage 같은 잘못된 연결까지
-        // 런타임에서 완전히 무시하고 이 컨트롤러가 지정한 동작 하나만 실행할 수 있습니다.
         button.onClick = new Button.ButtonClickedEvent();
-        button.onClick.AddListener(action);
+        button.onClick.AddListener(() =>
+        {
+            action();
+            DustinySfx.PlayYes();
+        });
     }
 
     private void SuppressMissionPinchFromPageUI()
@@ -2207,7 +2411,7 @@ public class DustinyDemoFlow : MonoBehaviour
         return Time.unscaledTime < suppressMissionPinchUntil;
     }
 
-    private static void ConnectButtonClick(Button button, UnityEngine.Events.UnityAction action)
+private static void ConnectButtonClick(Button button, UnityEngine.Events.UnityAction action)
     {
         if (button == null || action == null)
         {
@@ -2215,7 +2419,11 @@ public class DustinyDemoFlow : MonoBehaviour
         }
 
         button.onClick.RemoveListener(action);
-        button.onClick.AddListener(action);
+        button.onClick.AddListener(() =>
+        {
+            action();
+            DustinySfx.PlayYes();
+        });
     }
 
     private void ResolveShopCoinText()
@@ -2409,6 +2617,8 @@ public class DustinyDemoFlow : MonoBehaviour
         {
             Transform foundRoot = FindChildTransformExact(searchRoot, "Intro") ??
                                   FindChildTransformExact(searchRoot, "ImageIntro") ??
+                                  FindChildTransformExact(searchRoot, "GuestureIntro") ??
+                                  FindChildTransformExact(searchRoot, "GestureIntro") ??
                                   FindChildTransformContainsAll(searchRoot, "intro", "root");
             if (foundRoot != null)
             {
@@ -2433,6 +2643,7 @@ public class DustinyDemoFlow : MonoBehaviour
                               FindChildTransformExact(searchRoot, "GestureOK");
             if (found != null) onboardingOKObject = found.gameObject;
         }
+
 
         if (onboardingNoObject == null)
         {
@@ -2596,7 +2807,7 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
-    private void BeginImageIntroTutorial()
+private void BeginImageIntroTutorial()
     {
         ResolveImageIntroReferences();
         SetupImageIntroOverlay();
@@ -2651,9 +2862,16 @@ public class DustinyDemoFlow : MonoBehaviour
             SetTutorialNavigationOverride(false);
         }
 
-        if (hideDurryDuringImageIntro && durryObject != null)
+        if (durryObject != null)
         {
-            durryObject.SetActive(false);
+            durryObject.SetActive(true);
+            if (durryVisual != null)
+            {
+                durryVisual.gameObject.SetActive(true);
+            }
+
+            ApplyDurryScale();
+            SummonDurryToUser();
         }
 
         if (introRootObject != null)
@@ -2674,6 +2892,7 @@ public class DustinyDemoFlow : MonoBehaviour
         SetImageIntroStage(IntroTutorialState.OnboardingOKNo);
         Debug.Log("[온보딩] OnboardingOKNo 시작 - 검지와 중지 핀치를 각각 1회 연습");
     }
+
 
     private void SetImageIntroStage(IntroTutorialState stage)
     {
@@ -3956,6 +4175,11 @@ public class DustinyDemoFlow : MonoBehaviour
             return;
         }
 
+        if (IsMissionPinchSuppressedByPageUI())
+        {
+            return;
+        }
+
         if (Time.unscaledTime - lastConfirmInputTime < confirmInputCooldown)
         {
             return;
@@ -4429,6 +4653,7 @@ public class DustinyDemoFlow : MonoBehaviour
 
     private void SetupInteractionAudio()
     {
+        DustinySfx.RegisterClips(yesSfxClip, noSfxClip, null, null);
         if (interactionSfxSource == null && autoCreateInteractionAudioSources)
         {
             interactionSfxSource = CreateChildAudioSource("Dustiny Interaction SFX Source");
@@ -4503,14 +4728,16 @@ public class DustinyDemoFlow : MonoBehaviour
         return audioObject.AddComponent<AudioSource>();
     }
 
-    public void PlayYesSfx()
+public void PlayYesSfx()
     {
-        PlayInteractionSfx(yesSfxClip);
+        DustinySfx.RegisterClips(yesSfxClip, noSfxClip, null, null);
+        DustinySfx.PlayYes();
     }
 
-    public void PlayNoSfx()
+public void PlayNoSfx()
     {
-        PlayInteractionSfx(noSfxClip);
+        DustinySfx.RegisterClips(yesSfxClip, noSfxClip, null, null);
+        DustinySfx.PlayNo();
     }
 
     private void PlayInteractionSfx(AudioClip clip)
@@ -4805,20 +5032,31 @@ public class DustinyDemoFlow : MonoBehaviour
         return false;
     }
 
-    private void ResolveDurryCleanlinessRenderers()
+private void ResolveDurryCleanlinessRenderers()
     {
         if (durryCleanlinessRenderers != null && durryCleanlinessRenderers.Length > 0)
         {
-            return;
+            bool hasRenderer = false;
+            for (int i = 0; i < durryCleanlinessRenderers.Length; i++)
+            {
+                if (durryCleanlinessRenderers[i] != null)
+                {
+                    hasRenderer = true;
+                    break;
+                }
+            }
+
+            if (hasRenderer)
+            {
+                return;
+            }
         }
 
-        if (!autoFindDurryCleanlinessRenderers || durryObject == null)
+        if (durryObject == null)
         {
             return;
         }
 
-        // 애니메이션 바디는 SkinnedMeshRenderer가 실제로 그립니다.
-        // 같은 오브젝트에 실수로 추가된 일반 MeshRenderer는 보송력 대상에서 제외합니다.
         SkinnedMeshRenderer[] allRenderers =
             durryObject.GetComponentsInChildren<SkinnedMeshRenderer>(true);
         List<Renderer> bodyRenderers = new List<Renderer>();
@@ -4840,7 +5078,9 @@ public class DustinyDemoFlow : MonoBehaviour
                 combined.Contains("body_geo") ||
                 combined.Contains("durry_body") ||
                 combined.Contains("durrybody") ||
-                combined.Contains("body");
+                combined.Contains("body") ||
+                combined.Contains("durry_geo") ||
+                combined.Contains("character");
 
             bool looksLikeFacePart =
                 combined.Contains("eye") ||
@@ -4864,6 +5104,7 @@ public class DustinyDemoFlow : MonoBehaviour
 
         durryCleanlinessRenderers = bodyRenderers.ToArray();
     }
+
 
     private void DisableDuplicateBodyMeshRenderers()
     {
@@ -5322,10 +5563,9 @@ public class DustinyDemoFlow : MonoBehaviour
         }
     }
 
-    private void UpdateDurryFollowDuringOnboarding()
+private void UpdateDurryFollowDuringOnboarding()
     {
-        if (!followDurryDuringOnboarding ||
-            centerEyeAnchor == null ||
+        if (centerEyeAnchor == null ||
             durryObject == null ||
             !durryObject.activeInHierarchy)
         {
@@ -5385,15 +5625,13 @@ public class DustinyDemoFlow : MonoBehaviour
         float targetScaleMultiplier = pageRootOpen && placeDurryBesideOpenPage
             ? pageDurryScaleMultiplier
             : 1f;
-        float scaleT = pageDurryScaleSmoothing <= 0f
-            ? 1f
-            : 1f - Mathf.Exp(-pageDurryScaleSmoothing * Time.deltaTime);
-        Vector3 targetScale = Vector3.one * durryRootScale * targetScaleMultiplier;
-        durryObject.transform.localScale = Vector3.Lerp(
-            durryObject.transform.localScale,
-            targetScale,
-            scaleT);
+        durryObject.transform.localScale = Vector3.one * durryRootScale * targetScaleMultiplier;
+        if (durryVisual != null)
+        {
+            durryVisual.localScale = Vector3.one * durryVisualScale;
+        }
     }
+
 
     private void RecoverDurryByCleanliness()
     {
@@ -6135,4 +6373,274 @@ public class DustinyDemoFlow : MonoBehaviour
     }
 
     #endregion
+
+
+private void EnterIdleAfterMiniGame()
+    {
+        introTutorialActive = false;
+        introTutorialState = IntroTutorialState.Finished;
+        onboardingActive = false;
+        onboardingState = OnboardingState.Finished;
+        awaitingResetConfirmation = false;
+        followDurryDuringOnboarding = true;
+
+        wasRightIndexPinching = true;
+        wasRightMiddlePinching = true;
+        wasRightRingPinching = true;
+        wasLeftPinkyPinching = true;
+        wasTriggerPressed = true;
+        SuppressGlobalConfirmInput(2f);
+
+        ResolveImageIntroReferences();
+        ResolveDialogueReferences();
+        HideAllModalUiAfterMiniGame();
+
+        if (uiRoot != null)
+        {
+            uiRoot.gameObject.SetActive(true);
+        }
+
+        if (worldCanvas != null)
+        {
+            worldCanvas.gameObject.SetActive(true);
+        }
+
+        if (durryObject != null)
+        {
+            durryObject.SetActive(true);
+            if (durryVisual != null)
+            {
+                durryVisual.gameObject.SetActive(true);
+            }
+        }
+
+        if (speechBubbleObject != null)
+        {
+            Transform bubbleRoot = speechBubbleObject.transform;
+            while (bubbleRoot != null)
+            {
+                bubbleRoot.gameObject.SetActive(true);
+                if (worldCanvas != null && bubbleRoot == worldCanvas.transform)
+                {
+                    break;
+                }
+
+                bubbleRoot = bubbleRoot.parent;
+            }
+        }
+
+        ApplyDurryScale();
+        ApplyCurrentCleanlinessMaterial(force: true);
+        EnsureUiPointerModule();
+        RestoreWaistNavInteraction();
+        SummonDurryToUser();
+
+        if (missionController == null)
+        {
+            missionController = FindFirstObjectByType<DustinyMissionController>();
+        }
+
+        if (missionController != null)
+        {
+            missionController.UnlockMissionNoteAfterOpening();
+        }
+
+        ShowThankYouSpeechAfterMiniGame();
+        StartCoroutine(ShowThankYouSpeechNextFrame());
+        StartCoroutine(EnsureDurryVisibleRoutine());
+        UpdateDialoguePlacement();
+    }
+
+
+
+private void ShowThankYouSpeechAfterMiniGame()
+    {
+        PlayDurryExpression(successExpressionState);
+        ShowSpeechMessage(
+            "내 인형을 빨아줘서 고마워!",
+            successExpressionState
+        );
+        UpdateDialoguePlacement();
+    }
+
+    private IEnumerator ShowThankYouSpeechNextFrame()
+    {
+        yield return null;
+        wasRightIndexPinching = true;
+        wasRightMiddlePinching = true;
+        wasTriggerPressed = true;
+        SuppressGlobalConfirmInput(1.5f);
+        SummonDurryToUser();
+        ShowThankYouSpeechAfterMiniGame();
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetSessionFlags()
+    {
+        ResumeIdleAfterMiniGame = false;
+    }
+
+
+public static void MarkResumeIdleAfterMiniGame()
+    {
+        ResumeIdleAfterMiniGame = true;
+    }
+
+public static void ClearResumeIdleAfterMiniGame()
+    {
+        ResumeIdleAfterMiniGame = false;
+        if (PlayerPrefs.HasKey("Dustiny_ResumeIdleAfterMiniGame"))
+        {
+            PlayerPrefs.DeleteKey("Dustiny_ResumeIdleAfterMiniGame");
+            PlayerPrefs.Save();
+        }
+    }
+
+
+private static bool PeekResumeIdleAfterMiniGame()
+    {
+        return ResumeIdleAfterMiniGame;
+    }
+
+private static bool ConsumeResumeIdleAfterMiniGame()
+    {
+        bool resume = ResumeIdleAfterMiniGame;
+        ResumeIdleAfterMiniGame = false;
+        if (PlayerPrefs.HasKey("Dustiny_ResumeIdleAfterMiniGame"))
+        {
+            PlayerPrefs.DeleteKey("Dustiny_ResumeIdleAfterMiniGame");
+            PlayerPrefs.Save();
+        }
+
+        return resume;
+    }
+
+private void HideAllModalUiAfterMiniGame()
+    {
+        HideDialoguePanels();
+        SetPageRootVisible(false);
+        SetScanZoneVisible(false);
+
+        Transform searchRoot = worldCanvas != null ? worldCanvas.transform : transform;
+        DisableNamedTransform(searchRoot, "GuestureIntro");
+        DisableNamedTransform(searchRoot, "GestureIntro");
+        DisableNamedTransform(searchRoot, "Intro");
+        DisableNamedTransform(searchRoot, "ImageIntro");
+        DisableNamedTransform(searchRoot, "NameInputPanel");
+
+        SetIntroObjectVisible(onboardingOKNoObject, false);
+        SetIntroObjectVisible(onboardingOKObject, false);
+        SetIntroObjectVisible(onboardingNoObject, false);
+        SetIntroObjectVisible(onboardingNoDoneObject, false);
+        SetIntroObjectVisible(navInformObject, false);
+        SetIntroObjectVisible(navInformOKObject, false);
+
+        if (introRootObject != null)
+        {
+            introRootObject.SetActive(false);
+        }
+
+        if (introPassthroughOverlayImage != null)
+        {
+            Color color = introPassthroughOverlayImage.color;
+            color.a = 0f;
+            introPassthroughOverlayImage.color = color;
+            introPassthroughOverlayImage.raycastTarget = false;
+        }
+
+        if (introPassthroughOverlayObject != null)
+        {
+            introPassthroughOverlayObject.SetActive(false);
+        }
+
+        if (introFullscreenOverlayCanvas != null)
+        {
+            introFullscreenOverlayCanvas.gameObject.SetActive(false);
+        }
+
+        HideScreenSpaceModalCanvases();
+    }
+
+private void DisableNamedTransform(Transform searchRoot, string childName)
+    {
+        Transform found = FindChildTransformExact(searchRoot, childName);
+        if (found != null)
+        {
+            found.gameObject.SetActive(false);
+        }
+    }
+
+private void HideScreenSpaceModalCanvases()
+    {
+        Canvas[] canvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < canvases.Length; i++)
+        {
+            Canvas canvas = canvases[i];
+            if (canvas == null)
+            {
+                continue;
+            }
+
+            string canvasName = canvas.gameObject.name;
+            if (canvasName.IndexOf("WaistNav", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                continue;
+            }
+
+            if (worldCanvas != null && (canvas == worldCanvas || canvas.transform.IsChildOf(worldCanvas.transform)))
+            {
+                continue;
+            }
+
+            bool isIntroOverlay =
+                canvasName.IndexOf("Intro", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                canvasName.IndexOf("Onboarding", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                canvasName.IndexOf("Overlay", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                canvasName.IndexOf("Fullscreen", System.StringComparison.OrdinalIgnoreCase) >= 0;
+
+            if (!isIntroOverlay)
+            {
+                continue;
+            }
+
+            if (canvas.renderMode == RenderMode.ScreenSpaceOverlay ||
+                canvas.renderMode == RenderMode.ScreenSpaceCamera)
+            {
+                canvas.gameObject.SetActive(false);
+            }
+        }
+    }
+
+
+
+
+
+
+
+
+private void Awake()
+    {
+        if (!PeekResumeIdleAfterMiniGame())
+        {
+            return;
+        }
+
+        if (descriptionObject != null)
+        {
+            descriptionObject.SetActive(false);
+        }
+
+        if (bigNoteRoot != null)
+        {
+            bigNoteRoot.SetActive(false);
+        }
+
+        Transform searchRoot = worldCanvas != null ? worldCanvas.transform : transform;
+        DisableNamedTransform(searchRoot, "GuestureIntro");
+        DisableNamedTransform(searchRoot, "GestureIntro");
+        DisableNamedTransform(searchRoot, "Description");
+        DisableNamedTransform(searchRoot, "BigNoteRoot");
+        DisableNamedTransform(searchRoot, "NameInputPanel");
+    }
+
 }

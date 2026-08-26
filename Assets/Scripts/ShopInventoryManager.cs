@@ -169,7 +169,7 @@ public class ShopInventoryManager : MonoBehaviour
 
         AddItemToInventory(item.itemId);
         OnItemPurchased?.Invoke(item.itemId);
-        Debug.Log($"[상점 구매 완료] {item.displayName} / {price} CR");
+        DustinySfx.PlayBuy();
         return true;
     }
 
@@ -229,6 +229,7 @@ public class ShopInventoryManager : MonoBehaviour
         OnItemEquipped?.Invoke(equippedItemId);
         OnInventoryChanged?.Invoke();
         OnPreviewChanged?.Invoke();
+        DustinySfx.PlayYes();
 
         if (!string.IsNullOrWhiteSpace(previousItemId) && previousItemId != equippedItemId)
         {
@@ -369,6 +370,7 @@ public class ShopInventoryManager : MonoBehaviour
 
         previewItemId = item.itemId;
         OnPreviewChanged?.Invoke();
+        DustinySfx.PlayYes();
         return true;
     }
 

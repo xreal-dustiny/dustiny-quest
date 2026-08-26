@@ -1,5 +1,7 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Serialization;
+using UnityEngine.UI;
 
 /// <summary>
 /// Touch/ray waist navigation follow controller for Dustiny.
@@ -76,12 +78,27 @@ public class DustinyWaistNavFollow : MonoBehaviour
     [Range(0.1f, 0.8f)]
     public float lookDownThreshold = 0.35f;
 
+    [Header("Draw In Front")]
+    [Tooltip("월드 스페이스 UI가 욕조 같은 3D 메시에 가려지지 않도록 ZTest Always를 적용합니다.")]
+    public bool alwaysDrawInFront = false;
+
+    [Tooltip("눈-네비게이션 사이에 욕조 등이 있으면 캔버스를 사용자 쪽으로 당깁니다.")]
+    public bool pullInFrontOfOccluders = true;
+
+    [Tooltip("가림 메시와 캔버스 사이 여유 거리입니다.")]
+    public float occlusionClearance = 0.08f;
+
+    [Tooltip("눈에서 네비게이션까지 허용하는 최소 거리입니다.")]
+    public float minDistanceFromEye = 0.16f;
+
     [Header("Debug")]
     public bool drawDebugRay = false;
 
     // 실제 GameObject 상태를 보조적으로 기억할 뿐, 이 값만 믿고 표시를 건너뛰지 않습니다.
     // 외부 스크립트가 SetActive를 호출해도 다음 Refresh에서 실제 상태와 다시 동기화됩니다.
     private bool isCurrentlyVisible;
+    private bool uiFrontMaterialApplied;
+    private readonly RaycastHit[] occlusionHits = new RaycastHit[16];
 
     // 튜토리얼 동안만 사용하는 강제 표시 상태입니다.
     private bool visibilityOverrideActive;
@@ -129,6 +146,8 @@ public class DustinyWaistNavFollow : MonoBehaviour
         }
 
         ApplyFollow(true);
+        ApplyUiAlwaysInFront();
+        PullNavInFrontOfOccluders();
         RefreshVisibilityImmediately();
     }
 
@@ -141,6 +160,7 @@ public class DustinyWaistNavFollow : MonoBehaviour
             ApplyConfiguredScale();
         }
 
+        PullNavInFrontOfOccluders();
         UpdateGazeVisibility();
     }
 
@@ -346,6 +366,97 @@ public class DustinyWaistNavFollow : MonoBehaviour
 
         forward.Normalize();
         return Quaternion.LookRotation(forward, Vector3.up);
+    }
+
+private void ApplyUiAlwaysInFront()
+    {
+        if (uiFrontMaterialApplied || waistNavRoot == null)
+        {
+            return;
+        }
+
+        Graphic[] graphics = waistNavRoot.GetComponentsInChildren<Graphic>(true);
+        for (int i = 0; i < graphics.Length; i++)
+        {
+            Graphic graphic = graphics[i];
+            if (graphic == null)
+            {
+                continue;
+            }
+
+            graphic.raycastTarget = true;
+        }
+
+        Canvas canvas = waistNavRoot.GetComponent<Canvas>();
+        if (canvas != null)
+        {
+            canvas.overrideSorting = false;
+            canvas.sortingOrder = 0;
+        }
+
+        uiFrontMaterialApplied = true;
+    }
+
+
+    private void PullNavInFrontOfOccluders()
+    {
+        if (!pullInFrontOfOccluders || centerEyeAnchor == null || waistNavRoot == null)
+        {
+            return;
+        }
+
+        Vector3 defaultWorld = transform.TransformPoint(defaultLocalPosition);
+        Vector3 eye = centerEyeAnchor.position;
+        Vector3 toNav = defaultWorld - eye;
+        float distance = toNav.magnitude;
+        if (distance < 0.001f)
+        {
+            return;
+        }
+
+        Vector3 direction = toNav / distance;
+        int hitCount = Physics.RaycastNonAlloc(
+            eye,
+            direction,
+            occlusionHits,
+            distance,
+            ~0,
+            QueryTriggerInteraction.Ignore);
+
+        float closest = distance;
+        bool occluded = false;
+        for (int i = 0; i < hitCount; i++)
+        {
+            Transform hitTransform = occlusionHits[i].transform;
+            if (hitTransform == null || hitTransform == transform)
+            {
+                continue;
+            }
+
+            if (hitTransform.IsChildOf(transform) || hitTransform.IsChildOf(waistNavRoot))
+            {
+                continue;
+            }
+
+            if (occlusionHits[i].distance < closest)
+            {
+                closest = occlusionHits[i].distance;
+                occluded = true;
+            }
+        }
+
+        Vector3 targetLocal = defaultLocalPosition;
+        if (occluded)
+        {
+            float pulled = Mathf.Clamp(closest - occlusionClearance, minDistanceFromEye, distance);
+            Vector3 pulledWorld = eye + direction * pulled;
+            Vector3 pulledLocal = transform.InverseTransformPoint(pulledWorld);
+            targetLocal = new Vector3(defaultLocalPosition.x, defaultLocalPosition.y, pulledLocal.z);
+        }
+
+        float t = followSmoothing <= 0f ? 1f : 1f - Mathf.Exp(-followSmoothing * Time.deltaTime);
+        waistNavRoot.localPosition = Vector3.Lerp(waistNavRoot.localPosition, targetLocal, t);
+        waistNavRoot.localRotation = Quaternion.Euler(defaultLocalEuler);
     }
 
     private void AutoFindReferences()

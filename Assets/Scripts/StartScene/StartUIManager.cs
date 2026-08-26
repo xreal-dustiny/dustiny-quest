@@ -518,11 +518,12 @@ public class StartUIManager : MonoBehaviour
         StartGame();
     }
 
-    private IEnumerator LoadMainSceneRoutine()
+private IEnumerator LoadMainSceneRoutine()
     {
         isStartingGame = true;
 
         PlayYesSfx();
+        DustinyDemoFlow.ClearResumeIdleAfterMiniGame();
 
         float delay = 0f;
 
