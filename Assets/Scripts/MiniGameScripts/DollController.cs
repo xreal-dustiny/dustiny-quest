@@ -20,7 +20,7 @@ public class DollController : MonoBehaviour
 
     [Header("Doll Visuals")]
     private Renderer dollRenderer;
-    private int currentCleanlinessLevel = 1;
+    private int currentCleanlinessLevel = 0;
 
     [Header("Interaction Tracking")]
     private bool isTouchingSponge = false;
@@ -41,16 +41,22 @@ private void Awake()
 
         AutoFindBubbleMeshes();
         AutoFindTextures();
+        SetCleanlinessVisual(0);
     }
 
 
-    private void Start()
+
+
+private void Start()
     {
         AutoFindReferences();
+        EnsureBodyCollision();
         FacePlayerInitially();
-        SetCleanlinessVisual(1);
+        SetCleanlinessVisual(0);
         SetBubbleProgress(0f, true);
     }
+
+
 
     private void Update()
     {
@@ -79,27 +85,55 @@ private void Awake()
         }
     }
 
-    public void AutoFindTextures()
+public void AutoFindTextures()
     {
-        if (cleanTextures == null || cleanTextures.Count == 0)
+        if (cleanTextures != null && cleanTextures.Count >= 4)
+        {
+            return;
+        }
+
+        if (cleanTextures == null)
         {
             cleanTextures = new List<Texture2D>();
-#if UNITY_EDITOR
-            string[] paths = new[]
-            {
-                "Assets/Dustiny/Mini game/Durry_Doll/Texture L0/Durry_Doll_Durry_Doll_c_BaseMap.1001.png",
-                "Assets/Dustiny/Mini game/Durry_Doll/Texture L1/Durry_Doll_Durry_Doll_c_BaseMap.1001L1.png",
-                "Assets/Dustiny/Mini game/Texture L2/Durry_Doll_Durry_Doll_c_BaseMap.1001.png",
-                "Assets/Dustiny/Mini game/Durry_Doll/Texture L3/Durry_Doll_Durry_Doll_c_BaseMap.1001.png"
-            };
-            foreach (var p in paths)
-            {
-                var tex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(p);
-                if (tex != null) cleanTextures.Add(tex);
-            }
-#endif
         }
+
+#if UNITY_EDITOR
+        string[] orderedPaths = new[]
+        {
+            "Assets/Dustiny/Mini game/Durry_Doll/Texture L0/Durry_Doll_Durry_Doll_c_BaseMap.1001.png",
+            "Assets/Dustiny/Mini game/Durry_Doll/Texture L1/Durry_Doll_Durry_Doll_c_BaseMap.1001L1.png",
+            "Assets/Dustiny/Mini game/Durry_Doll/Texture L2/Durry_Doll_Durry_Doll_c_BaseMap.1001.png",
+            "Assets/Dustiny/Mini game/Durry_Doll/Texture L3/Durry_Doll_Durry_Doll_c_BaseMap.1001.png"
+        };
+
+        string[] fallbackL2 = new[]
+        {
+            "Assets/Dustiny/Mini game/Texture L2/Durry_Doll_Durry_Doll_c_BaseMap.1001.png",
+            "Assets/Dustiny/Art/Mini game/Texture L2/Durry_Doll_Durry_Doll_c_BaseMap.1001.png"
+        };
+
+        cleanTextures = new List<Texture2D>(4);
+        for (int i = 0; i < orderedPaths.Length; i++)
+        {
+            Texture2D tex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(orderedPaths[i]);
+            if (tex == null && i == 2)
+            {
+                for (int f = 0; f < fallbackL2.Length; f++)
+                {
+                    tex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(fallbackL2[f]);
+                    if (tex != null)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            cleanTextures.Add(tex);
+        }
+#endif
     }
+
+
 
     private void AutoFindReferences()
     {
@@ -233,31 +267,148 @@ private void Awake()
 
 public void SetCleanlinessVisual(int level)
     {
+        AutoFindTextures();
         currentCleanlinessLevel = Mathf.Clamp(level, 0, 3);
-        if (dollRenderer == null)
-        {
-            dollRenderer = GetComponent<Renderer>() ?? GetComponentInChildren<Renderer>(true);
-        }
 
-        if (dollRenderer == null || cleanTextures == null || cleanTextures.Count == 0)
+        if (cleanTextures == null || cleanTextures.Count == 0)
         {
             return;
         }
 
-        int texIndex = Mathf.Clamp(currentCleanlinessLevel, 0, cleanTextures.Count - 1);
-        Texture2D texture = cleanTextures[texIndex];
+        int textureIndex = Mathf.Clamp(currentCleanlinessLevel, 0, cleanTextures.Count - 1);
+        Texture2D texture = cleanTextures[textureIndex];
+        if (texture == null)
+        {
+            for (int i = textureIndex; i >= 0; i--)
+            {
+                if (cleanTextures[i] != null)
+                {
+                    texture = cleanTextures[i];
+                    break;
+                }
+            }
+        }
+
+        float tintT = currentCleanlinessLevel / 3f;
+        ApplyTextureToBody(texture, Color.Lerp(new Color(0.72f, 0.68f, 0.64f, 1f), Color.white, tintT));
+    }
+
+
+
+public void SetCleanlinessProgress(float normalized)
+    {
+        SetCleanlinessVisual(Mathf.RoundToInt(Mathf.Clamp01(normalized) * 3f));
+    }
+
+
+    private void ApplyTextureToBody(Texture2D texture, Color tint)
+    {
         if (texture == null)
         {
             return;
         }
 
-        Material material = dollRenderer.material;
-        material.mainTexture = texture;
-        if (material.HasProperty("_BaseMap"))
+        Renderer[] renderers = GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
         {
-            material.SetTexture("_BaseMap", texture);
+            Renderer renderer = renderers[i];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            string lowerName = renderer.name.ToLowerInvariant();
+            if (lowerName.Contains("bubble") ||
+                lowerName.Contains("particle") ||
+                lowerName.Contains("eye") ||
+                lowerName.Contains("mouth"))
+            {
+                continue;
+            }
+
+            Material material = renderer.material;
+            if (material == null)
+            {
+                continue;
+            }
+
+            material.mainTexture = texture;
+            if (material.HasProperty("_BaseMap"))
+            {
+                material.SetTexture("_BaseMap", texture);
+            }
+
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", tint);
+            }
+            else if (material.HasProperty("_Color"))
+            {
+                material.SetColor("_Color", tint);
+            }
+
+            if (dollRenderer == null)
+            {
+                dollRenderer = renderer;
+            }
         }
     }
+
+public void EnsureBodyCollision()
+    {
+        CapsuleCollider[] capsules = GetComponents<CapsuleCollider>();
+        bool hasSolid = false;
+        for (int i = 0; i < capsules.Length; i++)
+        {
+            if (capsules[i] != null && !capsules[i].isTrigger)
+            {
+                hasSolid = true;
+                break;
+            }
+        }
+
+        Renderer bodyRenderer = GetComponentInChildren<SkinnedMeshRenderer>();
+        if (bodyRenderer == null)
+        {
+            bodyRenderer = GetComponentInChildren<Renderer>();
+        }
+
+        Vector3 center = Vector3.zero;
+        float radius = 0.11f;
+        float height = 0.28f;
+        if (bodyRenderer != null)
+        {
+            Bounds localBounds = bodyRenderer.localBounds;
+            center = localBounds.center;
+            radius = Mathf.Max(localBounds.extents.x, localBounds.extents.z);
+            height = Mathf.Max(localBounds.size.y, radius * 2f);
+        }
+
+        radius = Mathf.Clamp(radius, 0.07f, 0.16f);
+        height = Mathf.Clamp(height, radius * 2f, 0.42f);
+
+        if (!hasSolid)
+        {
+            CapsuleCollider solid = gameObject.AddComponent<CapsuleCollider>();
+            solid.isTrigger = false;
+            solid.direction = 1;
+            solid.center = center;
+            solid.radius = radius;
+            solid.height = height;
+        }
+
+        Rigidbody body = GetComponent<Rigidbody>();
+        if (body == null)
+        {
+            body = gameObject.AddComponent<Rigidbody>();
+        }
+
+        body.isKinematic = true;
+        body.useGravity = false;
+        body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+    }
+
+
 
 
     private void OnTriggerEnter(Collider other)

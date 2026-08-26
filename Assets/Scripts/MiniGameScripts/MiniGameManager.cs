@@ -80,7 +80,7 @@ public class MiniGameManager : MonoBehaviour
     [SerializeField] private GamePhase currentPhase = GamePhase.Intro;
     [SerializeField] private int currentSet = 1;
     [SerializeField] private int currentCycle = 0;
-    [SerializeField] private int cleanlinessLevel = 1;
+    [SerializeField] private int cleanlinessLevel = 0;
     [SerializeField] private float turnTargetDuration = 3f;
     [SerializeField] private float turnProgressDuration = 0f;
 
@@ -134,20 +134,13 @@ private IEnumerator PlayIntroThenStartGame()
             backButton.interactable = false;
         }
 
-        if (dollController != null)
-        {
-            dollController.gameObject.SetActive(false);
-        }
+        PlaceDollInView();
 
         SetSpeechText("내 인형을 빨아줘.. 너무 더러워졌어...");
         PlayVoice(startVoice);
         yield return new WaitForSeconds(3.2f);
 
-        if (dollController != null)
-        {
-            dollController.gameObject.SetActive(true);
-            dollController.FacePlayerInitially();
-        }
+        PlaceDollInView();
 
         BindButton(backButton, OnBackButtonClicked);
         if (backButton != null)
@@ -159,6 +152,47 @@ private IEnumerator PlayIntroThenStartGame()
         EquipTool(ToolType.Sponge);
         StartMiniGame();
     }
+
+
+private void PlaceDollInView()
+    {
+        if (dollController == null)
+        {
+            dollController = FindFirstObjectByType<DollController>(FindObjectsInactive.Include);
+        }
+
+        if (dollController == null)
+        {
+            return;
+        }
+
+        dollController.gameObject.SetActive(true);
+        Renderer[] renderers = dollController.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer renderer = renderers[i];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            string lowerName = renderer.name.ToLowerInvariant();
+            if (lowerName.Contains("bubble") || lowerName.Contains("particle"))
+            {
+                continue;
+            }
+
+            renderer.gameObject.SetActive(true);
+            renderer.enabled = true;
+        }
+
+        dollController.EnsureBodyCollision();
+        dollController.SetCleanlinessVisual(0);
+        dollController.FacePlayerInitially();
+    }
+
+
+
 
 
 
@@ -399,18 +433,22 @@ public void StartMiniGame()
     {
         currentSet = 1;
         currentCycle = 0;
-        cleanlinessLevel = 1;
+        cleanlinessLevel = 0;
         isReturningHomePrompt = false;
         previousSpeechText = string.Empty;
 
         if (dollController != null)
         {
-            dollController.SetCleanlinessVisual(cleanlinessLevel);
+            dollController.gameObject.SetActive(true);
+            dollController.EnsureBodyCollision();
+            dollController.SetCleanlinessVisual(0);
             dollController.SetBubbleProgress(0f, true);
         }
 
         StartSpongeTurn();
     }
+
+
 
     private void StartSpongeTurn()
     {
@@ -440,7 +478,7 @@ public void StartMiniGame()
         PlayVoice(showerVoice);
     }
 
-    private void ProcessGameTurn()
+private void ProcessGameTurn()
     {
         if (isReturningHomePrompt)
         {
@@ -491,54 +529,47 @@ public void StartMiniGame()
         }
     }
 
+
+
 private void OnCycleComplete()
     {
         currentCycle++;
+        cleanlinessLevel = Mathf.Clamp(currentCycle, 0, 3);
+
+        if (dollController != null)
+        {
+            dollController.SetCleanlinessVisual(cleanlinessLevel);
+        }
 
         if (currentCycle >= 3)
         {
-            currentCycle = 0;
-            cleanlinessLevel++;
-
+            currentPhase = GamePhase.GameClear;
+            wasPostClearToolTouching = false;
             if (dollController != null)
             {
-                dollController.SetCleanlinessVisual(cleanlinessLevel);
+                dollController.SetCleanlinessVisual(3);
+                dollController.SetBubbleProgress(0f, true);
             }
 
-            if (cleanlinessLevel >= 3)
+            SetSpeechText(GameClearSpeech);
+            PlayVoice(clearVoice);
+
+            if (CreditManager.Instance != null)
             {
-                currentPhase = GamePhase.GameClear;
-                wasPostClearToolTouching = false;
-                if (dollController != null)
-                {
-                    dollController.SetBubbleProgress(0f, true);
-                }
-
-                SetSpeechText(GameClearSpeech);
-                PlayVoice(clearVoice);
-
-                if (CreditManager.Instance != null)
-                {
-                    CreditManager.Instance.AddCredit(30);
-                }
-
-                if (CleanlinessManager.Instance != null)
-                {
-                    CleanlinessManager.Instance.OnCleanSuccess();
-                }
-
-                return;
+                CreditManager.Instance.AddCredit(30);
             }
 
-            currentSet++;
-            SetSpeechText("와, 나 조금 더 깨끗해진 것 같아. 조금만 더 씻겨줘!");
-            PlayVoice(levelUpVoice);
-            StartCoroutine(TransitionToNextSpongeTurn());
             return;
         }
 
-        StartSpongeTurn();
+        currentSet++;
+        SetSpeechText("와, 나 조금 더 깨끗해진 것 같아. 조금만 더 씻겨줘!");
+        PlayVoice(levelUpVoice);
+        StartCoroutine(TransitionToNextSpongeTurn());
     }
+
+
+
 
 
     private IEnumerator TransitionToNextSpongeTurn()
@@ -654,28 +685,68 @@ private void EnsureToolGrabPoints()
         if (spongeObject != null)
         {
             spongeGrabPoint = EnsureGrabPoint(spongeObject.transform, spongeGrabLocalPosition);
+            EnsureSolidToolCollider(spongeObject);
         }
 
         if (showerObject != null)
         {
-            Transform nozzle = FindChildTransformByName(showerObject.transform, "ShoweringPoint");
-            if (nozzle != null)
+            CapsuleCollider capsule = showerObject.GetComponent<CapsuleCollider>();
+            if (capsule != null)
             {
-                Vector3 nozzleLocal = showerObject.transform.InverseTransformPoint(nozzle.position);
-                Vector3 towardHandle = -nozzleLocal;
-                if (towardHandle.sqrMagnitude > 0.0001f)
-                {
-                    showerGrabLocalPosition = nozzleLocal + towardHandle.normalized * 0.02f;
-                }
-                else
-                {
-                    showerGrabLocalPosition = nozzleLocal;
-                }
+                Vector3 handle = capsule.center;
+                handle.y -= Mathf.Max(0.1f, capsule.height * 0.32f);
+                showerGrabLocalPosition = handle;
+            }
+            else
+            {
+                Vector3 center = GetRendererLocalCenter(
+                    showerObject,
+                    new Vector3(0f, 0.12f, 0f)
+                );
+                center.y -= 0.1f;
+                showerGrabLocalPosition = center;
             }
 
             showerGrabPoint = EnsureGrabPoint(showerObject.transform, showerGrabLocalPosition);
+            EnsureSolidToolCollider(showerObject);
         }
     }
+
+    private static void EnsureSolidToolCollider(GameObject tool)
+    {
+        if (tool == null)
+        {
+            return;
+        }
+
+        Collider[] colliders = tool.GetComponentsInChildren<Collider>(true);
+        bool hasSolid = false;
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            if (colliders[i] != null && colliders[i].enabled && !colliders[i].isTrigger)
+            {
+                hasSolid = true;
+                break;
+            }
+        }
+
+        if (hasSolid)
+        {
+            return;
+        }
+
+        Renderer renderer = tool.GetComponentInChildren<Renderer>();
+        BoxCollider box = tool.AddComponent<BoxCollider>();
+        box.isTrigger = false;
+        if (renderer != null)
+        {
+            Bounds local = renderer.localBounds;
+            box.center = local.center;
+            box.size = local.size;
+        }
+    }
+
+
 
 
     private static Vector3 GetRendererLocalCenter(GameObject tool, Vector3 fallback)
@@ -742,7 +813,7 @@ private void EnsureToolGrabPoints()
         }
     }
 
-    private void HoldSelectedTool()
+private void HoldSelectedTool()
     {
         if (currentTool == ToolType.Sponge && spongeObject != null && spongeObject.activeSelf)
         {
@@ -752,6 +823,7 @@ private void EnsureToolGrabPoints()
                 spongeGrabPoint,
                 palmLocalPosition + spongeHoldOffset,
                 spongeHoldEuler);
+            PushToolOutOfDoll(spongeObject);
         }
         else if (currentTool == ToolType.Shower && showerObject != null && showerObject.activeSelf)
         {
@@ -761,10 +833,103 @@ private void EnsureToolGrabPoints()
                 showerGrabPoint,
                 palmLocalPosition + showerHoldOffset,
                 showerHoldEuler);
+            PushToolOutOfDoll(showerObject);
         }
 
         UpdateShowerParticle();
     }
+
+
+private void PushToolOutOfDoll(GameObject tool)
+    {
+        if (tool == null || dollController == null)
+        {
+            return;
+        }
+
+        Bounds dollBounds = default;
+        bool hasBounds = false;
+        Renderer[] renderers = dollController.GetComponentsInChildren<Renderer>();
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer renderer = renderers[i];
+            if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            string lowerName = renderer.name.ToLowerInvariant();
+            if (lowerName.Contains("bubble") || lowerName.Contains("particle"))
+            {
+                continue;
+            }
+
+            if (!hasBounds)
+            {
+                dollBounds = renderer.bounds;
+                hasBounds = true;
+            }
+            else
+            {
+                dollBounds.Encapsulate(renderer.bounds);
+            }
+        }
+
+        if (hasBounds)
+        {
+            Vector3 center = dollBounds.center;
+            Vector3 toTool = tool.transform.position - center;
+            toTool.y *= 0.55f;
+            float minDistance = Mathf.Max(dollBounds.extents.x, dollBounds.extents.z) * 0.92f;
+            if (toTool.sqrMagnitude < 0.0001f)
+            {
+                toTool = Vector3.forward;
+            }
+
+            if (toTool.magnitude < minDistance)
+            {
+                Vector3 pushed = center + toTool.normalized * minDistance;
+                pushed.y = tool.transform.position.y;
+                tool.transform.position = pushed;
+            }
+        }
+
+        Collider[] toolColliders = tool.GetComponentsInChildren<Collider>();
+        Collider[] dollColliders = dollController.GetComponentsInChildren<Collider>();
+        for (int i = 0; i < toolColliders.Length; i++)
+        {
+            Collider toolCollider = toolColliders[i];
+            if (toolCollider == null || !toolCollider.enabled)
+            {
+                continue;
+            }
+
+            for (int j = 0; j < dollColliders.Length; j++)
+            {
+                Collider dollCollider = dollColliders[j];
+                if (dollCollider == null || !dollCollider.enabled || dollCollider.isTrigger)
+                {
+                    continue;
+                }
+
+                if (Physics.ComputePenetration(
+                        toolCollider,
+                        toolCollider.transform.position,
+                        toolCollider.transform.rotation,
+                        dollCollider,
+                        dollCollider.transform.position,
+                        dollCollider.transform.rotation,
+                        out Vector3 direction,
+                        out float distance) &&
+                    distance > 0.0001f)
+                {
+                    tool.transform.position += direction * (distance + 0.012f);
+                }
+            }
+        }
+    }
+
+
 
 private void DropHeldTool()
     {
@@ -965,7 +1130,7 @@ private void EnsureBathtubVolume()
         }
     }
 
-    private void EnsureUiPointerModule()
+private void EnsureUiPointerModule()
     {
         EventSystem eventSystem = EventSystem.current;
         if (eventSystem == null)
@@ -982,47 +1147,15 @@ private void EnsureBathtubVolume()
         eventSystem.SetSelectedGameObject(null);
 
         BaseInputModule[] modules = eventSystem.GetComponents<BaseInputModule>();
-        BaseInputModule pointable = null;
         for (int i = 0; i < modules.Length; i++)
         {
-            if (modules[i] == null)
+            if (modules[i] != null)
             {
-                continue;
-            }
-
-            if (modules[i].GetType().Name == "PointableCanvasModule")
-            {
-                pointable = modules[i];
                 modules[i].enabled = true;
-                continue;
             }
-
-            modules[i].enabled = false;
         }
-
-        if (pointable != null)
-        {
-            return;
-        }
-
-        System.Type moduleType = FindTypeByName("Oculus.Interaction.PointableCanvasModule");
-        if (moduleType == null)
-        {
-            Debug.LogWarning("[MiniGame] PointableCanvasModule을 찾지 못했습니다. 기본 UI 입력을 유지합니다.");
-            for (int i = 0; i < modules.Length; i++)
-            {
-                if (modules[i] != null)
-                {
-                    modules[i].enabled = true;
-                    break;
-                }
-            }
-
-            return;
-        }
-
-        eventSystem.gameObject.AddComponent(moduleType);
     }
+
 
     private static System.Type FindTypeByName(string fullName)
     {

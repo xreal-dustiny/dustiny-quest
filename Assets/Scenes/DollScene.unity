@@ -2349,7 +2349,7 @@ MonoBehaviour:
   cleanTextures:
   - {fileID: 2800000, guid: 5372645032feb894a87af6f803cf232c, type: 3}
   - {fileID: 2800000, guid: 875c9d74f8da3174d9794a83de804e80, type: 3}
-  - {fileID: 2800000, guid: d748d0987da1e544883e38ae43ac38df, type: 3}
+  - {fileID: 2800000, guid: e73bf46f8e217ae49b46a6713ca3d9e4, type: 3}
   - {fileID: 2800000, guid: 52be9513f3f87254298902990f7fb080, type: 3}
   bubbleMeshes:
   - {fileID: 901100803}

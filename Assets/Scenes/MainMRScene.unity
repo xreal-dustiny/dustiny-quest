@@ -1497,7 +1497,7 @@ MonoBehaviour:
   navigationLookDownHoldSeconds: 0.35
   navInformOKHoldSeconds: 2
   introOverlayFadeDuration: 0.3
-  hideDurryDuringImageIntro: 0
+  hideDurryDuringImageIntro: 1
   hideNavigationDuringImageIntro: 1
   startOnboardingFlowOnStart: 1
   dialogueAdvanceCooldown: 0.25
