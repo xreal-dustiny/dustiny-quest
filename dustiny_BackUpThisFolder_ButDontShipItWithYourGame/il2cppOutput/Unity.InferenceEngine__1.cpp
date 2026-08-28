@@ -32126,7 +32126,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_NO_INLINE IL2CPP_METHOD_ATTR void AddFloatJob
 		return;
 	}
 }
-// Method Definition Index: 80422
+// Method Definition Index: 80427
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR int32_t math_min_m02D43DF516544C279AF660EA4731449C82991849_inline (int32_t ___0_x, int32_t ___1_y, const RuntimeMethod* method) 
 {
 	{
@@ -32377,7 +32377,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_NO_INLINE IL2CPP_METHOD_ATTR void FloorDivFlo
 		return;
 	}
 }
-// Method Definition Index: 80641
+// Method Definition Index: 80646
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float math_floor_m0FDF19C33B0B1062079FCB10FB081869AEC1FB48_inline (float ___0_x, const RuntimeMethod* method) 
 {
 	static bool s_Il2CppMethodInitialized;
@@ -32452,7 +32452,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_NO_INLINE IL2CPP_METHOD_ATTR void TruncDivFlo
 		return;
 	}
 }
-// Method Definition Index: 80665
+// Method Definition Index: 80670
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float math_trunc_mFB08702CED1DAFA9E112CAA94ECF59026C066112_inline (float ___0_x, const RuntimeMethod* method) 
 {
 	static bool s_Il2CppMethodInitialized;
@@ -32527,7 +32527,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_NO_INLINE IL2CPP_METHOD_ATTR void MinFloatJob
 		return;
 	}
 }
-// Method Definition Index: 80432
+// Method Definition Index: 80437
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float math_min_m54FD010BEF505D2BA1F79FC793BEB0723C329C3B_inline (float ___0_x, float ___1_y, const RuntimeMethod* method) 
 {
 	{
@@ -32616,7 +32616,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_NO_INLINE IL2CPP_METHOD_ATTR void MaxFloatJob
 		return;
 	}
 }
-// Method Definition Index: 80450
+// Method Definition Index: 80455
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float math_max_m4B454A91AE8827997609E74C4C24036BBD3CC496_inline (float ___0_x, float ___1_y, const RuntimeMethod* method) 
 {
 	{
@@ -32705,7 +32705,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_NO_INLINE IL2CPP_METHOD_ATTR void PowFloatFlo
 		return;
 	}
 }
-// Method Definition Index: 80701
+// Method Definition Index: 80706
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float math_pow_m2B2C611A37952CFB13BB0AE800A6A601A2E4A49B_inline (float ___0_x, float ___1_y, const RuntimeMethod* method) 
 {
 	static bool s_Il2CppMethodInitialized;
@@ -33408,7 +33408,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_NO_INLINE IL2CPP_METHOD_ATTR void PReluJob_se
 		return;
 	}
 }
-// Method Definition Index: 80889
+// Method Definition Index: 80894
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float math_select_m2B01782E11EF46872F84CF69CDA89A387746ECD1_inline (float ___0_falseValue, float ___1_trueValue, bool ___2_test, const RuntimeMethod* method) 
 {
 	{

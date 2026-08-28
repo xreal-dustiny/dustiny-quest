@@ -419,7 +419,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void DownloadHandlerScript_InternalCreateScri
 #pragma clang diagnostic ignored "-Winvalid-offsetof"
 #pragma clang diagnostic ignored "-Wunused-variable"
 #endif
-// Method Definition Index: 129774
+// Method Definition Index: 129869
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR String_t* WebRequestUtils_RedirectTo_m63855E63B6B6EAFD4BCE65395BB744AAF5BD6AB4 (String_t* ___0_baseUri, String_t* ___1_redirectUri, const RuntimeMethod* method) 
 {
 	static bool s_Il2CppMethodInitialized;
@@ -509,7 +509,7 @@ IL_0052:
 		return L_19;
 	}
 }
-// Method Definition Index: 129775
+// Method Definition Index: 129870
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void WebRequestUtils__cctor_m31ADEB75E00368144C8F223647D81A3B5ADD3D69 (const RuntimeMethod* method) 
 {
 	static bool s_Il2CppMethodInitialized;
@@ -564,7 +564,7 @@ IL2CPP_EXTERN_C void CertificateHandler_t148B524FA5DB39F3ABADB181CD420FC505C3380
 IL2CPP_EXTERN_C void CertificateHandler_t148B524FA5DB39F3ABADB181CD420FC505C33804_marshal_com_cleanup(CertificateHandler_t148B524FA5DB39F3ABADB181CD420FC505C33804_marshaled_com& marshaled)
 {
 }
-// Method Definition Index: 129776
+// Method Definition Index: 129871
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool CertificateHandler_ValidateCertificate_m81E194684391CA512FFC7C3A9172B56D6A1E2752 (CertificateHandler_t148B524FA5DB39F3ABADB181CD420FC505C33804* __this, ByteU5BU5D_tA6237BF417AE52AD70CFB4EF24A7A82613DF9031* ___0_certificateData, const RuntimeMethod* method) 
 {
 	bool V_0 = false;
@@ -579,7 +579,7 @@ IL_0005:
 		return L_0;
 	}
 }
-// Method Definition Index: 129777
+// Method Definition Index: 129872
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool CertificateHandler_ValidateCertificateNative_m73467B32D9B40F6897951F71F80CDDA92F5FD785 (CertificateHandler_t148B524FA5DB39F3ABADB181CD420FC505C33804* __this, ByteU5BU5D_tA6237BF417AE52AD70CFB4EF24A7A82613DF9031* ___0_certificateData, const RuntimeMethod* method) 
 {
 	bool V_0 = false;
@@ -633,7 +633,7 @@ IL2CPP_EXTERN_C void DownloadHandler_t1B56C7D3F65D97A1E4B566A14A1E783EA8AE4EBB_m
 IL2CPP_EXTERN_C void DownloadHandler_t1B56C7D3F65D97A1E4B566A14A1E783EA8AE4EBB_marshal_com_cleanup(DownloadHandler_t1B56C7D3F65D97A1E4B566A14A1E783EA8AE4EBB_marshaled_com& marshaled)
 {
 }
-// Method Definition Index: 129778
+// Method Definition Index: 129873
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void DownloadHandler_ReleaseFromScripting_m286AFAC5F442211CA34E6E3BEAB79CD585EC9DF2 (DownloadHandler_t1B56C7D3F65D97A1E4B566A14A1E783EA8AE4EBB* __this, const RuntimeMethod* method) 
 {
 	intptr_t G_B2_0;
@@ -662,7 +662,7 @@ IL_000f:
 		return;
 	}
 }
-// Method Definition Index: 129779
+// Method Definition Index: 129874
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void DownloadHandler__ctor_m833275AC5FCAC0BFB4F2D5C1C0C7FD76416CE496 (DownloadHandler_t1B56C7D3F65D97A1E4B566A14A1E783EA8AE4EBB* __this, const RuntimeMethod* method) 
 {
 	{
@@ -670,7 +670,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void DownloadHandler__ctor_m833275AC5FCAC0BFB
 		return;
 	}
 }
-// Method Definition Index: 129780
+// Method Definition Index: 129875
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void DownloadHandler_Finalize_m21F7E76D39E0CBF30890C6A0C8EDBF049AFFBB14 (DownloadHandler_t1B56C7D3F65D97A1E4B566A14A1E783EA8AE4EBB* __this, const RuntimeMethod* method) 
 {
 	{
@@ -701,7 +701,7 @@ IL_0013:
 		return;
 	}
 }
-// Method Definition Index: 129781
+// Method Definition Index: 129876
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void DownloadHandler_Dispose_mD5D4CCF0C2DFF1CB57C9B3A0EF4213ECB9F8F607 (DownloadHandler_t1B56C7D3F65D97A1E4B566A14A1E783EA8AE4EBB* __this, const RuntimeMethod* method) 
 {
 	bool V_0 = false;
@@ -726,7 +726,7 @@ IL_0029:
 		return;
 	}
 }
-// Method Definition Index: 129782
+// Method Definition Index: 129877
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool DownloadHandler_ReceiveData_mF892EB77524A60DF1F82A2DA00F17BECB480CD93 (DownloadHandler_t1B56C7D3F65D97A1E4B566A14A1E783EA8AE4EBB* __this, ByteU5BU5D_tA6237BF417AE52AD70CFB4EF24A7A82613DF9031* ___0_data, int32_t ___1_dataLength, const RuntimeMethod* method) 
 {
 	bool V_0 = false;
@@ -741,7 +741,7 @@ IL_0005:
 		return L_0;
 	}
 }
-// Method Definition Index: 129783
+// Method Definition Index: 129878
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void DownloadHandler_ReceiveContentLengthHeader_m545073C4FB5AB9BB6640D24FC2F32070E5FE3F17 (DownloadHandler_t1B56C7D3F65D97A1E4B566A14A1E783EA8AE4EBB* __this, uint64_t ___0_contentLength, const RuntimeMethod* method) 
 {
 	{
@@ -750,21 +750,21 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void DownloadHandler_ReceiveContentLengthHead
 		return;
 	}
 }
-// Method Definition Index: 129784
+// Method Definition Index: 129879
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void DownloadHandler_ReceiveContentLength_m058DE0B56C3EBE8ECE3F9570852024EE2A84DE4F (DownloadHandler_t1B56C7D3F65D97A1E4B566A14A1E783EA8AE4EBB* __this, int32_t ___0_contentLength, const RuntimeMethod* method) 
 {
 	{
 		return;
 	}
 }
-// Method Definition Index: 129785
+// Method Definition Index: 129880
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void DownloadHandler_CompleteContent_m0FFC337906FF9BF8BDD546906D48DA57F52F81CA (DownloadHandler_t1B56C7D3F65D97A1E4B566A14A1E783EA8AE4EBB* __this, const RuntimeMethod* method) 
 {
 	{
 		return;
 	}
 }
-// Method Definition Index: 129786
+// Method Definition Index: 129881
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR float DownloadHandler_GetProgress_mB440AC38C72F2E14DD53259E1D0C9D7612F0791F (DownloadHandler_t1B56C7D3F65D97A1E4B566A14A1E783EA8AE4EBB* __this, const RuntimeMethod* method) 
 {
 	float V_0 = 0.0f;
@@ -779,7 +779,7 @@ IL_0009:
 		return L_0;
 	}
 }
-// Method Definition Index: 129787
+// Method Definition Index: 129882
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void DownloadHandler_ReleaseFromScripting_Injected_m58D4660921050A173147221836BBECDFB83CC22B (intptr_t ___0__unity_self, const RuntimeMethod* method) 
 {
 	typedef void (*DownloadHandler_ReleaseFromScripting_Injected_m58D4660921050A173147221836BBECDFB83CC22B_ftn) (intptr_t);
@@ -796,7 +796,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void DownloadHandler_ReleaseFromScripting_Inj
 #pragma clang diagnostic ignored "-Winvalid-offsetof"
 #pragma clang diagnostic ignored "-Wunused-variable"
 #endif
-// Method Definition Index: 129788
+// Method Definition Index: 129883
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR intptr_t BindingsMarshaller_ConvertToNative_mF982DE80FF446BC654CB8CB6A775E312AE1F3DAE (DownloadHandler_t1B56C7D3F65D97A1E4B566A14A1E783EA8AE4EBB* ___0_handler, const RuntimeMethod* method) 
 {
 	{
@@ -842,7 +842,7 @@ IL2CPP_EXTERN_C void DownloadHandlerScript_t42FD7363F738391BB1EA2552FF18F9FA7C0E
 IL2CPP_EXTERN_C void DownloadHandlerScript_t42FD7363F738391BB1EA2552FF18F9FA7C0EE38B_marshal_com_cleanup(DownloadHandlerScript_t42FD7363F738391BB1EA2552FF18F9FA7C0EE38B_marshaled_com& marshaled)
 {
 }
-// Method Definition Index: 129789
+// Method Definition Index: 129884
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR intptr_t DownloadHandlerScript_CreatePreallocated_m67B035392775CBEC29FC75DDEF9A1238501ABF84 (DownloadHandlerScript_t42FD7363F738391BB1EA2552FF18F9FA7C0EE38B* ___0_obj, ByteU5BU5D_tA6237BF417AE52AD70CFB4EF24A7A82613DF9031* ___1_preallocatedBuffer, const RuntimeMethod* method) 
 {
 	typedef intptr_t (*DownloadHandlerScript_CreatePreallocated_m67B035392775CBEC29FC75DDEF9A1238501ABF84_ftn) (DownloadHandlerScript_t42FD7363F738391BB1EA2552FF18F9FA7C0EE38B*, ByteU5BU5D_tA6237BF417AE52AD70CFB4EF24A7A82613DF9031*);
@@ -852,7 +852,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR intptr_t DownloadHandlerScript_CreatePrealloc
 	intptr_t icallRetVal = _il2cpp_icall_func(___0_obj, ___1_preallocatedBuffer);
 	return icallRetVal;
 }
-// Method Definition Index: 129790
+// Method Definition Index: 129885
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void DownloadHandlerScript_InternalCreateScript_m733FFF19800ED9E0809159E27CB93AB974288808 (DownloadHandlerScript_t42FD7363F738391BB1EA2552FF18F9FA7C0EE38B* __this, ByteU5BU5D_tA6237BF417AE52AD70CFB4EF24A7A82613DF9031* ___0_preallocatedBuffer, const RuntimeMethod* method) 
 {
 	{
@@ -863,7 +863,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void DownloadHandlerScript_InternalCreateScri
 		return;
 	}
 }
-// Method Definition Index: 129791
+// Method Definition Index: 129886
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void DownloadHandlerScript__ctor_m67B5897E7D6354051F54E8EB70ACA62BA0EF264A (DownloadHandlerScript_t42FD7363F738391BB1EA2552FF18F9FA7C0EE38B* __this, ByteU5BU5D_tA6237BF417AE52AD70CFB4EF24A7A82613DF9031* ___0_preallocatedBuffer, const RuntimeMethod* method) 
 {
 	bool V_0 = false;
@@ -913,7 +913,7 @@ IL_0024:
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
-// Method Definition Index: 129788
+// Method Definition Index: 129883
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR intptr_t BindingsMarshaller_ConvertToNative_mF982DE80FF446BC654CB8CB6A775E312AE1F3DAE_inline (DownloadHandler_t1B56C7D3F65D97A1E4B566A14A1E783EA8AE4EBB* ___0_handler, const RuntimeMethod* method) 
 {
 	{
