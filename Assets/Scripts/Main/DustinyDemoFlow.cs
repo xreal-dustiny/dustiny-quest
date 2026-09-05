@@ -1719,7 +1719,23 @@ private IEnumerator EnsureDurryVisibleRoutine()
     {
         if (noteBackgroundObject == null && notePageObject != null)
         {
-            Transform background = FindChildTransformContains(notePageObject.transform, "background");
+            // NoteBackground is a sibling of NotePage under NotePageRoot, not a
+            // child of NotePage. Rebinding after the page closes must restore that
+            // sibling reference before toggling the NOTE background back on.
+            Transform notePageRoot = notePageObject.transform.parent;
+            GameObject backgroundObject = notePageRoot != null
+                ? FindDirectChildExact(notePageRoot, "NoteBackground")
+                : null;
+            Transform background = backgroundObject != null
+                ? backgroundObject.transform
+                : null;
+
+            // Keep the legacy child lookup as a fallback for alternate layouts.
+            if (background == null)
+            {
+                background = FindChildTransformContains(notePageObject.transform, "background");
+            }
+
             if (background != null)
             {
                 noteBackgroundObject = background.gameObject;
