@@ -21512,13 +21512,13 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void U3CU3Ec__DisplayClass398_0__ctor_mA52B91
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void U3CU3Ec__DisplayClass398_0_U3CConnectPageButtonClickU3Eb__0_m07469C96BFE8ACC7CF53E54132AF6735EF2ED8E2 (U3CU3Ec__DisplayClass398_0_tA03351B855148A06F7DFFFA37BD2B85C17D9F3E5* __this, const RuntimeMethod* method) 
 {
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2930>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2946>
 		UnityAction_t11A1F3B953B365C072A5DCC32677EE1796A962A7* L_0 = __this->___action;
 		NullCheck(L_0);
 		UnityAction_Invoke_m5CB9EE17CCDF64D00DE5D96DF3553CDB20D66F70_inline(L_0, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2931>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2947>
 		DustinySfx_PlayYes_mEE7F10EBC7CD9A164F3436A726F7B8DD53715518(NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2932>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2948>
 		return;
 	}
 }
@@ -21542,13 +21542,13 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void U3CU3Ec__DisplayClass401_0__ctor_m154992
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR void U3CU3Ec__DisplayClass401_0_U3CConnectButtonClickU3Eb__0_m71832D212E6E6CA4821BAF0CBF2CA77EA423E2E0 (U3CU3Ec__DisplayClass401_0_tD1A8077FF81E626E28557C7850CE4B2350BD179B* __this, const RuntimeMethod* method) 
 {
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2960>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2976>
 		UnityAction_t11A1F3B953B365C072A5DCC32677EE1796A962A7* L_0 = __this->___action;
 		NullCheck(L_0);
 		UnityAction_Invoke_m5CB9EE17CCDF64D00DE5D96DF3553CDB20D66F70_inline(L_0, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2961>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2977>
 		DustinySfx_PlayYes_mEE7F10EBC7CD9A164F3436A726F7B8DD53715518(NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2962>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2978>
 		return;
 	}
 }
@@ -21609,32 +21609,32 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool U3CAnimatePageOpenU3Ed__383_MoveNext_m30
 IL_001a:
 	{
 		__this->___U3CU3E1__state = (-1);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2518>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2534>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_4 = V_1;
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_5 = V_1;
 		NullCheck(L_5);
 		float L_6 = L_5->___pageOpenRiseOffset;
 		NullCheck(L_4);
 		L_4->___pageOpenVerticalOffset = L_6;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2519>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2535>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_7 = V_1;
 		NullCheck(L_7);
 		CanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094* L_8 = L_7->___pageCanvasGroup;
 		NullCheck(L_8);
 		CanvasGroup_set_alpha_m5C06839316D948BB4F75ED72C87FA1F1A20C333F(L_8, (0.0f), NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2520>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2536>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_9 = V_1;
 		NullCheck(L_9);
 		CanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094* L_10 = L_9->___pageCanvasGroup;
 		NullCheck(L_10);
 		CanvasGroup_set_blocksRaycasts_m6C17F35782D16AE3FC42FCD1A4D68E1C4A4776E0(L_10, (bool)0, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2521>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2537>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_11 = V_1;
 		NullCheck(L_11);
 		CanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094* L_12 = L_11->___pageCanvasGroup;
 		NullCheck(L_12);
 		CanvasGroup_set_interactable_m86928BB0894EF3F06BC7BE63594272FBA0DAC757(L_12, (bool)0, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2523>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2539>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_13 = V_1;
 		NullCheck(L_13);
 		float L_14 = L_13->___pageOpenFadeDuration;
@@ -21644,11 +21644,11 @@ IL_001a:
 		}
 	}
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2525>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2541>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_15 = V_1;
 		NullCheck(L_15);
 		L_15->___pageOpenVerticalOffset = (0.0f);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2526>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2542>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_16 = V_1;
 		NullCheck(L_16);
 		CanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094* L_17 = L_16->___pageCanvasGroup;
@@ -21659,19 +21659,19 @@ IL_001a:
 
 IL_0082:
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2530>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2546>
 		__this->___U3CelapsedU3E5__2 = (0.0f);
 		goto IL_0100;
 	}
 
 IL_008f:
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2533>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2549>
 		float L_18 = __this->___U3CelapsedU3E5__2;
 		float L_19;
 		L_19 = Time_get_unscaledDeltaTime_mF057EECA857E5C0F90A3F910D26D3EE59F27C4B5(NULL);
 		__this->___U3CelapsedU3E5__2 = ((float)il2cpp_codegen_add(L_18, L_19));
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2534>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2550>
 		float L_20 = __this->___U3CelapsedU3E5__2;
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_21 = V_1;
 		NullCheck(L_21);
@@ -21679,12 +21679,12 @@ IL_008f:
 		float L_23;
 		L_23 = Mathf_Clamp01_mA7E048DBDA832D399A581BE4D6DED9FA44CE0F14_inline(((float)(L_20/L_22)), NULL);
 		V_2 = L_23;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2535>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2551>
 		float L_24 = V_2;
 		float L_25 = V_2;
 		float L_26 = V_2;
 		V_3 = ((float)il2cpp_codegen_multiply(((float)il2cpp_codegen_multiply(L_24, L_25)), ((float)il2cpp_codegen_subtract((3.0f), ((float)il2cpp_codegen_multiply((2.0f), L_26))))));
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2536>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2552>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_27 = V_1;
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_28 = V_1;
 		NullCheck(L_28);
@@ -21694,14 +21694,14 @@ IL_008f:
 		L_31 = Mathf_Lerp_m47EF2FFB7647BD0A1FDC26DC03E28B19812139B5_inline(L_29, (0.0f), L_30, NULL);
 		NullCheck(L_27);
 		L_27->___pageOpenVerticalOffset = L_31;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2537>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2553>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_32 = V_1;
 		NullCheck(L_32);
 		CanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094* L_33 = L_32->___pageCanvasGroup;
 		float L_34 = V_3;
 		NullCheck(L_33);
 		CanvasGroup_set_alpha_m5C06839316D948BB4F75ED72C87FA1F1A20C333F(L_33, L_34, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2538>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2554>
 		__this->___U3CU3E2__current = NULL;
 		Il2CppCodeGenWriteBarrier((void**)(&__this->___U3CU3E2__current), (void*)NULL);
 		__this->___U3CU3E1__state = 1;
@@ -21715,7 +21715,7 @@ IL_00f9:
 
 IL_0100:
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2531>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2547>
 		float L_35 = __this->___U3CelapsedU3E5__2;
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_36 = V_1;
 		NullCheck(L_36);
@@ -21728,34 +21728,34 @@ IL_0100:
 
 IL_010e:
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2542>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2558>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_38 = V_1;
 		NullCheck(L_38);
 		L_38->___pageOpenVerticalOffset = (0.0f);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2543>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2559>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_39 = V_1;
 		NullCheck(L_39);
 		CanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094* L_40 = L_39->___pageCanvasGroup;
 		NullCheck(L_40);
 		CanvasGroup_set_alpha_m5C06839316D948BB4F75ED72C87FA1F1A20C333F(L_40, (1.0f), NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2544>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2560>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_41 = V_1;
 		NullCheck(L_41);
 		CanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094* L_42 = L_41->___pageCanvasGroup;
 		NullCheck(L_42);
 		CanvasGroup_set_blocksRaycasts_m6C17F35782D16AE3FC42FCD1A4D68E1C4A4776E0(L_42, (bool)1, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2545>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2561>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_43 = V_1;
 		NullCheck(L_43);
 		CanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094* L_44 = L_43->___pageCanvasGroup;
 		NullCheck(L_44);
 		CanvasGroup_set_interactable_m86928BB0894EF3F06BC7BE63594272FBA0DAC757(L_44, (bool)1, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2546>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2562>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_45 = V_1;
 		NullCheck(L_45);
 		L_45->___pageOpenAnimationCoroutine = (Coroutine_t85EA685566A254C23F3FD77AB5BDFFFF8799596B*)NULL;
 		Il2CppCodeGenWriteBarrier((void**)(&L_45->___pageOpenAnimationCoroutine), (void*)(Coroutine_t85EA685566A254C23F3FD77AB5BDFFFF8799596B*)NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2547>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:2563>
 		return (bool)0;
 	}
 }
@@ -22289,7 +22289,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool U3CFadeIntroObjectU3Ed__426_MoveNext_mA7
 IL_0013:
 	{
 		__this->___U3CU3E1__state = (-1);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3749>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3765>
 		GameObject_t76FEDD663AB33C991A9C9A23129337651094216F* L_3 = __this->___target;
 		il2cpp_codegen_runtime_class_init_inline(Object_tC12DECB6760A7F2CBF65D9DCF18D044C2D97152C_il2cpp_TypeInfo_var);
 		bool L_4;
@@ -22300,20 +22300,20 @@ IL_0013:
 		}
 	}
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3751>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3767>
 		return (bool)0;
 	}
 
 IL_002a:
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3754>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3770>
 		GameObject_t76FEDD663AB33C991A9C9A23129337651094216F* L_5 = __this->___target;
 		NullCheck(L_5);
 		CanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094* L_6;
 		L_6 = GameObject_GetComponent_TisCanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094_m47C7F4214DFAAC752E331A1073AD1B7EA78DB3DD(L_5, GameObject_GetComponent_TisCanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094_m47C7F4214DFAAC752E331A1073AD1B7EA78DB3DD_RuntimeMethod_var);
 		__this->___U3CcanvasGroupU3E5__2 = L_6;
 		Il2CppCodeGenWriteBarrier((void**)(&__this->___U3CcanvasGroupU3E5__2), (void*)L_6);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3755>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3771>
 		CanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094* L_7 = __this->___U3CcanvasGroupU3E5__2;
 		il2cpp_codegen_runtime_class_init_inline(Object_tC12DECB6760A7F2CBF65D9DCF18D044C2D97152C_il2cpp_TypeInfo_var);
 		bool L_8;
@@ -22324,7 +22324,7 @@ IL_002a:
 		}
 	}
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3757>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3773>
 		GameObject_t76FEDD663AB33C991A9C9A23129337651094216F* L_9 = __this->___target;
 		NullCheck(L_9);
 		CanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094* L_10;
@@ -22335,19 +22335,19 @@ IL_002a:
 
 IL_005a:
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3760>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3776>
 		CanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094* L_11 = __this->___U3CcanvasGroupU3E5__2;
 		float L_12 = __this->___fromAlpha;
 		float L_13;
 		L_13 = Mathf_Clamp01_mA7E048DBDA832D399A581BE4D6DED9FA44CE0F14_inline(L_12, NULL);
 		NullCheck(L_11);
 		CanvasGroup_set_alpha_m5C06839316D948BB4F75ED72C87FA1F1A20C333F(L_11, L_13, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3761>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3777>
 		float L_14 = __this->___duration;
 		float L_15;
 		L_15 = Mathf_Max_mF5379E63D2BBAC76D090748695D833934F8AD051_inline((0.0f), L_14, NULL);
 		__this->___duration = L_15;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3763>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3779>
 		float L_16 = __this->___duration;
 		if ((!(((float)L_16) <= ((float)(0.0f)))))
 		{
@@ -22355,36 +22355,36 @@ IL_005a:
 		}
 	}
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3765>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3781>
 		CanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094* L_17 = __this->___U3CcanvasGroupU3E5__2;
 		float L_18 = __this->___toAlpha;
 		float L_19;
 		L_19 = Mathf_Clamp01_mA7E048DBDA832D399A581BE4D6DED9FA44CE0F14_inline(L_18, NULL);
 		NullCheck(L_17);
 		CanvasGroup_set_alpha_m5C06839316D948BB4F75ED72C87FA1F1A20C333F(L_17, L_19, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3766>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3782>
 		return (bool)0;
 	}
 
 IL_00ab:
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3769>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3785>
 		__this->___U3CelapsedU3E5__3 = (0.0f);
 		goto IL_010f;
 	}
 
 IL_00b8:
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3772>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3788>
 		float L_20 = __this->___U3CelapsedU3E5__3;
 		float L_21;
 		L_21 = Time_get_unscaledDeltaTime_mF057EECA857E5C0F90A3F910D26D3EE59F27C4B5(NULL);
 		__this->___U3CelapsedU3E5__3 = ((float)il2cpp_codegen_add(L_20, L_21));
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3773>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3774>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3775>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3776>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3777>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3789>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3790>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3791>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3792>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3793>
 		CanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094* L_22 = __this->___U3CcanvasGroupU3E5__2;
 		float L_23 = __this->___fromAlpha;
 		float L_24 = __this->___toAlpha;
@@ -22396,7 +22396,7 @@ IL_00b8:
 		L_28 = Mathf_Lerp_m47EF2FFB7647BD0A1FDC26DC03E28B19812139B5_inline(L_23, L_24, L_27, NULL);
 		NullCheck(L_22);
 		CanvasGroup_set_alpha_m5C06839316D948BB4F75ED72C87FA1F1A20C333F(L_22, L_28, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3778>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3794>
 		__this->___U3CU3E2__current = NULL;
 		Il2CppCodeGenWriteBarrier((void**)(&__this->___U3CU3E2__current), (void*)NULL);
 		__this->___U3CU3E1__state = 1;
@@ -22410,7 +22410,7 @@ IL_0108:
 
 IL_010f:
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3770>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3786>
 		float L_29 = __this->___U3CelapsedU3E5__3;
 		float L_30 = __this->___duration;
 		if ((((float)L_29) < ((float)L_30)))
@@ -22419,14 +22419,14 @@ IL_010f:
 		}
 	}
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3781>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3797>
 		CanvasGroup_t048C1461B14628CFAEBE6E7353093ADB04EBC094* L_31 = __this->___U3CcanvasGroupU3E5__2;
 		float L_32 = __this->___toAlpha;
 		float L_33;
 		L_33 = Mathf_Clamp01_mA7E048DBDA832D399A581BE4D6DED9FA44CE0F14_inline(L_32, NULL);
 		NullCheck(L_31);
 		CanvasGroup_set_alpha_m5C06839316D948BB4F75ED72C87FA1F1A20C333F(L_31, L_33, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3782>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3798>
 		return (bool)0;
 	}
 }
@@ -22528,7 +22528,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool U3CFinishImageIntroAfterDelayU3Ed__427_M
 IL_0022:
 	{
 		__this->___U3CU3E1__state = (-1);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3786>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3802>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_3 = V_1;
 		NullCheck(L_3);
 		float L_4 = L_3->___navInformOKHoldSeconds;
@@ -22538,7 +22538,7 @@ IL_0022:
 		}
 	}
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3788>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3804>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_5 = V_1;
 		NullCheck(L_5);
 		float L_6 = L_5->___navInformOKHoldSeconds;
@@ -22557,13 +22557,13 @@ IL_0050:
 
 IL_0057:
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3791>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3807>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_8 = V_1;
 		NullCheck(L_8);
 		L_8->___introTutorialState = 6;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3793>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3794>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3795>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3809>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3810>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3811>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_9 = V_1;
 		NullCheck(L_9);
 		Image_tBC1D03F63BF71132E9A5E472B8742F172A011E7E* L_10 = L_9->___introPassthroughOverlayImage;
@@ -22600,14 +22600,14 @@ IL_0084:
 	{
 		NullCheck(G_B8_1);
 		G_B8_1->___U3CstartAlphaU3E5__2 = G_B8_0;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3797>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3813>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_16 = V_1;
 		NullCheck(L_16);
 		float L_17 = L_16->___introOverlayFadeDuration;
 		float L_18;
 		L_18 = Mathf_Max_mF5379E63D2BBAC76D090748695D833934F8AD051_inline((0.0f), L_17, NULL);
 		__this->___U3CdurationU3E5__3 = L_18;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3798>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3814>
 		float L_19 = __this->___U3CdurationU3E5__3;
 		if ((!(((float)L_19) > ((float)(0.0f)))))
 		{
@@ -22627,25 +22627,25 @@ IL_0084:
 		}
 	}
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3800>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3816>
 		__this->___U3CelapsedU3E5__4 = (0.0f);
 		goto IL_0139;
 	}
 
 IL_00cd:
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3803>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3819>
 		float L_23 = __this->___U3CelapsedU3E5__4;
 		float L_24;
 		L_24 = Time_get_unscaledDeltaTime_mF057EECA857E5C0F90A3F910D26D3EE59F27C4B5(NULL);
 		__this->___U3CelapsedU3E5__4 = ((float)il2cpp_codegen_add(L_23, L_24));
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3804>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3820>
 		float L_25 = __this->___U3CelapsedU3E5__4;
 		float L_26 = __this->___U3CdurationU3E5__3;
 		float L_27;
 		L_27 = Mathf_Clamp01_mA7E048DBDA832D399A581BE4D6DED9FA44CE0F14_inline(((float)(L_25/L_26)), NULL);
 		V_2 = L_27;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3805>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3821>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_28 = V_1;
 		NullCheck(L_28);
 		Image_tBC1D03F63BF71132E9A5E472B8742F172A011E7E* L_29 = L_28->___introPassthroughOverlayImage;
@@ -22653,20 +22653,20 @@ IL_00cd:
 		Color_tD001788D726C3A7F1379BEED0260B9591F440C1F L_30;
 		L_30 = VirtualFuncInvoker0< Color_tD001788D726C3A7F1379BEED0260B9591F440C1F >::Invoke(22, L_29);
 		V_3 = L_30;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3806>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3822>
 		float L_31 = __this->___U3CstartAlphaU3E5__2;
 		float L_32 = V_2;
 		float L_33;
 		L_33 = Mathf_Lerp_m47EF2FFB7647BD0A1FDC26DC03E28B19812139B5_inline(L_31, (0.0f), L_32, NULL);
 		(&V_3)->___a = L_33;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3807>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3823>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_34 = V_1;
 		NullCheck(L_34);
 		Image_tBC1D03F63BF71132E9A5E472B8742F172A011E7E* L_35 = L_34->___introPassthroughOverlayImage;
 		Color_tD001788D726C3A7F1379BEED0260B9591F440C1F L_36 = V_3;
 		NullCheck(L_35);
 		VirtualActionInvoker1< Color_tD001788D726C3A7F1379BEED0260B9591F440C1F >::Invoke(23, L_35, L_36);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3808>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3824>
 		__this->___U3CU3E2__current = NULL;
 		Il2CppCodeGenWriteBarrier((void**)(&__this->___U3CU3E2__current), (void*)NULL);
 		__this->___U3CU3E1__state = 2;
@@ -22680,7 +22680,7 @@ IL_0132:
 
 IL_0139:
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3801>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3817>
 		float L_37 = __this->___U3CelapsedU3E5__4;
 		float L_38 = __this->___U3CdurationU3E5__3;
 		if ((((float)L_37) < ((float)L_38)))
@@ -22691,11 +22691,11 @@ IL_0139:
 
 IL_0147:
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3812>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3828>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_39 = V_1;
 		NullCheck(L_39);
 		DustinyDemoFlow_CompleteImageIntroTutorial_m703C1E1805284D7FA45497C65F8991055C9E6B10(L_39, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3813>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3829>
 		return (bool)0;
 	}
 }
@@ -22779,7 +22779,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool U3CRebindMainSceneAfterLoadRoutineU3Ed__
 IL_0017:
 	{
 		__this->___U3CU3E1__state = (-1);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8343>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8359>
 		__this->___U3CU3E2__current = NULL;
 		Il2CppCodeGenWriteBarrier((void**)(&__this->___U3CU3E2__current), (void*)NULL);
 		__this->___U3CU3E1__state = 1;
@@ -22789,23 +22789,23 @@ IL_0017:
 IL_002e:
 	{
 		__this->___U3CU3E1__state = (-1);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8344>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8360>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_4 = V_1;
 		NullCheck(L_4);
 		DustinyDemoFlow_RebindMainSceneReferences_m5DC6D55B1579CFB20DA37A842D7E3CBC07E21A37(L_4, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8345>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8361>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_5 = V_1;
 		NullCheck(L_5);
 		DustinyDemoFlow_EnterMainSceneFlow_mBA388E6339CFD0295A4BB55E6E863F6146918E07(L_5, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8346>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8362>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_6 = V_1;
 		NullCheck(L_6);
 		DustinyDemoFlow_EnsureUiPointerModule_mDA1FA5503D1685F7CD92F743603611D42A511B62(L_6, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8347>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8363>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_7 = V_1;
 		NullCheck(L_7);
 		DustinyDemoFlow_RestoreWaistNavInteraction_mFB25A231D78C59BB9D2983EA150B5F5B4E875870(L_7, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8348>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8364>
 		return (bool)0;
 	}
 }
@@ -22893,7 +22893,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool U3CShowCleanlinessGreetingNextFrameU3Ed_
 IL_0022:
 	{
 		__this->___U3CU3E1__state = (-1);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8063>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8079>
 		__this->___U3CU3E2__current = NULL;
 		Il2CppCodeGenWriteBarrier((void**)(&__this->___U3CU3E2__current), (void*)NULL);
 		__this->___U3CU3E1__state = 1;
@@ -22903,7 +22903,7 @@ IL_0022:
 IL_0039:
 	{
 		__this->___U3CU3E1__state = (-1);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8064>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8080>
 		__this->___U3CU3E2__current = NULL;
 		Il2CppCodeGenWriteBarrier((void**)(&__this->___U3CU3E2__current), (void*)NULL);
 		__this->___U3CU3E1__state = 2;
@@ -22913,31 +22913,31 @@ IL_0039:
 IL_0050:
 	{
 		__this->___U3CU3E1__state = (-1);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8065>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8081>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_3 = V_1;
 		NullCheck(L_3);
 		L_3->___wasRightIndexPinching = (bool)1;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8066>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8082>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_4 = V_1;
 		NullCheck(L_4);
 		L_4->___wasRightMiddlePinching = (bool)1;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8067>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8083>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_5 = V_1;
 		NullCheck(L_5);
 		L_5->___wasTriggerPressed = (bool)1;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8068>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8084>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_6 = V_1;
 		NullCheck(L_6);
 		DustinyDemoFlow_SuppressGlobalConfirmInput_m0488FED023DBB5DBFBBC7909EFFA98483502E8AF(L_6, (1.25f), NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8069>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8085>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_7 = V_1;
 		NullCheck(L_7);
 		DustinyDemoFlow_SummonDurryToUser_m7B9DEA5FF5C0E8079D04840E0338E9BC7460591E(L_7, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8070>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8086>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_8 = V_1;
 		NullCheck(L_8);
 		DustinyDemoFlow_ShowCleanlinessSessionGreeting_mA4AEF384A826DE488B2519772AE9583228BEF10B(L_8, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8071>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8087>
 		return (bool)0;
 	}
 }
@@ -23037,7 +23037,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool U3CShowOnboardingDoneThenNavigationU3Ed_
 IL_0026:
 	{
 		__this->___U3CU3E1__state = (-1);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3642>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3658>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_3 = V_1;
 		NullCheck(L_3);
 		float L_4 = L_3->___onboardingDoneHoldSeconds;
@@ -23047,7 +23047,7 @@ IL_0026:
 		}
 	}
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3644>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3660>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_5 = V_1;
 		NullCheck(L_5);
 		float L_6 = L_5->___onboardingDoneHoldSeconds;
@@ -23066,12 +23066,12 @@ IL_0054:
 
 IL_005b:
 	{
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3647>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3648>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3649>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3650>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3651>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3652>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3663>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3664>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3665>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3666>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3667>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3668>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_8 = V_1;
 		NullCheck(L_8);
 		GameObject_t76FEDD663AB33C991A9C9A23129337651094216F* L_9 = L_8->___onboardingNoDoneObject;
@@ -23089,25 +23089,25 @@ IL_005b:
 IL_0085:
 	{
 		__this->___U3CU3E1__state = (-1);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3654>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3670>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_13 = V_1;
 		NullCheck(L_13);
 		GameObject_t76FEDD663AB33C991A9C9A23129337651094216F* L_14 = L_13->___navInformObject;
 		DustinyDemoFlow_SetIntroObjectAlpha_m4EF90CD8E92656F2C688E761DEF0EF4BE97BAA03(L_14, (0.0f), NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3655>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3671>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_15 = V_1;
 		NullCheck(L_15);
 		DustinyDemoFlow_SetImageIntroStage_m6C8CB72BDCD47F4F375E90DF9247ADD30EA62798(L_15, 4, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3659>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3675>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_16 = V_1;
 		NullCheck(L_16);
 		DustinyDemoFlow_SetTutorialNavigationOverride_m914F1B26723B143EA08FB126AAB7CD0F7A1488E4(L_16, (bool)0, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3661>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3662>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3663>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3664>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3665>
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3666>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3677>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3678>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3679>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3680>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3681>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3682>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_17 = V_1;
 		NullCheck(L_17);
 		GameObject_t76FEDD663AB33C991A9C9A23129337651094216F* L_18 = L_17->___navInformObject;
@@ -23125,15 +23125,15 @@ IL_0085:
 IL_00d4:
 	{
 		__this->___U3CU3E1__state = (-1);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3668>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3684>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_22 = V_1;
 		NullCheck(L_22);
 		L_22->___onboardingTransitionCoroutine = (Coroutine_t85EA685566A254C23F3FD77AB5BDFFFF8799596B*)NULL;
 		Il2CppCodeGenWriteBarrier((void**)(&L_22->___onboardingTransitionCoroutine), (void*)(Coroutine_t85EA685566A254C23F3FD77AB5BDFFFF8799596B*)NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3669>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3685>
 		il2cpp_codegen_runtime_class_init_inline(Debug_t8394C7EEAECA3689C2C9B9DE9C7166D73596276F_il2cpp_TypeInfo_var);
 		Debug_Log_m87A9A3C761FF5C43ED8A53B16190A53D08F818BB(_stringLiteral1374D9866F8A0F0BB639E9568A8D927B96277CDC, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3670>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:3686>
 		return (bool)0;
 	}
 }
@@ -23221,7 +23221,7 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR bool U3CShowThankYouSpeechNextFrameU3Ed__573_
 IL_0022:
 	{
 		__this->___U3CU3E1__state = (-1);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8050>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8066>
 		__this->___U3CU3E2__current = NULL;
 		Il2CppCodeGenWriteBarrier((void**)(&__this->___U3CU3E2__current), (void*)NULL);
 		__this->___U3CU3E1__state = 1;
@@ -23231,7 +23231,7 @@ IL_0022:
 IL_0039:
 	{
 		__this->___U3CU3E1__state = (-1);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8051>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8067>
 		__this->___U3CU3E2__current = NULL;
 		Il2CppCodeGenWriteBarrier((void**)(&__this->___U3CU3E2__current), (void*)NULL);
 		__this->___U3CU3E1__state = 2;
@@ -23241,31 +23241,31 @@ IL_0039:
 IL_0050:
 	{
 		__this->___U3CU3E1__state = (-1);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8052>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8068>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_3 = V_1;
 		NullCheck(L_3);
 		L_3->___wasRightIndexPinching = (bool)1;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8053>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8069>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_4 = V_1;
 		NullCheck(L_4);
 		L_4->___wasRightMiddlePinching = (bool)1;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8054>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8070>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_5 = V_1;
 		NullCheck(L_5);
 		L_5->___wasTriggerPressed = (bool)1;
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8055>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8071>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_6 = V_1;
 		NullCheck(L_6);
 		DustinyDemoFlow_SuppressGlobalConfirmInput_m0488FED023DBB5DBFBBC7909EFFA98483502E8AF(L_6, (1.5f), NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8056>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8072>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_7 = V_1;
 		NullCheck(L_7);
 		DustinyDemoFlow_SummonDurryToUser_m7B9DEA5FF5C0E8079D04840E0338E9BC7460591E(L_7, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8057>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8073>
 		DustinyDemoFlow_tE5916E7D44FEFFCE8A9B4E1FF65BDBCB34C94F2C* L_8 = V_1;
 		NullCheck(L_8);
 		DustinyDemoFlow_ShowThankYouSpeechAfterMiniGame_mA11F8CAC9550E65ADF6197B814958DD8303DEEEC(L_8, NULL);
-		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8058>
+		//<source_info:C:/Dustiny/Dustiny/Assets/Scripts/Main/DustinyDemoFlow.cs:8074>
 		return (bool)0;
 	}
 }
