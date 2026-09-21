@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Collections.Generic;
+using Oculus.Interaction;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
@@ -104,6 +106,11 @@ public class MiniGameManager : MonoBehaviour
     private string previousSpeechText = string.Empty;
     private bool isHoldingTool;
     private bool navHiddenForScrub;
+    private bool rightHandRaysSuppressed;
+    private readonly List<RayInteractor> rightHandRayInteractors = new List<RayInteractor>();
+    private readonly List<Behaviour> rightHandRayVisuals = new List<Behaviour>();
+    private readonly List<Renderer> rightHandRayRenderers = new List<Renderer>();
+    private bool rightHandRaysCached;
     private bool spongeRestCached;
     private bool showerRestCached;
     private Vector3 spongeRestPosition;
@@ -161,6 +168,11 @@ public class MiniGameManager : MonoBehaviour
     private void Awake()
     {
         AutoFindSceneReferences();
+    }
+
+    private void OnDisable()
+    {
+        SetRightHandRaysSuppressed(false);
     }
 
 private void Start()
@@ -1160,6 +1172,7 @@ private void OnCycleComplete()
             }
 
             SetScrubNavHidden(false);
+            SetRightHandRaysSuppressed(false);
             return;
         }
 
@@ -1176,6 +1189,8 @@ private void OnCycleComplete()
         bool scrubbing = isHoldingTool
             && (currentTool == ToolType.Sponge || currentTool == ToolType.Shower);
         SetScrubNavHidden(scrubbing);
+        // 도구를 잡고 있는 오른손에서는 레이저가 나가지 않게 합니다.
+        SetRightHandRaysSuppressed(scrubbing);
     }
 
     private void SetScrubNavHidden(bool hide)
@@ -1187,6 +1202,191 @@ private void OnCycleComplete()
 
         navHiddenForScrub = hide;
         SetNavVisible(!hide);
+    }
+
+    private void SetRightHandRaysSuppressed(bool suppress)
+    {
+        if (rightHandRaysSuppressed == suppress)
+        {
+            return;
+        }
+
+        rightHandRaysSuppressed = suppress;
+        EnsureRightHandRaysCached();
+
+        for (int i = 0; i < rightHandRayInteractors.Count; i++)
+        {
+            RayInteractor ray = rightHandRayInteractors[i];
+            if (ray != null)
+            {
+                ray.enabled = !suppress;
+            }
+        }
+
+        for (int i = 0; i < rightHandRayVisuals.Count; i++)
+        {
+            Behaviour visual = rightHandRayVisuals[i];
+            if (visual != null)
+            {
+                visual.enabled = !suppress;
+            }
+        }
+
+        // 비활성 직후 마지막 프레임 레이저 메시가 남지 않도록 렌더러를 즉시 끕니다.
+        if (suppress)
+        {
+            for (int i = 0; i < rightHandRayRenderers.Count; i++)
+            {
+                Renderer renderer = rightHandRayRenderers[i];
+                if (renderer != null)
+                {
+                    renderer.enabled = false;
+                }
+            }
+        }
+    }
+
+    private void EnsureRightHandRaysCached()
+    {
+        if (rightHandRaysCached)
+        {
+            return;
+        }
+
+        rightHandRaysCached = true;
+        rightHandRayInteractors.Clear();
+        rightHandRayVisuals.Clear();
+        rightHandRayRenderers.Clear();
+
+        RayInteractor[] rays = FindObjectsByType<RayInteractor>(
+            FindObjectsInactive.Include,
+            FindObjectsSortMode.None
+        );
+
+        for (int i = 0; i < rays.Length; i++)
+        {
+            RayInteractor ray = rays[i];
+            if (ray == null || !IsRightHandAssociated(ray.transform))
+            {
+                continue;
+            }
+
+            rightHandRayInteractors.Add(ray);
+
+            CollectRightHandRayVisuals(ray.transform);
+            CollectRightHandRayVisuals(ray.transform.parent);
+        }
+    }
+
+    private void CollectRightHandRayVisuals(Transform root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        Behaviour[] behaviours = root.GetComponentsInChildren<Behaviour>(true);
+        for (int b = 0; b < behaviours.Length; b++)
+        {
+            Behaviour behaviour = behaviours[b];
+            if (behaviour == null || behaviour is RayInteractor)
+            {
+                continue;
+            }
+
+            if (!IsRightHandAssociated(behaviour.transform))
+            {
+                continue;
+            }
+
+            string typeName = behaviour.GetType().Name;
+            if (typeName.Contains("RayVisual") ||
+                (typeName.Contains("RayInteractor") && typeName.Contains("Visual")) ||
+                typeName == "ControllerRayVisual" ||
+                typeName == "RayInteractorCursorVisual" ||
+                typeName == "HandRayInteractorCursorVisual" ||
+                typeName == "RayInteractorPinchVisual")
+            {
+                if (!rightHandRayVisuals.Contains(behaviour))
+                {
+                    rightHandRayVisuals.Add(behaviour);
+                }
+            }
+        }
+
+        Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+        for (int r = 0; r < renderers.Length; r++)
+        {
+            Renderer renderer = renderers[r];
+            if (renderer == null || !IsRightHandAssociated(renderer.transform))
+            {
+                continue;
+            }
+
+            string lowerName = renderer.name.ToLowerInvariant();
+            if (!lowerName.Contains("ray") &&
+                !lowerName.Contains("laser") &&
+                !lowerName.Contains("cursor") &&
+                !lowerName.Contains("pointer"))
+            {
+                // RayInteractor 바로 아래 렌더러는 레이저일 가능성이 높아 포함합니다.
+                if (renderer.GetComponentInParent<RayInteractor>() == null)
+                {
+                    continue;
+                }
+            }
+
+            if (!rightHandRayRenderers.Contains(renderer))
+            {
+                rightHandRayRenderers.Add(renderer);
+            }
+        }
+    }
+
+    private bool IsRightHandAssociated(Transform target)
+    {
+        if (target == null)
+        {
+            return false;
+        }
+
+        if (rightHandAnchor != null &&
+            (target == rightHandAnchor || target.IsChildOf(rightHandAnchor)))
+        {
+            return true;
+        }
+
+        Transform current = target;
+        while (current != null)
+        {
+            string lower = current.name.ToLowerInvariant();
+            if (lower.Contains("lefthand") ||
+                lower.Contains("hand_l") ||
+                lower.Contains("left hand") ||
+                (lower.Contains("left") &&
+                 (lower.Contains("ray") ||
+                  lower.Contains("interactor") ||
+                  lower.Contains("hand"))))
+            {
+                return false;
+            }
+
+            if (lower.Contains("righthand") ||
+                lower.Contains("hand_r") ||
+                lower.Contains("right hand") ||
+                (lower.Contains("right") &&
+                 (lower.Contains("ray") ||
+                  lower.Contains("interactor") ||
+                  lower.Contains("controller") ||
+                  lower.Contains("hand"))))
+            {
+                return true;
+            }
+
+            current = current.parent;
+        }
+
+        return false;
     }
 
 private void AlignGrabToPalm(

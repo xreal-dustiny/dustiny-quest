@@ -6776,6 +6776,33 @@ private void SetupWorldCanvas()
         }
 
         EnsureDialogueFollowRoot();
+        EnsureWorldCanvasRaySurfaceClipper();
+    }
+
+    /// <summary>
+    /// WorldCanvas의 무한 PlaneSurface 레이 히트를 BigNoteRoot/페이지 Rect 안으로 제한합니다.
+    /// 상점·마이페이지에서 더리 쪽으로 쏜 레이저가 캔버스에 붙지 않게 합니다.
+    /// </summary>
+    private void EnsureWorldCanvasRaySurfaceClipper()
+    {
+        if (worldCanvas == null)
+        {
+            return;
+        }
+
+        WorldCanvasRaySurfaceClipper clipper =
+            worldCanvas.GetComponent<WorldCanvasRaySurfaceClipper>();
+        if (clipper == null)
+        {
+            clipper = worldCanvas.gameObject.AddComponent<WorldCanvasRaySurfaceClipper>();
+        }
+
+        clipper.targetCanvas = worldCanvas;
+
+        if (bigNoteRoot != null)
+        {
+            clipper.primaryPageBounds = bigNoteRoot.GetComponent<RectTransform>();
+        }
     }
 
 private void EnsureDialogueFollowRoot()
