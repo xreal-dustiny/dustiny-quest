@@ -259,8 +259,30 @@ public class QuestGenerator : MonoBehaviour
 
     public static string NormalizeQuestType(string rawType)
     {
-        return string.IsNullOrWhiteSpace(rawType)
-            ? "unknown"
-            : rawType.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(rawType))
+        {
+            return "unknown";
+        }
+
+        string type = rawType.Trim().ToLowerInvariant();
+
+        switch (type)
+        {
+            case "cup":
+            case "bottle":
+                return "cup_bottle";
+
+            case "paper":
+            case "book":
+                return "paper_book";
+
+            case "cell_phone":
+            case "tablet":
+            case "mouse":
+                return "small_device";
+
+            default:
+                return type;
+        }
     }
 }

@@ -65,6 +65,10 @@ public class DetectionMarkerManager : MonoBehaviour
 
     private readonly List<MarkerInfo> spawnedMarkers =
         new List<MarkerInfo>();
+        
+    // 최초 스캔에서 계산한 물체별 월드 위치 저장
+    private readonly Dictionary<int, Vector3> cachedMarkerPositions =
+        new Dictionary<int, Vector3>();    
 
     private void Awake()
     {
@@ -142,45 +146,53 @@ public class DetectionMarkerManager : MonoBehaviour
         ConfirmedObjectInfo detectedObject
     )
     {
-        Vector2 boxCenter =
-            detectedObject.lastRect.center;
+        Vector3 markerPosition;
 
-        float viewportX =
-            Mathf.Clamp01(
-                boxCenter.x /
-                ModelInputWidth
-            );
-
-        float viewportY =
-            Mathf.Clamp01(
-                boxCenter.y /
-                ModelInputHeight
-            );
-
-        if (flipX)
+        // 같은 물체의 위치를 이미 계산했다면 기존 월드 좌표 사용
+        if (!cachedMarkerPositions.TryGetValue(
+                detectedObject.objectId,
+                out markerPosition))
         {
-            viewportX =
-                1f - viewportX;
+            Vector2 boxCenter =
+                detectedObject.lastRect.center;
+
+            float viewportX =
+                Mathf.Clamp01(
+                    boxCenter.x /
+                    ModelInputWidth
+                );
+
+            float viewportY =
+                Mathf.Clamp01(
+                    boxCenter.y /
+                    ModelInputHeight
+                );
+
+            if (flipX)
+            {
+                viewportX = 1f - viewportX;
+            }
+
+            if (flipY)
+            {
+                viewportY = 1f - viewportY;
+            }
+
+            Ray cameraRay =
+                passthroughCameraAccess.ViewportPointToRay(
+                    new Vector2(
+                        viewportX,
+                        viewportY
+                    )
+                );
+
+            markerPosition =
+                cameraRay.GetPoint(markerDistance);
+
+            // 스캔 당시 계산된 월드 위치 저장
+            cachedMarkerPositions[detectedObject.objectId] =
+                markerPosition;
         }
-
-        if (flipY)
-        {
-            viewportY =
-                1f - viewportY;
-        }
-
-        Ray cameraRay =
-            passthroughCameraAccess.ViewportPointToRay(
-                new Vector2(
-                    viewportX,
-                    viewportY
-                )
-            );
-
-        Vector3 markerPosition =
-            cameraRay.GetPoint(
-                markerDistance
-            );
 
         GameObject marker =
             new GameObject(
@@ -236,6 +248,11 @@ public class DetectionMarkerManager : MonoBehaviour
             marker.transform
         );
     }
+
+    public void ResetMarkerPositionCache()
+    {
+        cachedMarkerPositions.Clear();
+    } 
 
     private void CreateSparkleChild(
         Transform parent,
