@@ -357,12 +357,12 @@ public void SetCleanlinessProgress(float normalized)
 public void EnsureBodyCollision()
     {
         CapsuleCollider[] capsules = GetComponents<CapsuleCollider>();
-        bool hasSolid = false;
+        CapsuleCollider solid = null;
         for (int i = 0; i < capsules.Length; i++)
         {
             if (capsules[i] != null && !capsules[i].isTrigger)
             {
-                hasSolid = true;
+                solid = capsules[i];
                 break;
             }
         }
@@ -374,28 +374,31 @@ public void EnsureBodyCollision()
         }
 
         Vector3 center = Vector3.zero;
-        float radius = 0.11f;
-        float height = 0.28f;
+        float radius = 0.08f;
+        float height = 0.24f;
         if (bodyRenderer != null)
         {
             Bounds localBounds = bodyRenderer.localBounds;
             center = localBounds.center;
-            radius = Mathf.Max(localBounds.extents.x, localBounds.extents.z);
-            height = Mathf.Max(localBounds.size.y, radius * 2f);
+            // Keep the solid capsule tighter than the visual bounds so tools/water
+            // don't bounce off an oversized invisible shell.
+            radius = Mathf.Max(localBounds.extents.x, localBounds.extents.z) * 0.55f;
+            height = localBounds.size.y * 0.82f;
         }
 
-        radius = Mathf.Clamp(radius, 0.07f, 0.16f);
-        height = Mathf.Clamp(height, radius * 2f, 0.42f);
+        radius = Mathf.Clamp(radius, 0.05f, 0.10f);
+        height = Mathf.Clamp(height, radius * 2f, 0.34f);
 
-        if (!hasSolid)
+        if (solid == null)
         {
-            CapsuleCollider solid = gameObject.AddComponent<CapsuleCollider>();
+            solid = gameObject.AddComponent<CapsuleCollider>();
             solid.isTrigger = false;
             solid.direction = 1;
-            solid.center = center;
-            solid.radius = radius;
-            solid.height = height;
         }
+
+        solid.center = center;
+        solid.radius = radius;
+        solid.height = height;
 
         Rigidbody body = GetComponent<Rigidbody>();
         if (body == null)
@@ -406,6 +409,31 @@ public void EnsureBodyCollision()
         body.isKinematic = true;
         body.useGravity = false;
         body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+    }
+
+    /// <summary>
+    /// Solid doll colliders are for tool push only. Shower water should pass through
+    /// (look absorbed) instead of bouncing off an oversized capsule.
+    /// </summary>
+    public void ExcludeSolidCollidersFromShowerWater()
+    {
+        int ignoreLayer = LayerMask.NameToLayer("Ignore Raycast");
+        if (ignoreLayer < 0)
+        {
+            return;
+        }
+
+        Collider[] colliders = GetComponentsInChildren<Collider>(true);
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            Collider collider = colliders[i];
+            if (collider == null || collider.isTrigger)
+            {
+                continue;
+            }
+
+            collider.gameObject.layer = ignoreLayer;
+        }
     }
 
 

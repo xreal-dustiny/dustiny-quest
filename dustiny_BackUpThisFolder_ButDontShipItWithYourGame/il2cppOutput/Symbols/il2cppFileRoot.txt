@@ -1,1 +1,1 @@
-C:\Dustiny\Dustiny\Library\Bee\artifacts\Android\il2cppOutput\cpp
+C:\Users\fladl\Documents\GitHub\dustiny-quest\Library\Bee\artifacts\Android\il2cppOutput\cpp

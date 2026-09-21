@@ -33,8 +33,11 @@ public class ShopInventoryManager : MonoBehaviour
         public Sprite icon;
 
         [Header("Durry Visual")]
-        [Tooltip("더리 비주얼 루트 아래 실제 착용 오브젝트 이름입니다.")]
+        [Tooltip("더리 비주얼 루트 아래 실제 착용 오브젝트 이름입니다. 같은 메쉬의 패턴 변형은 이 이름을 공유합니다.")]
         public string visualObjectName;
+
+        [Tooltip("같은 메쉬의 색/패턴 변형일 때 적용할 머티리얼입니다. 비워두면 씬에 설정된 머티리얼을 그대로 씁니다.")]
+        public Material patternMaterial;
 
         [Tooltip("비워두면 category를 기준으로 머리/몸통 뼈를 자동 탐색합니다. 정확한 뼈 이름을 알고 있을 때만 입력하세요.")]
         public string attachmentTargetName;
@@ -76,7 +79,7 @@ public class ShopInventoryManager : MonoBehaviour
     [SerializeField] private List<ShopItemDefinition> shopItems = CreateDefaultShopItems();
 
     [Header("[ Legacy Catalog Auto Upgrade ]")]
-    [Tooltip("기존 item1~item4 카탈로그가 남아 있으면 더스티니 기본 6개 아이템으로 자동 교체합니다.")]
+    [Tooltip("기존 item1~item4 카탈로그가 남아 있으면 더스티니 기본 상품으로 자동 교체합니다.")]
     [SerializeField] private bool automaticallyReplaceLegacyCatalog = true;
 
     [Header("[ 저장된 인벤토리 - Runtime Read Only ]")]
@@ -495,7 +498,7 @@ public class ShopInventoryManager : MonoBehaviour
     {
         shopItems = CreateDefaultShopItems();
         RebuildCatalogTable();
-        Debug.Log("[상점 카탈로그] 더스티니 기본 6개 상품으로 다시 구성했습니다.");
+        Debug.Log("[상점 카탈로그] 더스티니 기본 상품으로 다시 구성했습니다.");
     }
 
     private static List<ShopItemDefinition> CreateDefaultShopItems()
@@ -531,9 +534,18 @@ public class ShopInventoryManager : MonoBehaviour
             },
             new ShopItemDefinition
             {
-                itemId = "head_hat_hard",
-                displayName = "안전모",
-                description = "본격적인 청소를 시작할 때 쓰는 든든한 안전모야.",
+                itemId = "head_hat_hard_plain_y",
+                displayName = "노란 안전모",
+                description = "본격적인 청소를 시작할 때 쓰는 든든한 노란색 안전모야.",
+                category = "head",
+                price = 18,
+                visualObjectName = "Head_Hat_Hard"
+            },
+            new ShopItemDefinition
+            {
+                itemId = "head_hat_hard_plain_wh",
+                displayName = "하얀 안전모",
+                description = "깔끔한 흰색으로 빛나는 든든한 안전모야.",
                 category = "head",
                 price = 18,
                 visualObjectName = "Head_Hat_Hard"
@@ -541,22 +553,81 @@ public class ShopInventoryManager : MonoBehaviour
             new ShopItemDefinition
             {
                 itemId = "head_cone",
-                displayName = "파티 고깔",
-                description = "미션 완료를 신나게 축하해 주는 파티 고깔이야.",
+                displayName = "아이스크림",
+                description = "더리를 소프트 아이스크림으로 만들어 주는 고깔이야.",
                 category = "head",
                 price = 14,
                 visualObjectName = "Head_Cone"
             },
             new ShopItemDefinition
             {
-                itemId = "head_cap_baseball",
-                displayName = "야구 모자",
-                description = "어디서든 가볍게 착용할 수 있는 캐주얼한 모자야.",
+                itemId = "head_cap_baseball_plain",
+                displayName = "야구 모자 · 솔리드",
+                description = "어디서든 가볍게 착용할 수 있는 단색 야구 모자야.",
+                category = "head",
+                price = 18,
+                visualObjectName = "Head_Cap_Baseball"
+            },
+            new ShopItemDefinition
+            {
+                itemId = "head_cap_baseball_denim",
+                displayName = "야구 모자 · 데님",
+                description = "청바지 느낌의 데님 패턴이 들어간 야구 모자야.",
                 category = "head",
                 price = 20,
                 visualObjectName = "Head_Cap_Baseball"
+            },
+            new ShopItemDefinition
+            {
+                itemId = "head_cap_baseball_stripes",
+                displayName = "야구 모자 · 스트라이프",
+                description = "경쾌한 줄무늬가 돋보이는 캐주얼 야구 모자야.",
+                category = "head",
+                price = 20,
+                visualObjectName = "Head_Cap_Baseball"
+            },
+            new ShopItemDefinition
+            {
+                itemId = "face_glasses_normal_plain_g",
+                displayName = "동글이 안경 · 초록",
+                description = "더리의 시야를 또렷하게 밝혀 주는 초록빛 동글이 안경이야.",
+                category = "head",
+                price = 15,
+                visualObjectName = "Face_Glasses_Normal"
+            },
+            new ShopItemDefinition
+            {
+                itemId = "face_glasses_normal_plain_r",
+                displayName = "동글이 안경 · 빨강",
+                description = "포인트로 신나는 빨간색 동글이 안경이야.",
+                category = "head",
+                price = 15,
+                visualObjectName = "Face_Glasses_Normal"
             }
         };
+    }
+
+    /// <summary>
+    /// Maps older single-variant IDs to the matching pattern catalog entry.
+    /// </summary>
+    public static string MigrateLegacyItemId(string itemId)
+    {
+        if (string.IsNullOrWhiteSpace(itemId))
+        {
+            return string.Empty;
+        }
+
+        switch (itemId.Trim())
+        {
+            case "head_hat_hard":
+                return "head_hat_hard_plain_y";
+            case "head_cap_baseball":
+                return "head_cap_baseball_plain";
+            case "face_glasses_normal":
+                return "face_glasses_normal_plain_g";
+            default:
+                return itemId.Trim();
+        }
     }
 
     private bool CatalogLooksLegacy()
@@ -643,9 +714,20 @@ public class ShopInventoryManager : MonoBehaviour
             case "back_nametag_01": return "Back_Nametag_01";
             case "body_sleepwear": return "Body_Sleepwear";
             case "head_sleepmask": return "Head_Sleepmask";
-            case "head_hat_hard": return "Head_Hat_Hard";
+            case "head_hat_hard":
+            case "head_hat_hard_plain_y":
+            case "head_hat_hard_plain_wh":
+                return "Head_Hat_Hard";
             case "head_cone": return "Head_Cone";
-            case "head_cap_baseball": return "Head_Cap_Baseball";
+            case "head_cap_baseball":
+            case "head_cap_baseball_plain":
+            case "head_cap_baseball_denim":
+            case "head_cap_baseball_stripes":
+                return "Head_Cap_Baseball";
+            case "face_glasses_normal":
+            case "face_glasses_normal_plain_g":
+            case "face_glasses_normal_plain_r":
+                return "Face_Glasses_Normal";
             default: return itemId;
         }
     }
@@ -713,7 +795,7 @@ public class ShopInventoryManager : MonoBehaviour
             {
                 foreach (string rawItemId in ownedSaveData.values)
                 {
-                    string itemId = rawItemId?.Trim();
+                    string itemId = MigrateLegacyItemId(rawItemId);
                     if (GetItem(itemId) != null && !ownedItemIds.Contains(itemId))
                     {
                         ownedItemIds.Add(itemId);
@@ -722,7 +804,8 @@ public class ShopInventoryManager : MonoBehaviour
             }
         }
 
-        string savedSingleItemId = PlayerPrefs.GetString(EquippedSingleItemKey, string.Empty).Trim();
+        string savedSingleItemId = MigrateLegacyItemId(
+            PlayerPrefs.GetString(EquippedSingleItemKey, string.Empty));
         if (IsOwned(savedSingleItemId) && GetItem(savedSingleItemId) != null)
         {
             equippedItemId = savedSingleItemId;
@@ -749,7 +832,7 @@ public class ShopInventoryManager : MonoBehaviour
                 continue;
             }
 
-            string itemId = entry.itemId.Trim();
+            string itemId = MigrateLegacyItemId(entry.itemId);
             if (IsOwned(itemId) && GetItem(itemId) != null)
             {
                 equippedItemId = itemId;

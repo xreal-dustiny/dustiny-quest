@@ -3,6 +3,7 @@ using UnityEngine;
 public static class DustinySfx
 {
     private const string SourceName = "DustinySfxSource";
+    private const float CoinVolumeScale = 2.75f;
 
     private static AudioSource source;
     private static AudioClip yesClip;
@@ -22,7 +23,7 @@ public static class DustinySfx
 
     public static void PlayCoin()
     {
-        Play(ref coinClip, "coin");
+        Play(ref coinClip, "coin", CoinVolumeScale);
     }
 
     public static void PlayBuy()
@@ -53,7 +54,7 @@ public static class DustinySfx
         }
     }
 
-    private static void Play(ref AudioClip cached, string clipName)
+    private static void Play(ref AudioClip cached, string clipName, float volumeScale = 1f)
     {
         if (cached == null)
         {
@@ -71,7 +72,7 @@ public static class DustinySfx
             return;
         }
 
-        audioSource.PlayOneShot(cached);
+        audioSource.PlayOneShot(cached, Mathf.Clamp(volumeScale, 0.01f, 3f));
     }
 
     private static AudioClip LoadClip(string clipName)

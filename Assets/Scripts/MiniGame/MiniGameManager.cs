@@ -27,6 +27,15 @@ public class MiniGameManager : MonoBehaviour
     public GameObject showerObject;
     public ParticleSystem showerParticle;
 
+    [Header("Shower Water Visibility")]
+    [Tooltip("멀리 뻗은 손에서도 물살이 보이도록 Soft Particles를 끄고 알파를 올립니다.")]
+    [Range(1f, 3f)] public float showerWaterOpacityMultiplier = 1.75f;
+    [Range(1f, 2.5f)] public float showerWaterBrightnessMultiplier = 1.25f;
+    [Min(0.5f)] public float showerMinMaxParticleSize = 3f;
+
+    private bool showerWaterVisibilityConfigured;
+    private bool showerWaterCollisionConfigured;
+
     [Header("Hand Tracking (Right Hand Tool Holding)")]
     public Transform rightHandAnchor;
     [Tooltip("OVR RightHandAnchor: palm ≈ -Y. 손바닥 중앙 (너무 아래/손등 쪽 금지).")]
@@ -161,6 +170,7 @@ private void Start()
         ConfigureMiniGameNavDrawOrder();
         PinSpeechCanvasInWorld();
         ConfigureShowerWaterVisibility();
+        ConfigureShowerWaterCollision();
         CacheToolRestPoses();
         StartCoroutine(PlayIntroThenStartGame());
     }
@@ -1046,12 +1056,16 @@ private void OnCycleComplete()
 
             SetSpeechText(GameClearSpeech);
             PlayVoice(clearVoice);
-            DustinySfx.PlayCoin();
 
+            int granted = 0;
             if (CreditManager.Instance != null)
             {
-                CreditManager.Instance.GrantCredit(30, playRewardSfx: false);
+                granted = CreditManager.Instance.GrantCredit(30, playRewardSfx: false);
             }
+
+            PlayerPrefs.SetInt("Dustiny_LastMiniGameCreditGranted", granted);
+            PlayerPrefs.Save();
+            DustinySfx.PlayCoin();
 
             return;
         }
@@ -1519,6 +1533,11 @@ private void UpdateShowerParticle()
         }
 
         bool shouldPlay = isHoldingTool && currentTool == ToolType.Shower;
+        if (shouldPlay)
+        {
+            ConfigureShowerWaterVisibility();
+            ConfigureShowerWaterCollision();
+        }
         ParticleSystem[] systems = showerParticle.GetComponentsInChildren<ParticleSystem>(true);
         for (int i = 0; i < systems.Length; i++)
         {
@@ -1613,15 +1632,177 @@ private void EnsureBathtubVolume()
             }
 
             bathtubVolume = box;
+        }
 
-            if (bath.GetComponent<MeshCollider>() == null)
+        EnsureBathtubSolidCollidersForWater();
+        ApplyBathtubVolumeExtraHeight();
+    }
+
+    /// <summary>
+    /// Adds solid (non-trigger) colliders on the bathtub/bathroom meshes so shower
+    /// particles can bounce/stop instead of passing through geometry.
+    /// </summary>
+    private void EnsureBathtubSolidCollidersForWater()
+    {
+        GameObject bathroom = GameObject.Find("Bathroom");
+        if (bathroom != null)
+        {
+            MeshFilter[] filters = bathroom.GetComponentsInChildren<MeshFilter>(true);
+            for (int i = 0; i < filters.Length; i++)
             {
-                MeshCollider meshCollider = bath.AddComponent<MeshCollider>();
-                meshCollider.convex = false;
+                MeshFilter filter = filters[i];
+                if (filter == null || filter.sharedMesh == null)
+                {
+                    continue;
+                }
+
+                // Skip tiny props; keep architecture/bath surfaces.
+                string lowerName = filter.gameObject.name.ToLowerInvariant();
+                bool looksLikeBathSurface =
+                    lowerName.Contains("bath") ||
+                    lowerName.Contains("tub") ||
+                    lowerName.Contains("architecture") ||
+                    lowerName.Contains("floor");
+
+                if (!looksLikeBathSurface && filters.Length > 8)
+                {
+                    // Still collide with larger meshes in the bathroom prefab.
+                    Renderer renderer = filter.GetComponent<Renderer>();
+                    if (renderer == null)
+                    {
+                        continue;
+                    }
+
+                    Vector3 size = renderer.bounds.size;
+                    if (size.x * size.y * size.z < 0.05f)
+                    {
+                        continue;
+                    }
+                }
+
+                EnsureSolidMeshCollider(filter.gameObject, filter.sharedMesh);
             }
         }
 
-        ApplyBathtubVolumeExtraHeight();
+        GameObject bathMesh = GameObject.Find("Bath_mesh");
+        if (bathMesh != null)
+        {
+            MeshFilter filter = bathMesh.GetComponent<MeshFilter>();
+            EnsureSolidMeshCollider(
+                bathMesh,
+                filter != null ? filter.sharedMesh : null
+            );
+        }
+    }
+
+    private static void EnsureSolidMeshCollider(GameObject target, Mesh mesh)
+    {
+        if (target == null)
+        {
+            return;
+        }
+
+        MeshCollider existing = target.GetComponent<MeshCollider>();
+        if (existing != null)
+        {
+            existing.convex = false;
+            existing.isTrigger = false;
+            if (mesh != null && existing.sharedMesh == null)
+            {
+                existing.sharedMesh = mesh;
+            }
+
+            return;
+        }
+
+        if (mesh == null)
+        {
+            return;
+        }
+
+        MeshCollider collider = target.AddComponent<MeshCollider>();
+        collider.sharedMesh = mesh;
+        collider.convex = false;
+        collider.isTrigger = false;
+    }
+
+    /// <summary>
+    /// Makes shower spray collide with the bathtub/world so water no longer tunnels through.
+    /// Doll solids are excluded so water is absorbed into Durry instead of bouncing outward.
+    /// </summary>
+    private void ConfigureShowerWaterCollision()
+    {
+        if (showerWaterCollisionConfigured)
+        {
+            return;
+        }
+
+        EnsureBathtubSolidCollidersForWater();
+
+        if (dollController == null)
+        {
+            dollController = FindFirstObjectByType<DollController>(FindObjectsInactive.Include);
+        }
+
+        if (dollController != null)
+        {
+            dollController.EnsureBodyCollision();
+            dollController.ExcludeSolidCollidersFromShowerWater();
+        }
+
+        if (showerParticle == null && showerObject != null)
+        {
+            Transform nozzle = FindChildTransformByName(showerObject.transform, "ShoweringPoint");
+            if (nozzle != null)
+            {
+                showerParticle = nozzle.GetComponentInChildren<ParticleSystem>(true);
+            }
+
+            if (showerParticle == null)
+            {
+                showerParticle = showerObject.GetComponentInChildren<ParticleSystem>(true);
+            }
+        }
+
+        if (showerParticle == null)
+        {
+            return;
+        }
+
+        int ignoreRaycastLayer = LayerMask.NameToLayer("Ignore Raycast");
+        LayerMask collideMask = ~0;
+        if (ignoreRaycastLayer >= 0)
+        {
+            collideMask = ~(1 << ignoreRaycastLayer);
+        }
+
+        ParticleSystem[] systems = showerParticle.GetComponentsInChildren<ParticleSystem>(true);
+        for (int i = 0; i < systems.Length; i++)
+        {
+            ParticleSystem system = systems[i];
+            if (system == null)
+            {
+                continue;
+            }
+
+            ParticleSystem.CollisionModule collision = system.collision;
+            collision.enabled = true;
+            collision.type = ParticleSystemCollisionType.World;
+            collision.mode = ParticleSystemCollisionMode.Collision3D;
+            collision.dampen = 0.95f;
+            collision.bounce = 0f;
+            collision.lifetimeLoss = 0.85f;
+            collision.radiusScale = 0.45f;
+            collision.quality = ParticleSystemCollisionQuality.High;
+            collision.enableDynamicColliders = true;
+            collision.collidesWith = collideMask;
+            collision.maxCollisionShapes = 256;
+            collision.sendCollisionMessages = false;
+            collision.multiplyColliderForceByParticleSize = false;
+            collision.multiplyColliderForceByParticleSpeed = false;
+        }
+
+        showerWaterCollisionConfigured = true;
     }
 
     private void ApplyBathtubVolumeExtraHeight()
@@ -2049,21 +2230,148 @@ private void UpdatePostClearToolVisuals()
 private void ConfigureShowerWaterVisibility()
     {
         // Shower 파티클 Transform·Simulation Space·Shape 등은 DollScene 에디터 설정을 그대로 사용합니다.
-        // (이전에는 localRotation/simulationSpace 등을 런타임에 덮어써 물 방향이 에디터와 달랐습니다.)
-        if (showerParticle != null)
+        // Soft Particles / 낮은 알파는 멀리서 물살이 거의 안 보이게 만들므로 여기만 보강합니다.
+        if (showerParticle == null && showerObject != null)
+        {
+            Transform nozzle = FindChildTransformByName(showerObject.transform, "ShoweringPoint");
+            if (nozzle != null)
+            {
+                showerParticle = nozzle.GetComponentInChildren<ParticleSystem>(true);
+            }
+
+            if (showerParticle == null)
+            {
+                showerParticle = showerObject.GetComponentInChildren<ParticleSystem>(true);
+            }
+        }
+
+        if (showerParticle == null || showerWaterVisibilityConfigured)
         {
             return;
         }
 
-        if (showerObject == null)
+        float opacityMul = Mathf.Clamp(showerWaterOpacityMultiplier, 1f, 3f);
+        float brightnessMul = Mathf.Clamp(showerWaterBrightnessMultiplier, 1f, 2.5f);
+        float minMaxSize = Mathf.Max(0.5f, showerMinMaxParticleSize);
+
+        ParticleSystem[] systems = showerParticle.GetComponentsInChildren<ParticleSystem>(true);
+        for (int i = 0; i < systems.Length; i++)
+        {
+            ParticleSystem system = systems[i];
+            if (system == null)
+            {
+                continue;
+            }
+
+            ParticleSystem.MainModule main = system.main;
+            ParticleSystem.MinMaxGradient startColor = main.startColor;
+            if (startColor.mode == ParticleSystemGradientMode.Color)
+            {
+                Color color = startColor.color;
+                color.r = Mathf.Clamp01(color.r * brightnessMul);
+                color.g = Mathf.Clamp01(color.g * brightnessMul);
+                color.b = Mathf.Clamp01(color.b * brightnessMul);
+                color.a = Mathf.Clamp01(Mathf.Max(color.a, 0.55f) * opacityMul);
+                main.startColor = color;
+            }
+            else if (startColor.mode == ParticleSystemGradientMode.TwoColors)
+            {
+                Color minColor = startColor.colorMin;
+                Color maxColor = startColor.colorMax;
+                BoostParticleColor(ref minColor, opacityMul, brightnessMul);
+                BoostParticleColor(ref maxColor, opacityMul, brightnessMul);
+                startColor.colorMin = minColor;
+                startColor.colorMax = maxColor;
+                main.startColor = startColor;
+            }
+
+            ParticleSystemRenderer renderer = system.GetComponent<ParticleSystemRenderer>();
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            renderer.maxParticleSize = Mathf.Max(renderer.maxParticleSize, minMaxSize);
+            renderer.minParticleSize = Mathf.Min(renderer.minParticleSize, 0.01f);
+
+            // .material creates an instance so shared ParticlePack assets stay unchanged.
+            Material[] materials = renderer.materials;
+            for (int m = 0; m < materials.Length; m++)
+            {
+                MakeShowerWaterMaterialMoreOpaque(materials[m], opacityMul, brightnessMul);
+            }
+
+            renderer.materials = materials;
+        }
+
+        showerWaterVisibilityConfigured = true;
+    }
+
+    private static void BoostParticleColor(ref Color color, float opacityMul, float brightnessMul)
+    {
+        color.r = Mathf.Clamp01(color.r * brightnessMul);
+        color.g = Mathf.Clamp01(color.g * brightnessMul);
+        color.b = Mathf.Clamp01(color.b * brightnessMul);
+        color.a = Mathf.Clamp01(Mathf.Max(color.a, 0.55f) * opacityMul);
+    }
+
+    private static void MakeShowerWaterMaterialMoreOpaque(
+        Material material,
+        float opacityMul,
+        float brightnessMul
+    )
+    {
+        if (material == null)
         {
             return;
         }
 
-        Transform nozzle = FindChildTransformByName(showerObject.transform, "ShoweringPoint");
-        if (nozzle != null)
+        // Soft/camera fading against MR depth makes distant spray look invisible.
+        if (material.HasProperty("_SoftParticlesEnabled"))
         {
-            showerParticle = nozzle.GetComponentInChildren<ParticleSystem>(true);
+            material.SetFloat("_SoftParticlesEnabled", 0f);
+        }
+
+        if (material.HasProperty("_CameraFadingEnabled"))
+        {
+            material.SetFloat("_CameraFadingEnabled", 0f);
+        }
+
+        if (material.HasProperty("_SoftParticleFadeParams"))
+        {
+            material.SetVector("_SoftParticleFadeParams", Vector4.zero);
+        }
+
+        if (material.HasProperty("_CameraFadeParams"))
+        {
+            material.SetVector("_CameraFadeParams", new Vector4(0f, float.PositiveInfinity, 0f, 0f));
+        }
+
+        material.DisableKeyword("_SOFTPARTICLES_ON");
+        material.DisableKeyword("_FADING_ON");
+
+        if (material.HasProperty("_BaseColor"))
+        {
+            Color baseColor = material.GetColor("_BaseColor");
+            BoostParticleColor(ref baseColor, opacityMul, brightnessMul);
+            material.SetColor("_BaseColor", baseColor);
+        }
+
+        if (material.HasProperty("_Color"))
+        {
+            Color color = material.GetColor("_Color");
+            BoostParticleColor(ref color, opacityMul, brightnessMul);
+            material.SetColor("_Color", color);
+        }
+
+        if (material.HasProperty("_EmissionColor"))
+        {
+            Color emission = material.GetColor("_EmissionColor");
+            emission.r = Mathf.Min(2f, emission.r * brightnessMul);
+            emission.g = Mathf.Min(2f, emission.g * brightnessMul);
+            emission.b = Mathf.Min(2f, emission.b * brightnessMul);
+            material.SetColor("_EmissionColor", emission);
+            material.EnableKeyword("_EMISSION");
         }
     }
 

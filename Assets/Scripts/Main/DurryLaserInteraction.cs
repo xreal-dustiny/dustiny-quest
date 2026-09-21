@@ -1,7 +1,7 @@
-// VERSION: 75_DURRY_LASER_INTERACTION_ONLY_2026-08-16
+// VERSION: 78_DURRY_TOUCH_RELIABILITY_2026-03-21
 // 더리 레이캐스트 + 검지 핀치 리액션 전용 컴포넌트입니다.
 // 1~2회 터치: Joyful / 3회 연속 터치: Focused 핀잔 + 반응 종료까지 입력 잠금.
-// 위치 이동 및 페이지 관련 기능은 포함하지 않습니다.
+// Shop/MyPage에서는 더리를 가리킨 뒤 핀치/트리거 드래그로 yaw 회전합니다.
 
 using System.Collections;
 using UnityEngine;
@@ -37,10 +37,16 @@ public class DurryLaserInteraction : MonoBehaviour
     [Tooltip("Collider 판정이 빗나갔을 때 Renderer Bounds로 한 번 더 더리를 검사합니다.")]
     public bool useRendererBoundsFallback = true;
 
-    [Min(0f)] public float targetPaddingWorld = 0.07f;
+    [Min(0f)] public float targetPaddingWorld = 0.12f;
+
+    [Tooltip("손 핀치가 잠깐 끊겨도 이 시간 안에는 같은 핀치로 유지합니다.")]
+    [Min(0f)] public float pinchReleaseGraceSeconds = 0.1f;
 
     [Header("Touch Reaction")]
     public bool enableTouchReaction = true;
+
+    [Tooltip("손 트래킹이 없을 때 오른손 트리거로도 더리 터치를 시작합니다.")]
+    public bool allowControllerTriggerTouch = true;
 
     [Tooltip("연속 몇 회째에 핀잔 반응을 낼지 설정합니다. 현재 기준은 3회입니다.")]
     [Min(2)] public int focusedReactionThreshold = 3;
@@ -73,6 +79,24 @@ public class DurryLaserInteraction : MonoBehaviour
     public float faceUserYawOffset = 180f;
     [Min(0f)] public float faceRotationSmoothing = 24f;
 
+    [Header("Shop / MyPage Rotate")]
+    [Tooltip("Shop/MyPage에서 더리를 레이캐스트한 뒤 검지 핀치로 좌우 드래그하면 yaw 회전합니다.")]
+    public bool enableShopPagePinchRotate = true;
+
+    [Tooltip("손(또는 레이 원점)이 1m 좌우로 움직일 때 적용할 yaw 각도입니다.")]
+    [Min(10f)] public float shopRotateDegreesPerMeter = 280f;
+
+    [Tooltip("이 각도 이상 돌리면 짧은 터치 반응으로 취급하지 않습니다.")]
+    [Min(0f)] public float shopRotateCancelTouchDegrees = 8f;
+
+    [Tooltip("손 트래킹이 없을 때 오른손 트리거로도 상점 회전을 시작합니다.")]
+    public bool allowControllerTriggerShopRotate = true;
+
+    [Tooltip("Shop 회전 조준 시 UI/캔버스 Collider는 가림으로 보지 않습니다.")]
+    public bool ignoreUiOcclusionForShopRotate = true;
+
+    [Min(0f)] public float shopRotateAimPaddingWorld = 0.18f;
+
     [Header("Debug")]
     public bool logInteraction = true;
 
@@ -80,7 +104,13 @@ public class DurryLaserInteraction : MonoBehaviour
     public int CurrentConsecutiveTouchCount => shortTapCount;
 
     private bool wasIndexPinching;
+    private bool wasControllerTriggerPressed;
     private bool pinchStartedOnDurry;
+    private bool shopRotateActive;
+    private float shopRotateAccumulatedDegrees;
+    private Vector3 lastShopRotateDragPoint;
+    private float lastIndexPinchTrueTime = -999f;
+    private float lastControllerTriggerTrueTime = -999f;
 
     private int shortTapCount;
     private float lastShortTapTime = -999f;
@@ -108,12 +138,22 @@ public class DurryLaserInteraction : MonoBehaviour
         SetupDurryCollider();
         pinchStartedOnDurry = false;
         focusedReactionLocked = false;
+        shopRotateActive = false;
+        shopRotateAccumulatedDegrees = 0f;
+        wasControllerTriggerPressed = false;
+        lastIndexPinchTrueTime = -999f;
+        lastControllerTriggerTrueTime = -999f;
     }
 
     private void OnDisable()
     {
         pinchStartedOnDurry = false;
         focusedReactionLocked = false;
+        shopRotateActive = false;
+        shopRotateAccumulatedDegrees = 0f;
+        wasControllerTriggerPressed = false;
+        lastIndexPinchTrueTime = -999f;
+        lastControllerTriggerTrueTime = -999f;
 
         if (focusedMessageCoroutine != null)
         {
@@ -135,6 +175,10 @@ public class DurryLaserInteraction : MonoBehaviour
         rayDistance = Mathf.Max(0.1f, rayDistance);
         targetPaddingWorld = Mathf.Max(0f, targetPaddingWorld);
         faceRotationSmoothing = Mathf.Max(0f, faceRotationSmoothing);
+        shopRotateDegreesPerMeter = Mathf.Max(10f, shopRotateDegreesPerMeter);
+        shopRotateCancelTouchDegrees = Mathf.Max(0f, shopRotateCancelTouchDegrees);
+        shopRotateAimPaddingWorld = Mathf.Max(0f, shopRotateAimPaddingWorld);
+        pinchReleaseGraceSeconds = Mathf.Max(0f, pinchReleaseGraceSeconds);
 
         if (rayLocalDirection.sqrMagnitude < 0.0001f)
         {
@@ -147,48 +191,100 @@ public class DurryLaserInteraction : MonoBehaviour
         ResolveReferences();
 
         bool isTracked = rightHand != null && rightHand.IsTracked && rightHand.IsDataValid;
-        bool isIndexPinching = isTracked &&
-                               rightHand.GetFingerIsPinching(OVRHand.HandFinger.Index);
+        bool rawIndexPinching = isTracked &&
+                                rightHand.GetFingerIsPinching(OVRHand.HandFinger.Index);
+        bool rawControllerTrigger =
+            (allowControllerTriggerShopRotate || allowControllerTriggerTouch) &&
+            IsRightControllerTriggerHeld();
+
+        if (rawIndexPinching)
+        {
+            lastIndexPinchTrueTime = Time.unscaledTime;
+        }
+
+        if (rawControllerTrigger)
+        {
+            lastControllerTriggerTrueTime = Time.unscaledTime;
+        }
+
+        bool isIndexPinching = rawIndexPinching ||
+                               (Time.unscaledTime - lastIndexPinchTrueTime <= pinchReleaseGraceSeconds &&
+                                wasIndexPinching);
+        bool isControllerTrigger = rawControllerTrigger ||
+                                   (Time.unscaledTime - lastControllerTriggerTrueTime <=
+                                    pinchReleaseGraceSeconds &&
+                                    wasControllerTriggerPressed);
+        bool isRotateGrip = isIndexPinching || isControllerTrigger;
 
         bool pinchDown = isIndexPinching && !wasIndexPinching;
         bool pinchUp = !isIndexPinching && wasIndexPinching;
-        wasIndexPinching = isIndexPinching;
+        bool triggerDown = isControllerTrigger && !wasControllerTriggerPressed;
+        bool triggerUp = !isControllerTrigger && wasControllerTriggerPressed;
+        bool gripDown = pinchDown || triggerDown;
+        bool gripUp = (pinchUp || triggerUp) && !isRotateGrip;
 
-        if (!isTracked)
-        {
-            pinchStartedOnDurry = false;
-            return;
-        }
+        wasIndexPinching = isIndexPinching;
+        wasControllerTriggerPressed = isControllerTrigger;
 
         // Focused 핀잔 도중에는 추가 입력을 무시합니다.
         // 현재 핀치 상태는 계속 추적하므로 락이 풀리는 순간 새 입력으로 오인하지 않습니다.
         if (focusedReactionLocked && lockInteractionDuringFocusedReaction)
         {
             pinchStartedOnDurry = false;
+            shopRotateActive = false;
             return;
         }
 
-        if (pinchDown)
+        if (gripDown)
+        {
+            if (CanReceiveShopDurryRotate() && IsPointingAtDurryForShopRotate())
+            {
+                BeginShopRotate();
+            }
+            else if (CanBeginFreeDurryTouch())
+            {
+                BeginTouchIfPointingAtDurry();
+            }
+        }
+
+        // 핀치 시작 때 살짝 빗나가도, 누르는 동안 더리를 가리키면 터치로 인정합니다.
+        if (!shopRotateActive &&
+            isRotateGrip &&
+            !pinchStartedOnDurry &&
+            CanBeginFreeDurryTouch())
         {
             BeginTouchIfPointingAtDurry();
         }
 
         // 더리 위에서 시작한 핀치가 미션 확인 입력으로 중복 처리되지 않도록
         // 손가락을 붙이고 있는 동안 전역 검지 확인을 계속 막습니다.
-        if (isIndexPinching && pinchStartedOnDurry)
+        if (isRotateGrip && (pinchStartedOnDurry || shopRotateActive))
         {
             demoFlow?.SuppressGlobalConfirmInput(0.35f);
         }
 
-        if (pinchUp)
+        if (shopRotateActive && isRotateGrip)
         {
-            EndTouch();
+            UpdateShopRotateDrag();
+        }
+
+        if (gripUp)
+        {
+            if (shopRotateActive)
+            {
+                EndShopRotate();
+            }
+            else if (pinchStartedOnDurry)
+            {
+                EndTouch();
+            }
         }
     }
 
     private void LateUpdate()
     {
-        if (alwaysFaceUser)
+        // Shop/MyPage 회전 yaw는 DemoFlow가 pageDurryYawOffset으로 적용합니다.
+        if (alwaysFaceUser && !IsShopOrMyPageRotateContext())
         {
             FaceDurryTowardUser();
         }
@@ -196,7 +292,10 @@ public class DurryLaserInteraction : MonoBehaviour
 
     private void BeginTouchIfPointingAtDurry()
     {
-        pinchStartedOnDurry = false;
+        if (pinchStartedOnDurry)
+        {
+            return;
+        }
 
         if (!enableTouchReaction ||
             (focusedReactionLocked && lockInteractionDuringFocusedReaction) ||
@@ -211,6 +310,12 @@ public class DurryLaserInteraction : MonoBehaviour
         // DurryLaserInteraction은 DemoFlow보다 먼저 실행되므로
         // 같은 프레임의 검지 핀치가 미션 Yes 입력으로 넘어가는 것을 막습니다.
         demoFlow?.SuppressGlobalConfirmInput(0.40f);
+
+        // 인사 말풍선이 떠 있어도 더리 터치가 먹히도록, 터치 시작 시 말풍선은 치웁니다.
+        if (demoFlow != null && demoFlow.IsDialoguePanelVisible())
+        {
+            demoFlow.HideDialoguePanels();
+        }
 
         if (logInteraction)
         {
@@ -228,13 +333,24 @@ public class DurryLaserInteraction : MonoBehaviour
         pinchStartedOnDurry = false;
 
         if (!enableTouchReaction ||
-            (focusedReactionLocked && lockInteractionDuringFocusedReaction) ||
-            !CanReceiveDurryTouch())
+            (focusedReactionLocked && lockInteractionDuringFocusedReaction))
+        {
+            return;
+        }
+
+        // 핀치를 뗄 때는 조준이 살짝 벗어나도 반응을 줍니다.
+        // (시작 시점에 더리를 가리켰다면 유효한 터치로 처리)
+        if (!CanReceiveDurryTouch())
         {
             return;
         }
 
         RegisterTouchReaction();
+    }
+
+    private bool CanBeginFreeDurryTouch()
+    {
+        return enableTouchReaction && CanReceiveDurryTouch();
     }
 
     private bool CanReceiveDurryTouch()
@@ -254,6 +370,271 @@ public class DurryLaserInteraction : MonoBehaviour
         }
 
         return demoFlow == null || demoFlow.CanReceiveFreeDurryInteraction();
+    }
+
+    private bool CanReceiveShopDurryRotate()
+    {
+        if (!enableShopPagePinchRotate ||
+            !enabled ||
+            !gameObject.activeInHierarchy ||
+            durryObject == null ||
+            !durryObject.activeInHierarchy ||
+            rayOrigin == null)
+        {
+            return false;
+        }
+
+        return demoFlow != null && demoFlow.CanReceiveShopDurryRotate();
+    }
+
+    private bool IsShopOrMyPageRotateContext()
+    {
+        return demoFlow != null && demoFlow.IsShopOrMyPageOpen;
+    }
+
+    private void BeginShopRotate()
+    {
+        shopRotateActive = false;
+        shopRotateAccumulatedDegrees = 0f;
+        pinchStartedOnDurry = false;
+
+        if (rayOrigin == null && rightHand == null)
+        {
+            return;
+        }
+
+        shopRotateActive = true;
+        lastShopRotateDragPoint = GetShopRotateDragPoint();
+        demoFlow?.SuppressGlobalConfirmInput(0.40f);
+
+        if (logInteraction)
+        {
+            Debug.Log("[더리 인터렉션] Shop/MyPage 핀치 회전 시작");
+        }
+    }
+
+    private void UpdateShopRotateDrag()
+    {
+        if (!shopRotateActive || demoFlow == null || !CanReceiveShopDurryRotate())
+        {
+            shopRotateActive = false;
+            return;
+        }
+
+        Vector3 dragPoint = GetShopRotateDragPoint();
+        Vector3 eyeRight = GetFlatEyeRight();
+        float horizontalDelta = Vector3.Dot(dragPoint - lastShopRotateDragPoint, eyeRight);
+        float yawDelta = -horizontalDelta * shopRotateDegreesPerMeter;
+
+        if (Mathf.Abs(yawDelta) >= 0.01f)
+        {
+            demoFlow.AddPageDurryYawOffset(yawDelta);
+            shopRotateAccumulatedDegrees += Mathf.Abs(yawDelta);
+            demoFlow.SuppressGlobalConfirmInput(0.35f);
+            ApplyImmediateShopYaw();
+        }
+
+        lastShopRotateDragPoint = dragPoint;
+    }
+
+    private Vector3 GetShopRotateDragPoint()
+    {
+        if (rayOrigin != null)
+        {
+            return rayOrigin.position;
+        }
+
+        if (rightHand != null)
+        {
+            return rightHand.transform.position;
+        }
+
+        return durryObject != null ? durryObject.transform.position : Vector3.zero;
+    }
+
+    private void ApplyImmediateShopYaw()
+    {
+        if (durryObject == null || CenterEye == null || demoFlow == null)
+        {
+            return;
+        }
+
+        Vector3 toUser = CenterEye.position - durryObject.transform.position;
+        toUser.y = 0f;
+        if (toUser.sqrMagnitude < 0.0001f)
+        {
+            return;
+        }
+
+        float yawOffset = demoFlow.durryYawOffset + demoFlow.PageDurryYawOffset;
+        durryObject.transform.rotation =
+            Quaternion.LookRotation(toUser.normalized, Vector3.up) *
+            Quaternion.Euler(0f, yawOffset, 0f);
+    }
+
+    private void EndShopRotate()
+    {
+        bool rotatedEnough = shopRotateAccumulatedDegrees >= shopRotateCancelTouchDegrees;
+        shopRotateActive = false;
+        shopRotateAccumulatedDegrees = 0f;
+        pinchStartedOnDurry = false;
+
+        if (logInteraction)
+        {
+            Debug.Log(
+                rotatedEnough
+                    ? "[더리 인터렉션] Shop/MyPage 핀치 회전 종료"
+                    : "[더리 인터렉션] Shop/MyPage 핀치 회전 종료 (거의 안 움직임)"
+            );
+        }
+    }
+
+    private bool IsRightControllerTriggerHeld()
+    {
+        float triggerValue = OVRInput.Get(
+            OVRInput.Axis1D.PrimaryIndexTrigger,
+            OVRInput.Controller.RTouch
+        );
+        return triggerValue > 0.55f;
+    }
+
+    private bool IsPointingAtDurryForShopRotate()
+    {
+        if (durryObject == null || rayOrigin == null)
+        {
+            return false;
+        }
+
+        Ray ray = GetPointerRay();
+        RaycastHit[] hits = Physics.RaycastAll(
+            ray,
+            rayDistance,
+            raycastLayerMask,
+            QueryTriggerInteraction.Collide
+        );
+
+        float nearestDurryDistance = float.PositiveInfinity;
+        float nearestBlockingDistance = float.PositiveInfinity;
+
+        foreach (RaycastHit hit in hits)
+        {
+            if (hit.collider == null)
+            {
+                continue;
+            }
+
+            if (IsTransformPartOfDurry(hit.collider.transform))
+            {
+                nearestDurryDistance = Mathf.Min(nearestDurryDistance, hit.distance);
+                continue;
+            }
+
+            if (ignoreUiOcclusionForShopRotate && IsUiLikeOccluder(hit.collider.transform))
+            {
+                continue;
+            }
+
+            nearestBlockingDistance = Mathf.Min(nearestBlockingDistance, hit.distance);
+        }
+
+        if (!float.IsPositiveInfinity(nearestDurryDistance))
+        {
+            // 상점에서는 더리 히트만 있으면 앞쪽 UI/잡 Collider에 살짝 가려져도 허용합니다.
+            return nearestDurryDistance <= nearestBlockingDistance + 0.35f;
+        }
+
+        if (!useRendererBoundsFallback)
+        {
+            return false;
+        }
+
+        Bounds? combined = GetDurryRendererBounds();
+        if (!combined.HasValue)
+        {
+            return false;
+        }
+
+        Bounds bounds = combined.Value;
+        bounds.Expand((targetPaddingWorld + shopRotateAimPaddingWorld) * 2f);
+        if (!bounds.IntersectRay(ray, out float enter) || enter < 0f || enter > rayDistance)
+        {
+            return false;
+        }
+
+        return enter <= nearestBlockingDistance + 0.35f;
+    }
+
+    private static bool IsUiLikeOccluder(Transform target)
+    {
+        if (target == null)
+        {
+            return false;
+        }
+
+        Transform current = target;
+        while (current != null)
+        {
+            string name = current.name;
+            if (name.IndexOf("canvas", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("ui", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("page", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("shop", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("mypage", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                current.GetComponent<Canvas>() != null ||
+                current.GetComponent<UnityEngine.UI.Graphic>() != null)
+            {
+                return true;
+            }
+
+            current = current.parent;
+        }
+
+        return target.gameObject.layer == 5; // UI layer
+    }
+
+    private Vector3 GetFlatEyeRight()
+    {
+        Transform eye = CenterEye;
+        Vector3 right = eye != null ? eye.right : Vector3.right;
+        right.y = 0f;
+        if (right.sqrMagnitude < 0.0001f)
+        {
+            right = Vector3.right;
+        }
+
+        return right.normalized;
+    }
+
+    private Bounds? GetDurryRendererBounds()
+    {
+        if (durryObject == null)
+        {
+            return null;
+        }
+
+        Renderer[] renderers = durryObject.GetComponentsInChildren<Renderer>(true);
+        bool hasBounds = false;
+        Bounds worldBounds = new Bounds(durryObject.transform.position, Vector3.zero);
+
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer == null || !renderer.enabled)
+            {
+                continue;
+            }
+
+            if (!hasBounds)
+            {
+                worldBounds = renderer.bounds;
+                hasBounds = true;
+            }
+            else
+            {
+                worldBounds.Encapsulate(renderer.bounds);
+            }
+        }
+
+        return hasBounds ? worldBounds : null;
     }
 
     private void RegisterTouchReaction()
@@ -381,7 +762,7 @@ public class DurryLaserInteraction : MonoBehaviour
         );
 
         float nearestDurryDistance = float.PositiveInfinity;
-        float nearestOtherDistance = float.PositiveInfinity;
+        float nearestBlockingDistance = float.PositiveInfinity;
 
         foreach (RaycastHit hit in hits)
         {
@@ -393,17 +774,22 @@ public class DurryLaserInteraction : MonoBehaviour
             if (IsTransformPartOfDurry(hit.collider.transform))
             {
                 nearestDurryDistance = Mathf.Min(nearestDurryDistance, hit.distance);
+                continue;
             }
-            else
+
+            if (IsUiLikeOccluder(hit.collider.transform))
             {
-                nearestOtherDistance = Mathf.Min(nearestOtherDistance, hit.distance);
+                continue;
             }
+
+            nearestBlockingDistance = Mathf.Min(nearestBlockingDistance, hit.distance);
         }
 
-        // 다른 Collider가 더리 앞을 가리고 있으면 그 뒤의 더리를 터치한 것으로 처리하지 않습니다.
+        // 다른 Collider가 더리보다 확실히 앞에 있을 때만 가림으로 처리합니다.
+        const float occlusionSlack = 0.25f;
         if (!float.IsPositiveInfinity(nearestDurryDistance))
         {
-            return nearestDurryDistance <= nearestOtherDistance + 0.001f;
+            return nearestDurryDistance <= nearestBlockingDistance + occlusionSlack;
         }
 
         if (!useRendererBoundsFallback)
@@ -411,29 +797,23 @@ public class DurryLaserInteraction : MonoBehaviour
             return false;
         }
 
-        Renderer[] renderers = durryObject.GetComponentsInChildren<Renderer>(true);
-        float nearestRendererDistance = float.PositiveInfinity;
-
-        foreach (Renderer renderer in renderers)
+        Bounds? combined = GetDurryRendererBounds();
+        if (!combined.HasValue)
         {
-            if (renderer == null || !renderer.enabled)
-            {
-                continue;
-            }
-
-            Bounds bounds = renderer.bounds;
-            bounds.Expand(targetPaddingWorld * 2f);
-
-            if (bounds.IntersectRay(ray, out float enter) &&
-                enter >= 0f &&
-                enter <= rayDistance)
-            {
-                nearestRendererDistance = Mathf.Min(nearestRendererDistance, enter);
-            }
+            return false;
         }
 
-        return !float.IsPositiveInfinity(nearestRendererDistance) &&
-               nearestRendererDistance <= nearestOtherDistance + 0.001f;
+        Bounds bounds = combined.Value;
+        bounds.Expand(targetPaddingWorld * 2f);
+
+        if (!bounds.IntersectRay(ray, out float enter) ||
+            enter < 0f ||
+            enter > rayDistance)
+        {
+            return false;
+        }
+
+        return enter <= nearestBlockingDistance + occlusionSlack;
     }
 
     private bool IsTransformPartOfDurry(Transform target)

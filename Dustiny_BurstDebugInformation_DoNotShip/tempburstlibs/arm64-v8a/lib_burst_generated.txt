@@ -1,4 +1,4 @@
-Library: C:\Dustiny\Dustiny\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
+Library: C:\Users\fladl\Documents\GitHub\dustiny-quest\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
 --platform=Android
 --minimum-os-version=
 --backend=burst-llvm-19
@@ -10,10 +10,10 @@ Library: C:\Dustiny\Dustiny\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_g
 --target-framework=NetFramework
 --float-mode=Fast
 --generate-link-xml=Temp\burst.link.xml
---temp-folder=C:\Dustiny\Dustiny\Temp\Burst
+--temp-folder=C:\Users\fladl\Documents\GitHub\dustiny-quest\Temp\Burst
 --key-folder=C:/Program Files/Unity/Hub/Editor/6000.3.9f1/Editor/Data/PlaybackEngines/AndroidPlayer
---decode-folder=C:\Dustiny\Dustiny\Library\Burst
---output=C:\Dustiny\Dustiny\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
+--decode-folder=C:\Users\fladl\Documents\GitHub\dustiny-quest\Library\Burst
+--output=C:\Users\fladl\Documents\GitHub\dustiny-quest\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
 --pdb-search-paths=Temp/ManagedSymbols/
 
 --method=Unity.InferenceEngine.IParallelForBatchExtensions+ParallelForBatchJobStruct`1[[Unity.InferenceEngine.CPUBackend+RoiAlignJob, Unity.InferenceEngine, Version=2.6.1.0, Culture=neutral, PublicKeyToken=null]], Unity.InferenceEngine, Version=2.6.1.0, Culture=neutral, PublicKeyToken=null::Execute(Unity.InferenceEngine.CPUBackend+RoiAlignJob&, Unity.InferenceEngine, Version=2.6.1.0, Culture=neutral, PublicKeyToken=null|System.IntPtr, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|System.IntPtr, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|Unity.Jobs.LowLevel.Unsafe.JobRanges&, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null|System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089)--d42ee2bc95898300bd4529a7ed8351c6
@@ -86,10 +86,10 @@ Library: C:\Dustiny\Dustiny\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_g
 --float-precision=Standard
 --target-framework=NetFramework
 --generate-link-xml=Temp\burst.link.xml
---temp-folder=C:\Dustiny\Dustiny\Temp\Burst
+--temp-folder=C:\Users\fladl\Documents\GitHub\dustiny-quest\Temp\Burst
 --key-folder=C:/Program Files/Unity/Hub/Editor/6000.3.9f1/Editor/Data/PlaybackEngines/AndroidPlayer
---decode-folder=C:\Dustiny\Dustiny\Library\Burst
---output=C:\Dustiny\Dustiny\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
+--decode-folder=C:\Users\fladl\Documents\GitHub\dustiny-quest\Library\Burst
+--output=C:\Users\fladl\Documents\GitHub\dustiny-quest\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
 --pdb-search-paths=Temp/ManagedSymbols/
 
 --method=Unity.Jobs.IJobParallelForExtensions+ParallelForJobStruct`1[[Unity.InferenceEngine.BurstJobsCastTensor+Float16BytesAsFloatJob, Unity.InferenceEngine, Version=2.6.1.0, Culture=neutral, PublicKeyToken=null]], UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null::Execute(Unity.InferenceEngine.BurstJobsCastTensor+Float16BytesAsFloatJob&, Unity.InferenceEngine, Version=2.6.1.0, Culture=neutral, PublicKeyToken=null|System.IntPtr, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|System.IntPtr, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|Unity.Jobs.LowLevel.Unsafe.JobRanges&, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null|System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089)--555042b7a513cf04aa2b5b588bbf50d4
@@ -203,10 +203,10 @@ Library: C:\Dustiny\Dustiny\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_g
 --target-framework=NetFramework
 --float-mode=Fast
 --generate-link-xml=Temp\burst.link.xml
---temp-folder=C:\Dustiny\Dustiny\Temp\Burst
+--temp-folder=C:\Users\fladl\Documents\GitHub\dustiny-quest\Temp\Burst
 --key-folder=C:/Program Files/Unity/Hub/Editor/6000.3.9f1/Editor/Data/PlaybackEngines/AndroidPlayer
---decode-folder=C:\Dustiny\Dustiny\Library\Burst
---output=C:\Dustiny\Dustiny\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
+--decode-folder=C:\Users\fladl\Documents\GitHub\dustiny-quest\Library\Burst
+--output=C:\Users\fladl\Documents\GitHub\dustiny-quest\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
 --pdb-search-paths=Temp/ManagedSymbols/
 
 --method=Unity.Jobs.IJobParallelForExtensions+ParallelForJobStruct`1[[Unity.InferenceEngine.CPUBackend+GlobalAverageVariancePoolJob, Unity.InferenceEngine, Version=2.6.1.0, Culture=neutral, PublicKeyToken=null]], UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null::Execute(Unity.InferenceEngine.CPUBackend+GlobalAverageVariancePoolJob&, Unity.InferenceEngine, Version=2.6.1.0, Culture=neutral, PublicKeyToken=null|System.IntPtr, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|System.IntPtr, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|Unity.Jobs.LowLevel.Unsafe.JobRanges&, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null|System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089)--910c73bd53072ad0ad2d61c12396dc96
@@ -220,10 +220,10 @@ Library: C:\Dustiny\Dustiny\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_g
 --float-precision=Standard
 --target-framework=NetFramework
 --generate-link-xml=Temp\burst.link.xml
---temp-folder=C:\Dustiny\Dustiny\Temp\Burst
+--temp-folder=C:\Users\fladl\Documents\GitHub\dustiny-quest\Temp\Burst
 --key-folder=C:/Program Files/Unity/Hub/Editor/6000.3.9f1/Editor/Data/PlaybackEngines/AndroidPlayer
---decode-folder=C:\Dustiny\Dustiny\Library\Burst
---output=C:\Dustiny\Dustiny\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
+--decode-folder=C:\Users\fladl\Documents\GitHub\dustiny-quest\Library\Burst
+--output=C:\Users\fladl\Documents\GitHub\dustiny-quest\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
 --pdb-search-paths=Temp/ManagedSymbols/
 
 --method=UnityEngine.XR.Hands.Gestures.XRHandOrientationUtility, Unity.XR.Hands, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null::GetHandAxisDirection(Unity.Mathematics.float3&, Unity.Mathematics, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null|UnityEngine.XR.Hands.Gestures.XRHandAxis, Unity.XR.Hands, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null|Unity.Mathematics.quaternion&, Unity.Mathematics, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null|System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089)--0ef4d50576f0f00022da4f79ae773f01
@@ -309,10 +309,10 @@ Library: C:\Dustiny\Dustiny\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_g
 --float-precision=Standard
 --target-framework=NetFramework
 --generate-link-xml=Temp\burst.link.xml
---temp-folder=C:\Dustiny\Dustiny\Temp\Burst
+--temp-folder=C:\Users\fladl\Documents\GitHub\dustiny-quest\Temp\Burst
 --key-folder=C:/Program Files/Unity/Hub/Editor/6000.3.9f1/Editor/Data/PlaybackEngines/AndroidPlayer
---decode-folder=C:\Dustiny\Dustiny\Library\Burst
---output=C:\Dustiny\Dustiny\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
+--decode-folder=C:\Users\fladl\Documents\GitHub\dustiny-quest\Library\Burst
+--output=C:\Users\fladl\Documents\GitHub\dustiny-quest\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
 --pdb-search-paths=Temp/ManagedSymbols/
 
 --method=Unity.InferenceEngine.CPUBackend+ConvJob, Unity.InferenceEngine, Version=2.6.1.0, Culture=neutral, PublicKeyToken=null::CanUseDepthwiseConvKernel(Unity.InferenceEngine.CPUBackend+ConvJob*, Unity.InferenceEngine, Version=2.6.1.0, Culture=neutral, PublicKeyToken=null)--39658a002cb60b47c1eee2ef5f799014
@@ -326,10 +326,10 @@ Library: C:\Dustiny\Dustiny\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_g
 --float-precision=Standard
 --target-framework=NetFramework
 --generate-link-xml=Temp\burst.link.xml
---temp-folder=C:\Dustiny\Dustiny\Temp\Burst
+--temp-folder=C:\Users\fladl\Documents\GitHub\dustiny-quest\Temp\Burst
 --key-folder=C:/Program Files/Unity/Hub/Editor/6000.3.9f1/Editor/Data/PlaybackEngines/AndroidPlayer
---decode-folder=C:\Dustiny\Dustiny\Library\Burst
---output=C:\Dustiny\Dustiny\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
+--decode-folder=C:\Users\fladl\Documents\GitHub\dustiny-quest\Library\Burst
+--output=C:\Users\fladl\Documents\GitHub\dustiny-quest\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
 --pdb-search-paths=Temp/ManagedSymbols/
 
 --method=Unity.InferenceEngine.IParallelForBatchExtensions+ParallelForBatchJobStruct`1[[Unity.InferenceEngine.CPUBackend+PowIntIntJob, Unity.InferenceEngine, Version=2.6.1.0, Culture=neutral, PublicKeyToken=null]], Unity.InferenceEngine, Version=2.6.1.0, Culture=neutral, PublicKeyToken=null::Execute(Unity.InferenceEngine.CPUBackend+PowIntIntJob&, Unity.InferenceEngine, Version=2.6.1.0, Culture=neutral, PublicKeyToken=null|System.IntPtr, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|System.IntPtr, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|Unity.Jobs.LowLevel.Unsafe.JobRanges&, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null|System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089)--cad9b066c2a26702953c79fbfa9d4f38

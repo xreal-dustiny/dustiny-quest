@@ -150,7 +150,8 @@ public class DustinyEquippedItemVisual : MonoBehaviour
         "Head_Sleepmask",
         "Head_Hat_Hard",
         "Head_Cone",
-        "Head_Cap_Baseball"
+        "Head_Cap_Baseball",
+        "Face_Glasses_Normal"
     };
 
     private void Awake()
@@ -425,11 +426,15 @@ public class DustinyEquippedItemVisual : MonoBehaviour
             return;
         }
 
+        ShopInventoryManager.ShopItemDefinition displayedItem =
+            manager.GetItem(displayedItemId);
+
         if (visualByItemId.TryGetValue(
                 displayedItemId.Trim(),
                 out GameObject displayedObject) &&
             displayedObject != null)
         {
+            ApplyPatternMaterial(displayedItem, displayedObject);
             EnsureDisplayedObjectVisible(displayedObject);
         }
         else if (logMissingVisualWarnings)
@@ -1012,6 +1017,43 @@ public class DustinyEquippedItemVisual : MonoBehaviour
         }
     }
 
+    private static void ApplyPatternMaterial(
+        ShopInventoryManager.ShopItemDefinition item,
+        GameObject visualObject)
+    {
+        if (item == null ||
+            item.patternMaterial == null ||
+            visualObject == null)
+        {
+            return;
+        }
+
+        Renderer[] renderers =
+            visualObject.GetComponentsInChildren<Renderer>(true);
+
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            Material[] sharedMaterials = renderer.sharedMaterials;
+            if (sharedMaterials == null || sharedMaterials.Length == 0)
+            {
+                renderer.sharedMaterial = item.patternMaterial;
+                continue;
+            }
+
+            for (int i = 0; i < sharedMaterials.Length; i++)
+            {
+                sharedMaterials[i] = item.patternMaterial;
+            }
+
+            renderer.sharedMaterials = sharedMaterials;
+        }
+    }
+
     private void EnsureDisplayedObjectVisible(GameObject displayedObject)
     {
         if (displayedObject == null)
@@ -1243,7 +1285,7 @@ public class DustinyEquippedItemVisual : MonoBehaviour
 
         int score = 0;
 
-        if (category == "head")
+        if (category == "head" || category == "face")
         {
             if (lower == "head" ||
                 lower.EndsWith(":head"))
@@ -1254,6 +1296,11 @@ public class DustinyEquippedItemVisual : MonoBehaviour
             if (lower.Contains("head"))
             {
                 score += 180;
+            }
+
+            if (lower.Contains("face") || lower.Contains("eye"))
+            {
+                score += 160;
             }
 
             if (lower.Contains("neck"))

@@ -39,6 +39,16 @@ public class DustinyItemPageController : MonoBehaviour
     [SerializeField] private TMP_Text itemNameText;
     [SerializeField] private TMP_Text itemDescriptionText;
 
+    [Header("Grid Visibility")]
+    [Tooltip("한 줄에 배치할 아이템 수입니다. 4열 x 3행 = 12칸.")]
+    [SerializeField, Min(1)] private int gridColumns = 4;
+    [Tooltip("설명창이 없을 때 세로로 모두 보이게 할 줄 수입니다.")]
+    [SerializeField, Min(1)] private int fullVisibleRows = 3;
+    [Tooltip("설명창이 열렸을 때 완전히 보일 줄 수입니다. 그 다음 줄부터 가려집니다.")]
+    [SerializeField, Min(1)] private int visibleRowsWhenInfoOpen = 2;
+    [Tooltip("아이템 그리드와 설명창 사이 간격입니다. -1이면 Grid Spacing Y와 동일하게 씁니다.")]
+    [SerializeField] private float informationBoxTopMargin = -1f;
+
     [Header("Shop Buy Button")]
     [SerializeField] private GameObject buyButtonObject;
     [SerializeField] private Button buyButton;
@@ -56,6 +66,10 @@ public class DustinyItemPageController : MonoBehaviour
 
     private string selectedItemId = string.Empty;
     private bool eventsConnected;
+    private bool scrollTopCached;
+    private float cachedScrollAnchoredX;
+    private float cachedScrollTopAnchoredY;
+    private float cachedScrollWidth;
 
     public ItemPageMode PageMode => pageMode;
     public string SelectedItemId => selectedItemId;
@@ -65,6 +79,7 @@ public class DustinyItemPageController : MonoBehaviour
         // 상점과 마이페이지에서는 카드를 선택하면 항상 더리에게 미리보기가 적용됩니다.
         previewSelectedItemOnDurry = true;
         ResolveAllReferences();
+        EnsureScrollableContentLayout(resetScrollToTop: true);
         HideTemplate();
     }
 
@@ -260,13 +275,9 @@ public class DustinyItemPageController : MonoBehaviour
             {
                 selectedItemId = firstItemId;
             }
-            else if (pageMode == ItemPageMode.MyPage && !string.IsNullOrWhiteSpace(firstItemId))
-            {
-                // 마이페이지는 보유 아이템이 있으면 상점처럼 첫 카드 정보를 바로 보여줍니다.
-                selectedItemId = firstItemId;
-            }
             else
             {
+                // 상점/마이페이지 모두 사용자가 카드를 고를 때까지 자동 선택하지 않습니다.
                 selectedItemId = string.Empty;
             }
         }
@@ -280,6 +291,7 @@ public class DustinyItemPageController : MonoBehaviour
             manager.ClearAllPreviews();
         }
 
+        EnsureScrollableContentLayout(resetScrollToTop: true);
         RefreshCardsOnly();
         RefreshInformationBox();
     }
@@ -293,8 +305,205 @@ public class DustinyItemPageController : MonoBehaviour
             return;
         }
 
+        EnsureScrollableContentLayout(resetScrollToTop: false);
         RefreshCardsOnly();
         RefreshInformationBox();
+    }
+
+    /// <summary>
+    /// Sizes the item scroll area to whole card rows so nothing is clipped mid-card.
+    /// Default: exactly 3 rows (4x3 = 12). With InformationBox: exactly 2 rows, row 3 covered.
+    /// </summary>
+    private void EnsureScrollableContentLayout(bool resetScrollToTop = false)
+    {
+        RectTransform content = contentRoot as RectTransform;
+        if (content == null)
+        {
+            return;
+        }
+
+        RectTransform scrollRoot = content.parent as RectTransform;
+        if (scrollRoot == null)
+        {
+            return;
+        }
+
+        GridLayoutGroup grid = content.GetComponent<GridLayoutGroup>();
+        if (grid == null)
+        {
+            grid = content.gameObject.AddComponent<GridLayoutGroup>();
+            grid.cellSize = new Vector2(100f, 100f);
+            grid.spacing = new Vector2(20f, 20f);
+        }
+
+        int columns = Mathf.Max(1, gridColumns);
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = columns;
+        grid.childAlignment = TextAnchor.UpperLeft;
+        grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+        grid.startAxis = GridLayoutGroup.Axis.Horizontal;
+
+        CacheScrollTopIfNeeded(scrollRoot);
+
+        bool infoVisible = informationBox != null && informationBox.activeSelf;
+        int visibleRows = infoVisible
+            ? Mathf.Max(1, visibleRowsWhenInfoOpen)
+            : Mathf.Max(1, fullVisibleRows);
+
+        float cellsWidth = columns * grid.cellSize.x +
+                           Mathf.Max(0, columns - 1) * grid.spacing.x;
+        float viewportHeight = GetGridHeightForRows(grid, visibleRows);
+        float scrollWidth = cachedScrollWidth > 1f
+            ? cachedScrollWidth
+            : Mathf.Max(scrollRoot.sizeDelta.x, cellsWidth);
+
+        ScrollRect existingScroll = scrollRoot.GetComponent<ScrollRect>();
+        float preservedContentY = content.anchoredPosition.y;
+
+        // Keep the top edge fixed under the header/coin row while height changes.
+        scrollRoot.anchorMin = new Vector2(0.5f, 0.5f);
+        scrollRoot.anchorMax = new Vector2(0.5f, 0.5f);
+        scrollRoot.pivot = new Vector2(0.5f, 1f);
+        scrollRoot.anchoredPosition = new Vector2(cachedScrollAnchoredX, cachedScrollTopAnchoredY);
+        scrollRoot.sizeDelta = new Vector2(scrollWidth, viewportHeight);
+
+        int horizontalPad = Mathf.Max(
+            0,
+            Mathf.RoundToInt((scrollWidth - cellsWidth) * 0.5f)
+        );
+        grid.padding.left = horizontalPad;
+        grid.padding.right = horizontalPad;
+        grid.padding.top = 0;
+        grid.padding.bottom = 0;
+
+        // Content grows downward from the top of the scroll area.
+        content.anchorMin = new Vector2(0f, 1f);
+        content.anchorMax = new Vector2(1f, 1f);
+        content.pivot = new Vector2(0.5f, 1f);
+        content.anchoredPosition = new Vector2(0f, resetScrollToTop ? 0f : preservedContentY);
+        content.sizeDelta = new Vector2(0f, content.sizeDelta.y);
+        content.localScale = Vector3.one;
+
+        ContentSizeFitter fitter = content.GetComponent<ContentSizeFitter>();
+        if (fitter == null)
+        {
+            fitter = content.gameObject.AddComponent<ContentSizeFitter>();
+        }
+
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        Image scrollImage = scrollRoot.GetComponent<Image>();
+        if (scrollImage == null)
+        {
+            scrollImage = scrollRoot.gameObject.AddComponent<Image>();
+            scrollImage.color = new Color(1f, 1f, 1f, 0f);
+        }
+
+        scrollImage.raycastTarget = true;
+
+        if (scrollRoot.GetComponent<RectMask2D>() == null)
+        {
+            scrollRoot.gameObject.AddComponent<RectMask2D>();
+        }
+
+        ScrollRect scrollRect = existingScroll;
+        if (scrollRect == null)
+        {
+            scrollRect = scrollRoot.gameObject.AddComponent<ScrollRect>();
+        }
+
+        scrollRect.content = content;
+        scrollRect.viewport = scrollRoot;
+        scrollRect.horizontal = false;
+        scrollRect.vertical = true;
+        scrollRect.movementType = ScrollRect.MovementType.Clamped;
+        scrollRect.scrollSensitivity = 30f;
+        scrollRect.inertia = true;
+        scrollRect.decelerationRate = 0.135f;
+
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+        LayoutRebuilder.ForceRebuildLayoutImmediate(scrollRoot);
+        scrollRect.StopMovement();
+
+        if (resetScrollToTop)
+        {
+            scrollRect.verticalNormalizedPosition = 1f;
+            content.anchoredPosition = new Vector2(content.anchoredPosition.x, 0f);
+        }
+        else
+        {
+            // Keep the user's current place in the list after selecting an item.
+            // Prefer content Y so viewport height changes don't jump back to the top.
+            content.anchoredPosition = new Vector2(content.anchoredPosition.x, preservedContentY);
+        }
+
+        if (infoVisible)
+        {
+            float gap = informationBoxTopMargin >= 0f
+                ? informationBoxTopMargin
+                : Mathf.Max(0f, grid.spacing.y);
+            AlignInformationBoxBelowScroll(scrollRoot, gap);
+        }
+    }
+
+    private void CacheScrollTopIfNeeded(RectTransform scrollRoot)
+    {
+        if (scrollTopCached || scrollRoot == null)
+        {
+            return;
+        }
+
+        // Convert whatever inspector pivot/anchors were to a stable top-edge Y.
+        float topY = scrollRoot.anchoredPosition.y +
+                     scrollRoot.sizeDelta.y * (1f - scrollRoot.pivot.y);
+        cachedScrollAnchoredX = scrollRoot.anchoredPosition.x;
+        cachedScrollTopAnchoredY = topY;
+        cachedScrollWidth = Mathf.Max(1f, scrollRoot.sizeDelta.x);
+        scrollTopCached = true;
+    }
+
+    private static float GetGridHeightForRows(GridLayoutGroup grid, int rows)
+    {
+        int safeRows = Mathf.Max(1, rows);
+        return safeRows * grid.cellSize.y +
+               Mathf.Max(0, safeRows - 1) * grid.spacing.y;
+    }
+
+    private void AlignInformationBoxBelowScroll(RectTransform scrollRoot, float topGap)
+    {
+        if (informationBox == null || scrollRoot == null)
+        {
+            return;
+        }
+
+        RectTransform infoRect = informationBox.transform as RectTransform;
+        RectTransform parent = scrollRoot.parent as RectTransform;
+        if (infoRect == null || parent == null)
+        {
+            return;
+        }
+
+        Vector3[] corners = new Vector3[4];
+        scrollRoot.GetWorldCorners(corners);
+        Vector3 scrollBottomLocal = parent.InverseTransformPoint(
+            (corners[0] + corners[3]) * 0.5f
+        );
+
+        float parentBottomLocalY = -parent.rect.height * parent.pivot.y;
+        float scrollBottomFromParentBottom = scrollBottomLocal.y - parentBottomLocalY;
+
+        // Leave the same vertical breathing room as between item rows, then place the info panel.
+        float infoTopFromParentBottom = scrollBottomFromParentBottom - Mathf.Max(0f, topGap);
+
+        infoRect.anchorMin = new Vector2(0f, 0f);
+        infoRect.anchorMax = new Vector2(1f, 0f);
+        infoRect.pivot = new Vector2(0.5f, 1f);
+        infoRect.anchoredPosition = new Vector2(
+            infoRect.anchoredPosition.x,
+            infoTopFromParentBottom
+        );
     }
 
     public void ClearSelectionAndPreview()
@@ -470,7 +679,9 @@ public class DustinyItemPageController : MonoBehaviour
         if (contentRoot == null)
         {
             contentRoot = FindExact("ContentBox") ??
+                          FindExact("4ContentBox") ??
                           FindExact("ContentBoxMy") ??
+                          FindExact("4ContentBoxMy") ??
                           FindExact("Content");
         }
 
@@ -622,6 +833,8 @@ public class DustinyItemPageController : MonoBehaviour
             SetBuyButtonVisible(false);
             SetEquipButtonVisible(false);
         }
+
+        EnsureScrollableContentLayout(resetScrollToTop: false);
     }
 
     private void SetBuyButtonVisible(bool visible)

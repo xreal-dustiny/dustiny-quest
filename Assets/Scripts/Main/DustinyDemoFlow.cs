@@ -413,6 +413,8 @@ public class DustinyDemoFlow : MonoBehaviour
     public float pageDurryHeightOffset = -0.9f;
     [Range(0.1f, 1f)] public float pageDurryScaleMultiplier = 0.8f;
     [Min(0f)] public float pageDurryScaleSmoothing = 5f;
+    [Tooltip("Shop/MyPage에서 핀치로 더리를 돌려 본 뒤 유지되는 추가 yaw입니다.")]
+    public float pageDurryYawOffset;
     [Min(1f)] public float pageIdleRecenterSeconds = 20f;
     [Min(0f)] public float pageOpenFadeDuration = 0.35f;
     public float pageOpenRiseOffset = -180f;
@@ -759,6 +761,10 @@ private SpeechBubbleAutoSize descriptionAutoSize;
     public DustinyPage CurrentPage => currentPage;
     public bool IsAnyPageOpen => pageRootOpen;
     public bool IsNotePageOpen => pageRootOpen && currentPage == DustinyPage.Note;
+    public bool IsShopOrMyPageOpen =>
+        pageRootOpen &&
+        (currentPage == DustinyPage.Shop || currentPage == DustinyPage.MyPage);
+    public float PageDurryYawOffset => pageDurryYawOffset;
     private bool tagBasePositionsSaved;
     private Vector2 closeTagBasePosition;
     private Vector2 noteTagBasePosition;
@@ -2093,6 +2099,7 @@ public void OpenDollScene()
         // to the global mission-confirm input and reopen NOTE.
         SuppressMissionPinchFromPageUI();
         ShopInventoryManager.Instance?.ClearAllPreviews();
+        ResetPageDurryYawOffset();
         currentPage = DustinyPage.None;
         SetPageRootVisible(false);
         UpdatePageTags();
@@ -2131,6 +2138,15 @@ public void OpenPage(DustinyPage page)
         if (page != currentPage)
         {
             ShopInventoryManager.Instance?.ClearAllPreviews();
+
+            bool wasPreviewPage = currentPage == DustinyPage.Shop ||
+                                  currentPage == DustinyPage.MyPage;
+            bool willBePreviewPage = page == DustinyPage.Shop ||
+                                     page == DustinyPage.MyPage;
+            if (!wasPreviewPage || !willBePreviewPage)
+            {
+                ResetPageDurryYawOffset();
+            }
         }
 
         if (page == DustinyPage.None)
@@ -4602,11 +4618,14 @@ private void SetDurryActive(bool active)
     /// </summary>
     public bool CanReceiveFreeDurryInteraction()
     {
+        // 인사/반응 말풍선이 떠 있어도 더리 터치 반응은 허용합니다.
+        // (말풍선 때문에 간헐적으로 "눌러도 무반응"이 되던 문제를 막습니다.)
         if (introTutorialActive ||
             onboardingActive ||
             pageRootOpen ||
             awaitingResetConfirmation ||
-            IsDialoguePanelVisible())
+            awaitingMiniGameStartConfirmation ||
+            awaitingMissionScanPlacementConfirmation)
         {
             return false;
         }
@@ -4619,6 +4638,34 @@ private void SetDurryActive(bool active)
         return missionController == null ||
                (!missionController.IsAwaitingMissionStart &&
                 !missionController.IsAwaitingMissionConfirmation);
+    }
+
+    /// <summary>
+    /// Shop/MyPage에서 더리를 레이캐스트 + 핀치로 좌우 회전해도 되는지 확인합니다.
+    /// </summary>
+    public bool CanReceiveShopDurryRotate()
+    {
+        return IsShopOrMyPageOpen &&
+               !introTutorialActive &&
+               !onboardingActive &&
+               !awaitingResetConfirmation &&
+               durryObject != null &&
+               durryObject.activeInHierarchy;
+    }
+
+    public void AddPageDurryYawOffset(float deltaDegrees)
+    {
+        if (Mathf.Abs(deltaDegrees) < 0.0001f)
+        {
+            return;
+        }
+
+        pageDurryYawOffset = Mathf.DeltaAngle(0f, pageDurryYawOffset + deltaDegrees);
+    }
+
+    public void ResetPageDurryYawOffset()
+    {
+        pageDurryYawOffset = 0f;
     }
 
     /// <summary>
@@ -6457,7 +6504,10 @@ private void UpdateDurryFollowDuringOnboarding()
                              Vector3.up * durryHeightOffset;
         }
 
-        Quaternion targetRotation = GetRotationFacingUser(targetPosition, durryYawOffset);
+        Quaternion targetRotation = GetRotationFacingUser(
+            targetPosition,
+            durryYawOffset + (IsShopOrMyPageOpen ? pageDurryYawOffset : 0f)
+        );
 
         float positionT = durryFollowPositionSmoothing <= 0f
             ? 1f
@@ -8050,7 +8100,11 @@ private void EnterMainSceneFlow()
 
     private void ShowThankYouSpeechAfterMiniGame()
     {
-        const string thankYouMessage = "내 인형을 깨끗하게\n세탁해줘서 고마워!";
+        int grantedCoins = Mathf.Max(0, PlayerPrefs.GetInt("Dustiny_LastMiniGameCreditGranted", 0));
+        string thankYouMessage = grantedCoins > 0
+            ? $"내 인형을 깨끗하게\n세탁해줘서 고마워!\n{grantedCoins}코인이 지급됐어!"
+            : "내 인형을 깨끗하게\n세탁해줘서 고마워!";
+
         string joyfulState = string.IsNullOrWhiteSpace(successExpressionState)
             ? "Joyful"
             : successExpressionState;
